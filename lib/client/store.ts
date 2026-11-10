@@ -62,6 +62,22 @@ export function writeState(state: SavedState) {
     });
   return writing;
 }
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
+export function recoverable(error: unknown) {
+  return (
+    error instanceof TypeError ||
+    (error instanceof ApiError &&
+      [401, 404, 500, 502, 503, 504].includes(error.status))
+  );
+}
 export async function api<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(
     `/api/awp/${path}`,
@@ -74,6 +90,11 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
       : {},
   );
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error?.message ?? "Request failed");
+  if (!response.ok)
+    throw new ApiError(
+      data.error?.message ?? "Request failed",
+      data.error?.code ?? "UNKNOWN",
+      response.status,
+    );
   return data;
 }

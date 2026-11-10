@@ -14,7 +14,7 @@ import {
 import { useApp } from "@/components/provider";
 import { Button } from "@/components/ui/button";
 import { PassageCard } from "@/components/scripture/passage";
-import { api } from "@/lib/client/store";
+import { api, recoverable } from "@/lib/client/store";
 import { adaptPlan } from "@/lib/ai/orchestrator";
 import { localDate } from "@/lib/utils";
 import type { PlanType } from "@/lib/schemas";
@@ -59,17 +59,29 @@ export function Today() {
     try {
       const remote = state.remoteIds.includes(plan.id);
       const body = { planId: plan.id, day: day.number, date: localDate() };
+      const copy = structuredClone(plan);
+      copy.days[current].completedAt ??= new Date().toISOString();
+      copy.days[current].completedDate ??= localDate();
+      copy.revision++;
       if (online && remote) {
-        const result = await api<{ plan: PlanType }>("plans/complete", body);
-        await savePlan(result.plan);
+        try {
+          const result = await api<{ plan: PlanType }>("plans/complete", body);
+          await savePlan(result.plan);
+        } catch (error) {
+          if (!recoverable(error)) throw error;
+          await savePlan(copy);
+          await update((s) => ({
+            ...s,
+            remoteIds: s.remoteIds.filter((id) => id !== plan.id),
+            outbox: s.outbox.filter(
+              (j) => (j.body as { planId?: string }).planId !== plan.id,
+            ),
+          }));
+        }
       } else {
-        const copy = structuredClone(plan);
-        copy.days[current].completedAt ??= new Date().toISOString();
-        copy.days[current].completedDate ??= localDate();
-        copy.revision++;
         await savePlan(copy);
         if (remote)
-          update((s) => ({
+          await update((s) => ({
             ...s,
             outbox: [...s.outbox, { path: "plans/complete", body }],
           }));
@@ -86,13 +98,25 @@ export function Today() {
     setBusy(true);
     try {
       if (online && state.remoteIds.includes(plan.id)) {
-        const result = await api<{ plan: PlanType }>("plans/adapt", {
-          planId: plan.id,
-          day: day.number,
-          feedback,
-          revision: plan.revision,
-        });
-        await savePlan(result.plan);
+        try {
+          const result = await api<{ plan: PlanType }>("plans/adapt", {
+            planId: plan.id,
+            day: day.number,
+            feedback,
+            revision: plan.revision,
+          });
+          await savePlan(result.plan);
+        } catch (error) {
+          if (!recoverable(error)) throw error;
+          await savePlan(adaptPlan(plan, day.number, feedback));
+          await update((s) => ({
+            ...s,
+            remoteIds: s.remoteIds.filter((id) => id !== plan.id),
+            outbox: s.outbox.filter(
+              (j) => (j.body as { planId?: string }).planId !== plan.id,
+            ),
+          }));
+        }
       } else {
         await savePlan(adaptPlan(plan, day.number, feedback));
       }

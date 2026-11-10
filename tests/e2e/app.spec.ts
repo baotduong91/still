@@ -171,3 +171,77 @@ test("verse artwork exports a real PNG", async ({ page }) => {
   expect(file.suggestedFilename()).toBe("still-daily-verse.png");
   expect(await file.failure()).toBeNull();
 });
+
+test("a lost server session cannot prevent completion or lose the saved plan", async ({
+  page,
+}) => {
+  await page.goto("/today");
+  await expect(
+    page.getByRole("heading", { name: "One day at a time" }),
+  ).toBeVisible();
+  await page.route("**/api/awp/plans/complete", (route) =>
+    route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: {
+          code: "NOT_FOUND",
+          message: "No plan exists with that ID in this session.",
+        },
+      }),
+    }),
+  );
+  await page.getByRole("tab", { name: "04 Practice" }).click();
+  await page
+    .getByRole("button", { name: "Complete today", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Day complete" }),
+  ).toBeDisabled();
+  await expect(page.locator(".error-banner")).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByText("Day 2 of 7", { exact: false })).toBeVisible();
+  await page
+    .getByLabel("What stood out today?")
+    .fill("I need a gentle next step");
+  await page
+    .getByRole("button", { name: "Save reflection and adapt remaining days" })
+    .click();
+  await expect(page.getByRole("status")).toContainText("Saved.");
+});
+
+test("curated chat and journals survive unavailable server storage", async ({
+  page,
+}) => {
+  await page.goto("/chat");
+  await page.getByLabel("Your Bible question").waitFor();
+  await page.route("**/api/awp/chat", (r) =>
+    r.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: '{"error":{"code":"INTERNAL_ERROR","message":"Unavailable"}}',
+    }),
+  );
+  await page.getByLabel("Your Bible question").fill("Help me with anxiety");
+  await page.getByRole("button", { name: "Send question" }).click();
+  await expect(page.locator(".answer details")).toHaveCount(3);
+  await page.goto("/journal");
+  await page.getByLabel("Today, I’m noticing…").waitFor();
+  await page.route("**/api/awp/journal", (r) =>
+    r.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: '{"error":{"code":"INTERNAL_ERROR","message":"Unavailable"}}',
+    }),
+  );
+  await page
+    .getByLabel("Today, I’m noticing…")
+    .fill("Keep my words even if the server restarts.");
+  await page.getByRole("button", { name: "Save this moment" }).click();
+  await page.reload();
+  await expect(
+    page.getByText("Keep my words even if the server restarts.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+});

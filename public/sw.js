@@ -1,5 +1,5 @@
 /* Still's offline cache stores public shells and WEB only. Never cache API responses. */
-const CACHE='still-public-v2';
+const CACHE='still-public-v3';
 const PAGES=['/today','/journey','/create','/scripture','/chat','/journal','/settings'];
 async function prepareOffline(){
  const cache=await caches.open(CACHE);

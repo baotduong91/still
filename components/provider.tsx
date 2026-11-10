@@ -11,6 +11,7 @@ import { Bible, type Corpus } from "@/lib/bible";
 import { buildPlan } from "@/lib/ai/orchestrator";
 import {
   api,
+  ApiError,
   defaults,
   readState,
   writeState,
@@ -192,8 +193,22 @@ export function Provider({ children }: { children: React.ReactNode }) {
               : s.plans,
             outbox: s.outbox.filter((j) => j !== job),
           }));
-      } catch {
-        if (!cancelled)
+      } catch (error) {
+        if (cancelled) return;
+        const planId = (job.body as { planId?: string }).planId;
+        if (
+          planId &&
+          error instanceof ApiError &&
+          [401, 404].includes(error.status)
+        ) {
+          await update((s) => ({
+            ...s,
+            remoteIds: s.remoteIds.filter((id) => id !== planId),
+            outbox: s.outbox.filter(
+              (j) => (j.body as { planId?: string }).planId !== planId,
+            ),
+          }));
+        } else
           setError(
             "An offline change is still waiting to sync. Your local copy is saved.",
           );

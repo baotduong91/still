@@ -23,7 +23,7 @@ import { useApp } from "./provider";
 import { Button } from "./ui/button";
 import { PassageCard } from "./scripture/passage";
 import { Today } from "./devotional/today";
-import { api } from "@/lib/client/store";
+import { api, recoverable } from "@/lib/client/store";
 import { buildPlan } from "@/lib/ai/orchestrator";
 import { answerQuestion } from "@/lib/ai/chat";
 import { themes } from "@/lib/ai/themes";
@@ -70,8 +70,16 @@ function Create() {
         provider: state.provider,
       };
       if (online) {
-        const { plan } = await api<{ plan: PlanType }>("plans/generate", input);
-        await savePlan(plan, true);
+        try {
+          const { plan } = await api<{ plan: PlanType }>(
+            "plans/generate",
+            input,
+          );
+          await savePlan(plan, true);
+        } catch (error) {
+          if (state.provider !== "curated" || !recoverable(error)) throw error;
+          await savePlan(buildPlan(input, bible));
+        }
       } else {
         if (state.provider !== "curated")
           throw new Error(
@@ -539,9 +547,15 @@ function Chat() {
         throw new Error(
           "This model requires a connection. Choose the local guide for offline use.",
         );
-      const response = online
-        ? await api<ChatType>("chat", input)
-        : answerQuestion(input, bible);
+      let response: ChatType;
+      try {
+        response = online
+          ? await api<ChatType>("chat", input)
+          : answerQuestion(input, bible);
+      } catch (error) {
+        if (state.provider !== "curated" || !recoverable(error)) throw error;
+        response = answerQuestion(input, bible);
+      }
       setMessages((m) => [...m, { question, response }]);
       setQuestion("");
     } catch (e) {
@@ -660,8 +674,13 @@ function Journal() {
     const body = { id: crypto.randomUUID(), text };
     try {
       let entry: JournalType = { ...body, createdAt: new Date().toISOString() };
-      if (online)
-        ({ entry } = await api<{ entry: JournalType }>("journal", body));
+      if (online) {
+        try {
+          ({ entry } = await api<{ entry: JournalType }>("journal", body));
+        } catch (error) {
+          if (!recoverable(error)) throw error;
+        }
+      }
       await update((s) => ({
         ...s,
         journals: [entry, ...s.journals],
