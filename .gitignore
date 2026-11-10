@@ -10,3 +10,5 @@ public/bibles/CSB.json
 public/bibles/NLT.json
 public/bibles/NIV.json
 public/bibles/ESV.json
+.vercel
+.env*
