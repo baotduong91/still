@@ -1,0 +1,38 @@
+generator client {
+ provider = "prisma-client-js"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+model Plan {
+ id String @id @db.Uuid
+ owner String
+ revision Int @default(0)
+ data Json
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@index([owner, createdAt])
+}
+model Journal {
+ id String @id @db.Uuid
+ owner String
+ data Json
+ createdAt DateTime @default(now())
+ @@index([owner, createdAt])
+}
+model Scripture {
+ id Int @id @default(autoincrement())
+ translation String
+ book String
+ chapter Int
+ verse Int
+ text String
+ @@unique([translation, book, chapter, verse])
+ @@index([translation, book, chapter])
+}
+model RateLimit {
+ key String @id
+ count Int
+ expiresAt DateTime
+}

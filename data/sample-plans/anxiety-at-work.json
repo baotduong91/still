@@ -1,0 +1,368 @@
+{
+  "id": "9d25d8db-cbb7-413f-a58d-6aea82f74984",
+  "title": "wisdom & anxiety",
+  "profile": {
+    "prompt": "I feel anxious about a decision at work and need gentle steps",
+    "themes": [
+      "decision-making",
+      "anxiety"
+    ],
+    "focus": "I feel anxious about a decision at work and need gentle steps",
+    "pace": "gentle"
+  },
+  "translation": "CSB",
+  "createdAt": "2026-11-10T15:59:33.914Z",
+  "revision": 0,
+  "provider": "curated",
+  "days": [
+    {
+      "number": 1,
+      "title": "Ask for wisdom",
+      "objective": "Explore ask for wisdom in relation to your stated goal: I feel anxious about a decision at work and need gentle steps",
+      "passage": {
+        "reference": "James 1:5-8",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "James",
+            "chapter": 1,
+            "verse": 5,
+            "text": "But if any of you lacks wisdom, let him ask of God, who gives to all liberally and without reproach, and it will be given to him."
+          },
+          {
+            "book": "James",
+            "chapter": 1,
+            "verse": 6,
+            "text": "But let him ask in faith, without any doubting, for he who doubts is like a wave of the sea, driven by the wind and tossed."
+          },
+          {
+            "book": "James",
+            "chapter": 1,
+            "verse": 7,
+            "text": "For that man shouldn’t think that he will receive anything from the Lord."
+          },
+          {
+            "book": "James",
+            "chapter": 1,
+            "verse": 8,
+            "text": "He is a double-minded man, unstable in all his ways."
+          }
+        ],
+        "text": "But if any of you lacks wisdom, let him ask of God, who gives to all liberally and without reproach, and it will be given to him. But let him ask in faith, without any doubting, for he who doubts is like a wave of the sea, driven by the wind and tossed. For that man shouldn’t think that he will receive anything from the Lord. He is a double-minded man, unstable in all his ways."
+      },
+      "context": "Read James 1 for the surrounding literary context. James invites those lacking wisdom to ask God, within a letter concerned with faithful endurance.",
+      "explanation": "James invites those lacking wisdom to ask God, within a letter concerned with faithful endurance.",
+      "reflection": "You brought this intention: “I feel anxious about a decision at work and need gentle steps” James invites those lacking wisdom to ask God, within a letter concerned with faithful endurance. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Write the decision as a clear question and ask for wisdom before choosing an answer.",
+      "questions": [
+        "What do you notice in James 1:5-8 that speaks to your stated goal?",
+        "As you ask for wisdom, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I ask for wisdom. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Keep this small; one minute is enough. Write the decision as a clear question and ask for wisdom before choosing an answer.",
+      "journalPrompt": "What stood out as you explored ask for wisdom?",
+      "bridge": "Tomorrow: faithfulness in daily work. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 2,
+      "title": "Faithfulness in daily work",
+      "objective": "Explore faithfulness in daily work in relation to your stated goal: I feel anxious about a decision at work and need gentle steps",
+      "passage": {
+        "reference": "Colossians 3:23-24",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Colossians",
+            "chapter": 3,
+            "verse": 23,
+            "text": "And whatever you do, work heartily, as for the Lord and not for men,"
+          },
+          {
+            "book": "Colossians",
+            "chapter": 3,
+            "verse": 24,
+            "text": "knowing that from the Lord you will receive the reward of the inheritance; for you serve the Lord Christ."
+          }
+        ],
+        "text": "And whatever you do, work heartily, as for the Lord and not for men, knowing that from the Lord you will receive the reward of the inheritance; for you serve the Lord Christ."
+      },
+      "context": "Read Colossians 3 for the surrounding literary context. Paul addresses work in the setting of an ancient household code. Applying it today requires care: wholehearted service does not justify exploitation or unsafe working conditions.",
+      "explanation": "Paul addresses work in the setting of an ancient household code. Applying it today requires care: wholehearted service does not justify exploitation or unsafe working conditions.",
+      "reflection": "You brought this intention: “I feel anxious about a decision at work and need gentle steps” Paul addresses work in the setting of an ancient household code. Applying it today requires care: wholehearted service does not justify exploitation or unsafe working conditions. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Identify one work responsibility you can fulfill with care, and one boundary that protects a sustainable pace.",
+      "questions": [
+        "What do you notice in Colossians 3:23-24 that speaks to your stated goal?",
+        "As you faithfulness in daily work, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I faithfulness in daily work. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Keep this small; one minute is enough. Identify one work responsibility you can fulfill with care, and one boundary that protects a sustainable pace.",
+      "journalPrompt": "What stood out as you explored faithfulness in daily work?",
+      "bridge": "Tomorrow: loosen your certainty. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 3,
+      "title": "Loosen your certainty",
+      "objective": "Explore loosen your certainty in relation to your stated goal: I feel anxious about a decision at work and need gentle steps",
+      "passage": {
+        "reference": "Proverbs 3:5-6",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Proverbs",
+            "chapter": 3,
+            "verse": 5,
+            "text": "Trust in the LORD with all your heart, and don’t lean on your own understanding."
+          },
+          {
+            "book": "Proverbs",
+            "chapter": 3,
+            "verse": 6,
+            "text": "In all your ways acknowledge him, and he will make your paths straight."
+          }
+        ],
+        "text": "Trust in the LORD with all your heart, and don’t lean on your own understanding. In all your ways acknowledge him, and he will make your paths straight."
+      },
+      "context": "Read Proverbs 3 for the surrounding literary context. This wisdom saying calls for trust and acknowledgment of God rather than self-sufficiency.",
+      "explanation": "This wisdom saying calls for trust and acknowledgment of God rather than self-sufficiency.",
+      "reflection": "You brought this intention: “I feel anxious about a decision at work and need gentle steps” This wisdom saying calls for trust and acknowledgment of God rather than self-sufficiency. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Separate what you know from what you are assuming about your options.",
+      "questions": [
+        "What do you notice in Proverbs 3:5-6 that speaks to your stated goal?",
+        "As you loosen your certainty, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I loosen your certainty. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Keep this small; one minute is enough. Separate what you know from what you are assuming about your options.",
+      "journalPrompt": "What stood out as you explored loosen your certainty?",
+      "bridge": "Tomorrow: trust in the midst of fear. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 4,
+      "title": "Trust in the midst of fear",
+      "objective": "Explore trust in the midst of fear in relation to your stated goal: I feel anxious about a decision at work and need gentle steps",
+      "passage": {
+        "reference": "Psalms 56:3-4",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Psalms",
+            "chapter": 56,
+            "verse": 3,
+            "text": "When I am afraid, I will put my trust in you."
+          },
+          {
+            "book": "Psalms",
+            "chapter": 56,
+            "verse": 4,
+            "text": "In God, I praise his word. In God, I put my trust. I will not be afraid. What can flesh do to me?"
+          }
+        ],
+        "text": "When I am afraid, I will put my trust in you. In God, I praise his word. In God, I put my trust. I will not be afraid. What can flesh do to me?"
+      },
+      "context": "Read Psalms 56 for the surrounding literary context. The psalmist speaks of trust while afraid; fear and turning toward God can coexist.",
+      "explanation": "The psalmist speaks of trust while afraid; fear and turning toward God can coexist.",
+      "reflection": "You brought this intention: “I feel anxious about a decision at work and need gentle steps” The psalmist speaks of trust while afraid; fear and turning toward God can coexist. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Name your fear in a short prayer without editing it into something more acceptable.",
+      "questions": [
+        "What do you notice in Psalms 56:3-4 that speaks to your stated goal?",
+        "As you trust in the midst of fear, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I trust in the midst of fear. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Keep this small; one minute is enough. Name your fear in a short prayer without editing it into something more acceptable.",
+      "journalPrompt": "What stood out as you explored trust in the midst of fear?",
+      "bridge": "Tomorrow: invite good counsel. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 5,
+      "title": "Invite good counsel",
+      "objective": "Explore invite good counsel in relation to your stated goal: I feel anxious about a decision at work and need gentle steps",
+      "passage": {
+        "reference": "Proverbs 15:22",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Proverbs",
+            "chapter": 15,
+            "verse": 22,
+            "text": "Where there is no counsel, plans fail; but in a multitude of counselors they are established."
+          }
+        ],
+        "text": "Where there is no counsel, plans fail; but in a multitude of counselors they are established."
+      },
+      "context": "Read Proverbs 15 for the surrounding literary context. The proverb values multiple advisers in the formation of plans.",
+      "explanation": "The proverb values multiple advisers in the formation of plans.",
+      "reflection": "You brought this intention: “I feel anxious about a decision at work and need gentle steps” The proverb values multiple advisers in the formation of plans. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Ask a trustworthy person one concrete question about the decision.",
+      "questions": [
+        "What do you notice in Proverbs 15:22 that speaks to your stated goal?",
+        "As you invite good counsel, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I invite good counsel. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Keep this small; one minute is enough. Ask a trustworthy person one concrete question about the decision.",
+      "journalPrompt": "What stood out as you explored invite good counsel?",
+      "bridge": "Tomorrow: make room for prayer. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 6,
+      "title": "Make room for prayer",
+      "objective": "Explore make room for prayer in relation to your stated goal: I feel anxious about a decision at work and need gentle steps",
+      "passage": {
+        "reference": "Philippians 4:4-9",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Philippians",
+            "chapter": 4,
+            "verse": 4,
+            "text": "Rejoice in the Lord always! Again I will say, “Rejoice!”"
+          },
+          {
+            "book": "Philippians",
+            "chapter": 4,
+            "verse": 5,
+            "text": "Let your gentleness be known to all men. The Lord is at hand."
+          },
+          {
+            "book": "Philippians",
+            "chapter": 4,
+            "verse": 6,
+            "text": "In nothing be anxious, but in everything, by prayer and petition with thanksgiving, let your requests be made known to God."
+          },
+          {
+            "book": "Philippians",
+            "chapter": 4,
+            "verse": 7,
+            "text": "And the peace of God, which surpasses all understanding, will guard your hearts and your thoughts in Christ Jesus."
+          },
+          {
+            "book": "Philippians",
+            "chapter": 4,
+            "verse": 8,
+            "text": "Finally, brothers, whatever things are true, whatever things are honorable, whatever things are just, whatever things are pure, whatever things are lovely, whatever things are of good report: if there is any virtue and if there is anything worthy of praise, think about these things."
+          },
+          {
+            "book": "Philippians",
+            "chapter": 4,
+            "verse": 9,
+            "text": "Do the things which you learned, received, heard, and saw in me, and the God of peace will be with you."
+          }
+        ],
+        "text": "Rejoice in the Lord always! Again I will say, “Rejoice!” Let your gentleness be known to all men. The Lord is at hand. In nothing be anxious, but in everything, by prayer and petition with thanksgiving, let your requests be made known to God. And the peace of God, which surpasses all understanding, will guard your hearts and your thoughts in Christ Jesus. Finally, brothers, whatever things are true, whatever things are honorable, whatever things are just, whatever things are pure, whatever things are lovely, whatever things are of good report: if there is any virtue and if there is anything worthy of praise, think about these things. Do the things which you learned, received, heard, and saw in me, and the God of peace will be with you."
+      },
+      "context": "Read Philippians 4 for the surrounding literary context. Paul connects prayer, thanksgiving, attention, and practiced faith in his closing encouragement to the church.",
+      "explanation": "Paul connects prayer, thanksgiving, attention, and practiced faith in his closing encouragement to the church.",
+      "reflection": "You brought this intention: “I feel anxious about a decision at work and need gentle steps” Paul connects prayer, thanksgiving, attention, and practiced faith in his closing encouragement to the church. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Bring one specific concern to God, then write one thing you can give thanks for.",
+      "questions": [
+        "What do you notice in Philippians 4:4-9 that speaks to your stated goal?",
+        "As you make room for prayer, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I make room for prayer. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Keep this small; one minute is enough. Bring one specific concern to God, then write one thing you can give thanks for.",
+      "journalPrompt": "What stood out as you explored make room for prayer?",
+      "bridge": "Tomorrow: count the cost. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 7,
+      "title": "Count the cost",
+      "objective": "Explore count the cost in relation to your stated goal: I feel anxious about a decision at work and need gentle steps",
+      "passage": {
+        "reference": "Luke 14:28-33",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Luke",
+            "chapter": 14,
+            "verse": 28,
+            "text": "For which of you, desiring to build a tower, doesn’t first sit down and count the cost, to see if he has enough to complete it?"
+          },
+          {
+            "book": "Luke",
+            "chapter": 14,
+            "verse": 29,
+            "text": "Or perhaps, when he has laid a foundation and isn’t able to finish, everyone who sees begins to mock him,"
+          },
+          {
+            "book": "Luke",
+            "chapter": 14,
+            "verse": 30,
+            "text": "saying, ‘This man began to build and wasn’t able to finish.’"
+          },
+          {
+            "book": "Luke",
+            "chapter": 14,
+            "verse": 31,
+            "text": "Or what king, as he goes to encounter another king in war, will not sit down first and consider whether he is able with ten thousand to meet him who comes against him with twenty thousand?"
+          },
+          {
+            "book": "Luke",
+            "chapter": 14,
+            "verse": 32,
+            "text": "Or else, while the other is yet a great way off, he sends an envoy and asks for conditions of peace."
+          },
+          {
+            "book": "Luke",
+            "chapter": 14,
+            "verse": 33,
+            "text": "So therefore, whoever of you who doesn’t renounce all that he has, he can’t be my disciple."
+          }
+        ],
+        "text": "For which of you, desiring to build a tower, doesn’t first sit down and count the cost, to see if he has enough to complete it? Or perhaps, when he has laid a foundation and isn’t able to finish, everyone who sees begins to mock him, saying, ‘This man began to build and wasn’t able to finish.’ Or what king, as he goes to encounter another king in war, will not sit down first and consider whether he is able with ten thousand to meet him who comes against him with twenty thousand? Or else, while the other is yet a great way off, he sends an envoy and asks for conditions of peace. So therefore, whoever of you who doesn’t renounce all that he has, he can’t be my disciple."
+      },
+      "context": "Read Luke 14 for the surrounding literary context. Jesus uses planning images while teaching about the cost of discipleship.",
+      "explanation": "Jesus uses planning images while teaching about the cost of discipleship.",
+      "reflection": "You brought this intention: “I feel anxious about a decision at work and need gentle steps” Jesus uses planning images while teaching about the cost of discipleship. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: List the responsibilities and likely costs of each option, without treating this passage as a prediction.",
+      "questions": [
+        "What do you notice in Luke 14:28-33 that speaks to your stated goal?",
+        "As you count the cost, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I count the cost. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Keep this small; one minute is enough. List the responsibilities and likely costs of each option, without treating this passage as a prediction.",
+      "journalPrompt": "What stood out as you explored count the cost?",
+      "bridge": "Carry one practice forward. You can revisit this journey at your own pace.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    }
+  ],
+  "feedback": []
+}

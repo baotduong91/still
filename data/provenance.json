@@ -1,0 +1,9 @@
+{
+  "source": "https://ebible.org/Scriptures/engwebp_vpl.zip",
+  "downloaded": "2026-11-10",
+  "archiveSha256": "a1359348de092f0e7c7d6e228d83d78f95c73923c1dc9880623df5097aba16fc",
+  "corpusSha256": "52559dbf95055dfcbdcddced76afdd5be487067950fe01648a39f6e3f1ed67a9",
+  "verseCount": 31103,
+  "books": 66,
+  "transform": "VPL line parsing only; verse text copied verbatim, no quotation synthesis."
+}

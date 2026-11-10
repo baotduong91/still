@@ -1,0 +1,12 @@
+node_modules/
+.next/
+.data/
+.env
+.env.local
+playwright-report/
+test-results/
+*.tsbuildinfo
+public/bibles/CSB.json
+public/bibles/NLT.json
+public/bibles/NIV.json
+public/bibles/ESV.json

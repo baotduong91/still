@@ -1,0 +1,391 @@
+{
+  "id": "bded0a9d-fe98-4b0d-9df9-0297092095b6",
+  "title": "Held in the sorrow",
+  "profile": {
+    "prompt": "I am grieving a loss and want room to lament",
+    "themes": [
+      "grief"
+    ],
+    "focus": "I am grieving a loss and want room to lament",
+    "pace": "standard"
+  },
+  "translation": "CSB",
+  "createdAt": "2026-11-10T15:59:33.918Z",
+  "revision": 0,
+  "provider": "curated",
+  "days": [
+    {
+      "number": 1,
+      "title": "Permission to lament",
+      "objective": "Explore permission to lament in relation to your stated goal: I am grieving a loss and want room to lament",
+      "passage": {
+        "reference": "Psalms 13:1-6",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Psalms",
+            "chapter": 13,
+            "verse": 1,
+            "text": "For the Chief Musician. A Psalm by David. How long, LORD? Will you forget me forever? How long will you hide your face from me?"
+          },
+          {
+            "book": "Psalms",
+            "chapter": 13,
+            "verse": 2,
+            "text": "How long shall I take counsel in my soul, having sorrow in my heart every day? How long shall my enemy triumph over me?"
+          },
+          {
+            "book": "Psalms",
+            "chapter": 13,
+            "verse": 3,
+            "text": "Behold, and answer me, LORD, my God. Give light to my eyes, lest I sleep in death;"
+          },
+          {
+            "book": "Psalms",
+            "chapter": 13,
+            "verse": 4,
+            "text": "lest my enemy say, “I have prevailed against him;” lest my adversaries rejoice when I fall."
+          },
+          {
+            "book": "Psalms",
+            "chapter": 13,
+            "verse": 5,
+            "text": "But I trust in your loving kindness. My heart rejoices in your salvation."
+          },
+          {
+            "book": "Psalms",
+            "chapter": 13,
+            "verse": 6,
+            "text": "I will sing to the LORD, because he has been good to me."
+          }
+        ],
+        "text": "For the Chief Musician. A Psalm by David. How long, LORD? Will you forget me forever? How long will you hide your face from me? How long shall I take counsel in my soul, having sorrow in my heart every day? How long shall my enemy triumph over me? Behold, and answer me, LORD, my God. Give light to my eyes, lest I sleep in death; lest my enemy say, “I have prevailed against him;” lest my adversaries rejoice when I fall. But I trust in your loving kindness. My heart rejoices in your salvation. I will sing to the LORD, because he has been good to me."
+      },
+      "context": "Read Psalms 13 for the surrounding literary context. This prayer gives voice to abandonment and sorrow before turning toward trust.",
+      "explanation": "This prayer gives voice to abandonment and sorrow before turning toward trust.",
+      "reflection": "You brought this intention: “I am grieving a loss and want room to lament” This prayer gives voice to abandonment and sorrow before turning toward trust. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Write an honest sentence beginning with how long, without forcing a positive ending.",
+      "questions": [
+        "What do you notice in Psalms 13:1-6 that speaks to your stated goal?",
+        "As you permission to lament, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I permission to lament. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Write an honest sentence beginning with how long, without forcing a positive ending.",
+      "journalPrompt": "What stood out as you explored permission to lament?",
+      "bridge": "Tomorrow: tears are welcome. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 2,
+      "title": "Tears are welcome",
+      "objective": "Explore tears are welcome in relation to your stated goal: I am grieving a loss and want room to lament",
+      "passage": {
+        "reference": "John 11:32-36",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "John",
+            "chapter": 11,
+            "verse": 32,
+            "text": "Therefore when Mary came to where Jesus was and saw him, she fell down at his feet, saying to him, “Lord, if you would have been here, my brother wouldn’t have died.”"
+          },
+          {
+            "book": "John",
+            "chapter": 11,
+            "verse": 33,
+            "text": "When Jesus therefore saw her weeping, and the Jews weeping who came with her, he groaned in the spirit and was troubled,"
+          },
+          {
+            "book": "John",
+            "chapter": 11,
+            "verse": 34,
+            "text": "and said, “Where have you laid him?” They told him, “Lord, come and see.”"
+          },
+          {
+            "book": "John",
+            "chapter": 11,
+            "verse": 35,
+            "text": "Jesus wept."
+          },
+          {
+            "book": "John",
+            "chapter": 11,
+            "verse": 36,
+            "text": "The Jews therefore said, “See how much affection he had for him!”"
+          }
+        ],
+        "text": "Therefore when Mary came to where Jesus was and saw him, she fell down at his feet, saying to him, “Lord, if you would have been here, my brother wouldn’t have died.” When Jesus therefore saw her weeping, and the Jews weeping who came with her, he groaned in the spirit and was troubled, and said, “Where have you laid him?” They told him, “Lord, come and see.” Jesus wept. The Jews therefore said, “See how much affection he had for him!”"
+      },
+      "context": "Read John 11 for the surrounding literary context. In the account of Lazarus, Jesus meets Mary’s grief and weeps.",
+      "explanation": "In the account of Lazarus, Jesus meets Mary’s grief and weeps.",
+      "reflection": "You brought this intention: “I am grieving a loss and want room to lament” In the account of Lazarus, Jesus meets Mary’s grief and weeps. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Name what or whom you miss. Let that naming be enough for today.",
+      "questions": [
+        "What do you notice in John 11:32-36 that speaks to your stated goal?",
+        "As you tears are welcome, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I tears are welcome. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Name what or whom you miss. Let that naming be enough for today.",
+      "journalPrompt": "What stood out as you explored tears are welcome?",
+      "bridge": "Tomorrow: near to the brokenhearted. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 3,
+      "title": "Near to the brokenhearted",
+      "objective": "Explore near to the brokenhearted in relation to your stated goal: I am grieving a loss and want room to lament",
+      "passage": {
+        "reference": "Psalms 34:18",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Psalms",
+            "chapter": 34,
+            "verse": 18,
+            "text": "The LORD is near to those who have a broken heart, and saves those who have a crushed spirit."
+          }
+        ],
+        "text": "The LORD is near to those who have a broken heart, and saves those who have a crushed spirit."
+      },
+      "context": "Read Psalms 34 for the surrounding literary context. The psalm speaks of God’s nearness to those whose hearts are broken.",
+      "explanation": "The psalm speaks of God’s nearness to those whose hearts are broken.",
+      "reflection": "You brought this intention: “I am grieving a loss and want room to lament” The psalm speaks of God’s nearness to those whose hearts are broken. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Spend a minute with the word near, then name one person whose presence helps.",
+      "questions": [
+        "What do you notice in Psalms 34:18 that speaks to your stated goal?",
+        "As you near to the brokenhearted, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I near to the brokenhearted. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Spend a minute with the word near, then name one person whose presence helps.",
+      "journalPrompt": "What stood out as you explored near to the brokenhearted?",
+      "bridge": "Tomorrow: hope within lament. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 4,
+      "title": "Hope within lament",
+      "objective": "Explore hope within lament in relation to your stated goal: I am grieving a loss and want room to lament",
+      "passage": {
+        "reference": "Lamentations 3:19-24",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Lamentations",
+            "chapter": 3,
+            "verse": 19,
+            "text": "Remember my affliction and my misery, the wormwood and the bitterness."
+          },
+          {
+            "book": "Lamentations",
+            "chapter": 3,
+            "verse": 20,
+            "text": "My soul still remembers them, and is bowed down within me."
+          },
+          {
+            "book": "Lamentations",
+            "chapter": 3,
+            "verse": 21,
+            "text": "This I recall to my mind; therefore I have hope."
+          },
+          {
+            "book": "Lamentations",
+            "chapter": 3,
+            "verse": 22,
+            "text": "It is because of the LORD’s loving kindnesses that we are not consumed, because his mercies don’t fail."
+          },
+          {
+            "book": "Lamentations",
+            "chapter": 3,
+            "verse": 23,
+            "text": "They are new every morning. Great is your faithfulness."
+          },
+          {
+            "book": "Lamentations",
+            "chapter": 3,
+            "verse": 24,
+            "text": "“The LORD is my portion,” says my soul. “Therefore I will hope in him.”"
+          }
+        ],
+        "text": "Remember my affliction and my misery, the wormwood and the bitterness. My soul still remembers them, and is bowed down within me. This I recall to my mind; therefore I have hope. It is because of the LORD’s loving kindnesses that we are not consumed, because his mercies don’t fail. They are new every morning. Great is your faithfulness. “The LORD is my portion,” says my soul. “Therefore I will hope in him.”"
+      },
+      "context": "Read Lamentations 3 for the surrounding literary context. The speaker remembers affliction and also calls steadfast love to mind; hope does not erase the lament.",
+      "explanation": "The speaker remembers affliction and also calls steadfast love to mind; hope does not erase the lament.",
+      "reflection": "You brought this intention: “I am grieving a loss and want room to lament” The speaker remembers affliction and also calls steadfast love to mind; hope does not erase the lament. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Record one small mercy you noticed today without treating it as an explanation for your loss.",
+      "questions": [
+        "What do you notice in Lamentations 3:19-24 that speaks to your stated goal?",
+        "As you hope within lament, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I hope within lament. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Record one small mercy you noticed today without treating it as an explanation for your loss.",
+      "journalPrompt": "What stood out as you explored hope within lament?",
+      "bridge": "Tomorrow: let others sit beside you. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 5,
+      "title": "Let others sit beside you",
+      "objective": "Explore let others sit beside you in relation to your stated goal: I am grieving a loss and want room to lament",
+      "passage": {
+        "reference": "Romans 12:15",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Romans",
+            "chapter": 12,
+            "verse": 15,
+            "text": "Rejoice with those who rejoice. Weep with those who weep."
+          }
+        ],
+        "text": "Rejoice with those who rejoice. Weep with those who weep."
+      },
+      "context": "Read Romans 12 for the surrounding literary context. Paul’s practical teaching calls a community to share both joy and mourning.",
+      "explanation": "Paul’s practical teaching calls a community to share both joy and mourning.",
+      "reflection": "You brought this intention: “I am grieving a loss and want room to lament” Paul’s practical teaching calls a community to share both joy and mourning. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Tell a trusted person whether you would welcome listening, company, or practical help.",
+      "questions": [
+        "What do you notice in Romans 12:15 that speaks to your stated goal?",
+        "As you let others sit beside you, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I let others sit beside you. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Tell a trusted person whether you would welcome listening, company, or practical help.",
+      "journalPrompt": "What stood out as you explored let others sit beside you?",
+      "bridge": "Tomorrow: when grief returns. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 6,
+      "title": "When grief returns",
+      "objective": "Explore when grief returns in relation to your stated goal: I am grieving a loss and want room to lament",
+      "passage": {
+        "reference": "Psalms 42:5-8",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Psalms",
+            "chapter": 42,
+            "verse": 5,
+            "text": "Why are you in despair, my soul? Why are you disturbed within me? Hope in God! For I shall still praise him for the saving help of his presence."
+          },
+          {
+            "book": "Psalms",
+            "chapter": 42,
+            "verse": 6,
+            "text": "My God, my soul is in despair within me. Therefore I remember you from the land of the Jordan, the heights of Hermon, from the hill Mizar."
+          },
+          {
+            "book": "Psalms",
+            "chapter": 42,
+            "verse": 7,
+            "text": "Deep calls to deep at the noise of your waterfalls. All your waves and your billows have swept over me."
+          },
+          {
+            "book": "Psalms",
+            "chapter": 42,
+            "verse": 8,
+            "text": "The LORD will command his loving kindness in the daytime. In the night his song shall be with me: a prayer to the God of my life."
+          }
+        ],
+        "text": "Why are you in despair, my soul? Why are you disturbed within me? Hope in God! For I shall still praise him for the saving help of his presence. My God, my soul is in despair within me. Therefore I remember you from the land of the Jordan, the heights of Hermon, from the hill Mizar. Deep calls to deep at the noise of your waterfalls. All your waves and your billows have swept over me. The LORD will command his loving kindness in the daytime. In the night his song shall be with me: a prayer to the God of my life."
+      },
+      "context": "Read Psalms 42 for the surrounding literary context. The repeated refrain shows sorrow and hope returning in waves.",
+      "explanation": "The repeated refrain shows sorrow and hope returning in waves.",
+      "reflection": "You brought this intention: “I am grieving a loss and want room to lament” The repeated refrain shows sorrow and hope returning in waves. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Write what a hard day needs from you, allowing rest and support rather than a deadline for healing.",
+      "questions": [
+        "What do you notice in Psalms 42:5-8 that speaks to your stated goal?",
+        "As you when grief returns, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I when grief returns. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Write what a hard day needs from you, allowing rest and support rather than a deadline for healing.",
+      "journalPrompt": "What stood out as you explored when grief returns?",
+      "bridge": "Tomorrow: a horizon of restoration. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 7,
+      "title": "A horizon of restoration",
+      "objective": "Explore a horizon of restoration in relation to your stated goal: I am grieving a loss and want room to lament",
+      "passage": {
+        "reference": "Revelation 21:1-4",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Revelation",
+            "chapter": 21,
+            "verse": 1,
+            "text": "I saw a new heaven and a new earth, for the first heaven and the first earth have passed away, and the sea is no more."
+          },
+          {
+            "book": "Revelation",
+            "chapter": 21,
+            "verse": 2,
+            "text": "I saw the holy city, New Jerusalem, coming down out of heaven from God, prepared like a bride adorned for her husband."
+          },
+          {
+            "book": "Revelation",
+            "chapter": 21,
+            "verse": 3,
+            "text": "I heard a loud voice out of heaven saying, “Behold, God’s dwelling is with people; and he will dwell with them, and they will be his people, and God himself will be with them as their God."
+          },
+          {
+            "book": "Revelation",
+            "chapter": 21,
+            "verse": 4,
+            "text": "He will wipe away every tear from their eyes. Death will be no more; neither will there be mourning, nor crying, nor pain any more. The first things have passed away.”"
+          }
+        ],
+        "text": "I saw a new heaven and a new earth, for the first heaven and the first earth have passed away, and the sea is no more. I saw the holy city, New Jerusalem, coming down out of heaven from God, prepared like a bride adorned for her husband. I heard a loud voice out of heaven saying, “Behold, God’s dwelling is with people; and he will dwell with them, and they will be his people, and God himself will be with them as their God. He will wipe away every tear from their eyes. Death will be no more; neither will there be mourning, nor crying, nor pain any more. The first things have passed away.”"
+      },
+      "context": "Read Revelation 21 for the surrounding literary context. John’s vision describes God dwelling with people and an end to death and mourning.",
+      "explanation": "John’s vision describes God dwelling with people and an end to death and mourning.",
+      "reflection": "You brought this intention: “I am grieving a loss and want room to lament” John’s vision describes God dwelling with people and an end to death and mourning. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Keep a memory in a small ritual, and leave space for hope without rushing your grief.",
+      "questions": [
+        "What do you notice in Revelation 21:1-4 that speaks to your stated goal?",
+        "As you a horizon of restoration, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I a horizon of restoration. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Keep a memory in a small ritual, and leave space for hope without rushing your grief.",
+      "journalPrompt": "What stood out as you explored a horizon of restoration?",
+      "bridge": "Carry one practice forward. You can revisit this journey at your own pace.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    }
+  ],
+  "feedback": []
+}

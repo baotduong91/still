@@ -1,0 +1,9 @@
+node_modules
+.next
+.data
+public/bibles
+public/sw.js
+data/sample-plans
+package-lock.json
+test-results
+SOURCE.md

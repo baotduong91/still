@@ -1,0 +1,373 @@
+{
+  "id": "baa4d986-4422-425c-8a7a-a7e587934608",
+  "title": "A heart made spacious",
+  "profile": {
+    "prompt": "Help me release resentment and practice forgiveness with wise boundaries",
+    "themes": [
+      "forgiveness"
+    ],
+    "focus": "Help me release resentment and practice forgiveness with wise boundaries",
+    "pace": "standard"
+  },
+  "translation": "CSB",
+  "createdAt": "2026-11-10T15:59:33.919Z",
+  "revision": 0,
+  "provider": "curated",
+  "days": [
+    {
+      "number": 1,
+      "title": "Begin with honesty",
+      "objective": "Explore begin with honesty in relation to your stated goal: Help me release resentment and practice forgiveness with wise boundaries",
+      "passage": {
+        "reference": "Psalms 139:23-24",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Psalms",
+            "chapter": 139,
+            "verse": 23,
+            "text": "Search me, God, and know my heart. Try me, and know my thoughts."
+          },
+          {
+            "book": "Psalms",
+            "chapter": 139,
+            "verse": 24,
+            "text": "See if there is any wicked way in me, and lead me in the everlasting way."
+          }
+        ],
+        "text": "Search me, God, and know my heart. Try me, and know my thoughts. See if there is any wicked way in me, and lead me in the everlasting way."
+      },
+      "context": "Read Psalms 139 for the surrounding literary context. The psalm closes with a request for God to search and guide the speaker.",
+      "explanation": "The psalm closes with a request for God to search and guide the speaker.",
+      "reflection": "You brought this intention: “Help me release resentment and practice forgiveness with wise boundaries” The psalm closes with a request for God to search and guide the speaker. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Privately name the hurt and its effect. Do not minimize what happened.",
+      "questions": [
+        "What do you notice in Psalms 139:23-24 that speaks to your stated goal?",
+        "As you begin with honesty, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I begin with honesty. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Privately name the hurt and its effect. Do not minimize what happened.",
+      "journalPrompt": "What stood out as you explored begin with honesty?",
+      "bridge": "Tomorrow: notice what you carry. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 2,
+      "title": "Notice what you carry",
+      "objective": "Explore notice what you carry in relation to your stated goal: Help me release resentment and practice forgiveness with wise boundaries",
+      "passage": {
+        "reference": "Ephesians 4:31-32",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Ephesians",
+            "chapter": 4,
+            "verse": 31,
+            "text": "Let all bitterness, wrath, anger, outcry, and slander be put away from you, with all malice."
+          },
+          {
+            "book": "Ephesians",
+            "chapter": 4,
+            "verse": 32,
+            "text": "And be kind to one another, tender hearted, forgiving each other, just as God also in Christ forgave you."
+          }
+        ],
+        "text": "Let all bitterness, wrath, anger, outcry, and slander be put away from you, with all malice. And be kind to one another, tender hearted, forgiving each other, just as God also in Christ forgave you."
+      },
+      "context": "Read Ephesians 4 for the surrounding literary context. Paul’s instructions contrast destructive attitudes with kindness and forgiveness shaped by God’s mercy.",
+      "explanation": "Paul’s instructions contrast destructive attitudes with kindness and forgiveness shaped by God’s mercy.",
+      "reflection": "You brought this intention: “Help me release resentment and practice forgiveness with wise boundaries” Paul’s instructions contrast destructive attitudes with kindness and forgiveness shaped by God’s mercy. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Notice one moment of resentment today and write what it is asking you to protect.",
+      "questions": [
+        "What do you notice in Ephesians 4:31-32 that speaks to your stated goal?",
+        "As you notice what you carry, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I notice what you carry. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Notice one moment of resentment today and write what it is asking you to protect.",
+      "journalPrompt": "What stood out as you explored notice what you carry?",
+      "bridge": "Tomorrow: beyond keeping score. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 3,
+      "title": "Beyond keeping score",
+      "objective": "Explore beyond keeping score in relation to your stated goal: Help me release resentment and practice forgiveness with wise boundaries",
+      "passage": {
+        "reference": "Matthew 18:21-22",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Matthew",
+            "chapter": 18,
+            "verse": 21,
+            "text": "Then Peter came and said to him, “Lord, how often shall my brother sin against me, and I forgive him? Until seven times?”"
+          },
+          {
+            "book": "Matthew",
+            "chapter": 18,
+            "verse": 22,
+            "text": "Jesus said to him, “I don’t tell you until seven times, but, until seventy times seven."
+          }
+        ],
+        "text": "Then Peter came and said to him, “Lord, how often shall my brother sin against me, and I forgive him? Until seven times?” Jesus said to him, “I don’t tell you until seven times, but, until seventy times seven."
+      },
+      "context": "Read Matthew 18 for the surrounding literary context. Jesus challenges Peter’s attempt to put a numerical limit on forgiveness.",
+      "explanation": "Jesus challenges Peter’s attempt to put a numerical limit on forgiveness.",
+      "reflection": "You brought this intention: “Help me release resentment and practice forgiveness with wise boundaries” Jesus challenges Peter’s attempt to put a numerical limit on forgiveness. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Name a recurring grievance in prayer; avoid using this exercise to pressure yourself into contact.",
+      "questions": [
+        "What do you notice in Matthew 18:21-22 that speaks to your stated goal?",
+        "As you beyond keeping score, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I beyond keeping score. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Name a recurring grievance in prayer; avoid using this exercise to pressure yourself into contact.",
+      "journalPrompt": "What stood out as you explored beyond keeping score?",
+      "bridge": "Tomorrow: release retaliation. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 4,
+      "title": "Release retaliation",
+      "objective": "Explore release retaliation in relation to your stated goal: Help me release resentment and practice forgiveness with wise boundaries",
+      "passage": {
+        "reference": "Romans 12:17-21",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Romans",
+            "chapter": 12,
+            "verse": 17,
+            "text": "Repay no one evil for evil. Respect what is honorable in the sight of all men."
+          },
+          {
+            "book": "Romans",
+            "chapter": 12,
+            "verse": 18,
+            "text": "If it is possible, as much as it is up to you, be at peace with all men."
+          },
+          {
+            "book": "Romans",
+            "chapter": 12,
+            "verse": 19,
+            "text": "Don’t seek revenge yourselves, beloved, but give place to God’s wrath. For it is written, “Vengeance belongs to me; I will repay, says the Lord.”"
+          },
+          {
+            "book": "Romans",
+            "chapter": 12,
+            "verse": 20,
+            "text": "Therefore “If your enemy is hungry, feed him. If he is thirsty, give him a drink; for in doing so, you will heap coals of fire on his head.”"
+          },
+          {
+            "book": "Romans",
+            "chapter": 12,
+            "verse": 21,
+            "text": "Don’t be overcome by evil, but overcome evil with good."
+          }
+        ],
+        "text": "Repay no one evil for evil. Respect what is honorable in the sight of all men. If it is possible, as much as it is up to you, be at peace with all men. Don’t seek revenge yourselves, beloved, but give place to God’s wrath. For it is written, “Vengeance belongs to me; I will repay, says the Lord.” Therefore “If your enemy is hungry, feed him. If he is thirsty, give him a drink; for in doing so, you will heap coals of fire on his head.” Don’t be overcome by evil, but overcome evil with good."
+      },
+      "context": "Read Romans 12 for the surrounding literary context. Paul discourages vengeance while acknowledging that peace depends on more than one person.",
+      "explanation": "Paul discourages vengeance while acknowledging that peace depends on more than one person.",
+      "reflection": "You brought this intention: “Help me release resentment and practice forgiveness with wise boundaries” Paul discourages vengeance while acknowledging that peace depends on more than one person. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Choose a response that does not retaliate and preserves a needed boundary.",
+      "questions": [
+        "What do you notice in Romans 12:17-21 that speaks to your stated goal?",
+        "As you release retaliation, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I release retaliation. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Choose a response that does not retaliate and preserves a needed boundary.",
+      "journalPrompt": "What stood out as you explored release retaliation?",
+      "bridge": "Tomorrow: practice compassion. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 5,
+      "title": "Practice compassion",
+      "objective": "Explore practice compassion in relation to your stated goal: Help me release resentment and practice forgiveness with wise boundaries",
+      "passage": {
+        "reference": "Colossians 3:12-15",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Colossians",
+            "chapter": 3,
+            "verse": 12,
+            "text": "Put on therefore, as God’s chosen ones, holy and beloved, a heart of compassion, kindness, lowliness, humility, and perseverance;"
+          },
+          {
+            "book": "Colossians",
+            "chapter": 3,
+            "verse": 13,
+            "text": "bearing with one another, and forgiving each other, if any man has a complaint against any; even as Christ forgave you, so you also do."
+          },
+          {
+            "book": "Colossians",
+            "chapter": 3,
+            "verse": 14,
+            "text": "Above all these things, walk in love, which is the bond of perfection."
+          },
+          {
+            "book": "Colossians",
+            "chapter": 3,
+            "verse": 15,
+            "text": "And let the peace of God rule in your hearts, to which also you were called in one body, and be thankful."
+          }
+        ],
+        "text": "Put on therefore, as God’s chosen ones, holy and beloved, a heart of compassion, kindness, lowliness, humility, and perseverance; bearing with one another, and forgiving each other, if any man has a complaint against any; even as Christ forgave you, so you also do. Above all these things, walk in love, which is the bond of perfection. And let the peace of God rule in your hearts, to which also you were called in one body, and be thankful."
+      },
+      "context": "Read Colossians 3 for the surrounding literary context. The community is called to put on compassion, patience, and love in its life together.",
+      "explanation": "The community is called to put on compassion, patience, and love in its life together.",
+      "reflection": "You brought this intention: “Help me release resentment and practice forgiveness with wise boundaries” The community is called to put on compassion, patience, and love in its life together. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Practice one act of ordinary kindness that is safe and freely chosen.",
+      "questions": [
+        "What do you notice in Colossians 3:12-15 that speaks to your stated goal?",
+        "As you practice compassion, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I practice compassion. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Practice one act of ordinary kindness that is safe and freely chosen.",
+      "journalPrompt": "What stood out as you explored practice compassion?",
+      "bridge": "Tomorrow: receive mercy too. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 6,
+      "title": "Receive mercy too",
+      "objective": "Explore receive mercy too in relation to your stated goal: Help me release resentment and practice forgiveness with wise boundaries",
+      "passage": {
+        "reference": "Luke 15:17-24",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Luke",
+            "chapter": 15,
+            "verse": 17,
+            "text": "But when he came to himself, he said, ‘How many hired servants of my father’s have bread enough to spare, and I’m dying with hunger!"
+          },
+          {
+            "book": "Luke",
+            "chapter": 15,
+            "verse": 18,
+            "text": "I will get up and go to my father, and will tell him, “Father, I have sinned against heaven and in your sight."
+          },
+          {
+            "book": "Luke",
+            "chapter": 15,
+            "verse": 19,
+            "text": "I am no more worthy to be called your son. Make me as one of your hired servants.”’"
+          },
+          {
+            "book": "Luke",
+            "chapter": 15,
+            "verse": 20,
+            "text": "“He arose and came to his father. But while he was still far off, his father saw him and was moved with compassion, and ran, fell on his neck, and kissed him."
+          },
+          {
+            "book": "Luke",
+            "chapter": 15,
+            "verse": 21,
+            "text": "The son said to him, ‘Father, I have sinned against heaven and in your sight. I am no longer worthy to be called your son.’"
+          },
+          {
+            "book": "Luke",
+            "chapter": 15,
+            "verse": 22,
+            "text": "“But the father said to his servants, ‘Bring out the best robe and put it on him. Put a ring on his hand and sandals on his feet."
+          },
+          {
+            "book": "Luke",
+            "chapter": 15,
+            "verse": 23,
+            "text": "Bring the fattened calf, kill it, and let’s eat and celebrate;"
+          },
+          {
+            "book": "Luke",
+            "chapter": 15,
+            "verse": 24,
+            "text": "for this, my son, was dead and is alive again. He was lost and is found.’ Then they began to celebrate."
+          }
+        ],
+        "text": "But when he came to himself, he said, ‘How many hired servants of my father’s have bread enough to spare, and I’m dying with hunger! I will get up and go to my father, and will tell him, “Father, I have sinned against heaven and in your sight. I am no more worthy to be called your son. Make me as one of your hired servants.”’ “He arose and came to his father. But while he was still far off, his father saw him and was moved with compassion, and ran, fell on his neck, and kissed him. The son said to him, ‘Father, I have sinned against heaven and in your sight. I am no longer worthy to be called your son.’ “But the father said to his servants, ‘Bring out the best robe and put it on him. Put a ring on his hand and sandals on his feet. Bring the fattened calf, kill it, and let’s eat and celebrate; for this, my son, was dead and is alive again. He was lost and is found.’ Then they began to celebrate."
+      },
+      "context": "Read Luke 15 for the surrounding literary context. In Jesus’ parable the returning son is met by his father’s compassion.",
+      "explanation": "In Jesus’ parable the returning son is met by his father’s compassion.",
+      "reflection": "You brought this intention: “Help me release resentment and practice forgiveness with wise boundaries” In Jesus’ parable the returning son is met by his father’s compassion. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Write a prayer about receiving mercy for your own need, without comparing it with another person’s wrong.",
+      "questions": [
+        "What do you notice in Luke 15:17-24 that speaks to your stated goal?",
+        "As you receive mercy too, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I receive mercy too. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Write a prayer about receiving mercy for your own need, without comparing it with another person’s wrong.",
+      "journalPrompt": "What stood out as you explored receive mercy too?",
+      "bridge": "Tomorrow: mercy and justice together. Bring one observation from today.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    },
+    {
+      "number": 7,
+      "title": "Mercy and justice together",
+      "objective": "Explore mercy and justice together in relation to your stated goal: Help me release resentment and practice forgiveness with wise boundaries",
+      "passage": {
+        "reference": "Micah 6:8",
+        "requestedTranslation": "CSB",
+        "translation": "WEB",
+        "fallback": true,
+        "notice": "CSB is not installed. Showing exact WEB text.",
+        "verses": [
+          {
+            "book": "Micah",
+            "chapter": 6,
+            "verse": 8,
+            "text": "He has shown you, O man, what is good. What does the LORD require of you, but to act justly, to love mercy, and to walk humbly with your God?"
+          }
+        ],
+        "text": "He has shown you, O man, what is good. What does the LORD require of you, but to act justly, to love mercy, and to walk humbly with your God?"
+      },
+      "context": "Read Micah 6 for the surrounding literary context. The prophet places justice, kindness, and humility together rather than treating them as alternatives.",
+      "explanation": "The prophet places justice, kindness, and humility together rather than treating them as alternatives.",
+      "reflection": "You brought this intention: “Help me release resentment and practice forgiveness with wise boundaries” The prophet places justice, kindness, and humility together rather than treating them as alternatives. Let this passage meet that intention without requiring it to answer more than it says.",
+      "connection": "For your goal, consider this concrete practice: Choose one next step that honors both compassion and accountability; forgiveness does not require unsafe reconciliation.",
+      "questions": [
+        "What do you notice in Micah 6:8 that speaks to your stated goal?",
+        "As you mercy and justice together, what is one honest response you can make today?"
+      ],
+      "prayer": "God, meet me as I mercy and justice together. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.",
+      "action": "Choose one next step that honors both compassion and accountability; forgiveness does not require unsafe reconciliation.",
+      "journalPrompt": "What stood out as you explored mercy and justice together?",
+      "bridge": "Carry one practice forward. You can revisit this journey at your own pace.",
+      "interpretation": "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
+      "completedAt": null,
+      "completedDate": null
+    }
+  ],
+  "feedback": []
+}
