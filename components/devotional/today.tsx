@@ -1,4 +1,5 @@
 "use client";
+import { ReadingAudio } from "@/components/scripture/audio-player";
 import { FirstRun } from "@/components/first-run";
 import { PracticeWriter } from "./practice-writer";
 import { PrayerWriter } from "./prayer-writer";
@@ -243,6 +244,14 @@ export function Today() {
                 <p className="eyebrow">LET IT TAKE ROOT</p>
                 <h3>{day.title}</h3>
                 <p>{day.reflection}</p>
+                <ReadingAudio
+                  compact
+                  payload={{
+                    kind: "devotional",
+                    text: day.reflection,
+                    title: day.title,
+                  }}
+                />
                 <div className="question-box">
                   {day.questions.map((q) => (
                     <p key={q}>{q}</p>
@@ -255,6 +264,14 @@ export function Today() {
                 <p className="eyebrow">A PRAYER FOR TODAY</p>
                 <h3>Come as you are.</h3>
                 <p className="prayer-text">{day.prayer}</p>
+                <ReadingAudio
+                  compact
+                  payload={{
+                    kind: "prayer",
+                    text: day.prayer,
+                    title: day.title,
+                  }}
+                />
                 <p className="fine-print">
                   A personal prayer inspired by your reading; not Scripture.
                 </p>
@@ -264,6 +281,14 @@ export function Today() {
                 <p className="eyebrow">ONE SMALL, FAITHFUL STEP</p>
                 <h3>Carry it into your day.</h3>
                 <p>{day.action}</p>
+                <ReadingAudio
+                  compact
+                  payload={{
+                    kind: "action",
+                    text: day.action,
+                    title: day.title,
+                  }}
+                />
                 <PracticeWriter
                   key={`${plan.id}:${day.number}`}
                   plan={plan}

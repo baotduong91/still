@@ -14,3 +14,6 @@ public/bibles/ESV.json
 .env*
 
 .next-dev/
+
+# Generated on-device speech runtime (prepared at install/build/dev).
+/public/tts/

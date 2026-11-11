@@ -1,4 +1,6 @@
 "use client";
+import { AudioSettings } from "./scripture/audio-settings";
+import { ReadingAudio, ScriptureAudio } from "./scripture/audio-player";
 import { PinSettings } from "./privacy";
 import { PrayerWriter } from "./devotional/prayer-writer";
 import { Participation } from "./devotional/participation";
@@ -490,6 +492,14 @@ function Scripture() {
                         <p>{v.text}</p>
                         {selected === key && (
                           <div className="verse-tools">
+                            <ScriptureAudio
+                              passage={{
+                                ...passage,
+                                reference: ref,
+                                verses: [v],
+                                text: v.text,
+                              }}
+                            />
                             <Button variant="outline" size="sm" asChild>
                               <Link
                                 href={`/create-image?${new URLSearchParams({ ref, translation: state.translation })}`}
@@ -690,6 +700,16 @@ function Chat() {
               </div>
               <p className="chat-answer">{m.response.answer}</p>
               <p className="fine-print">{m.response.interpretation}</p>
+              {m.response.citations.length > 0 &&
+                m.response.interpretation.trim() && (
+                  <ReadingAudio
+                    compact
+                    payload={{
+                      kind: "interpretation",
+                      text: m.response.interpretation,
+                    }}
+                  />
+                )}
               {m.response.citations.map((p) => (
                 <details key={p.reference}>
                   <summary>
@@ -885,6 +905,7 @@ function Settings() {
       <nav className="settings-anchors" aria-label="Settings sections">
         <a href="#answer-modes">Answer mode</a>
         <a href="#translation">Bible edition</a>
+        <a href="#reading-voice">Reading voice</a>
         <a href="#privacy">PIN privacy</a>
       </nav>
       <section className="settings-card">
@@ -959,6 +980,7 @@ function Settings() {
       <div id="answer-modes">
         <ModeSettings />
       </div>
+      <AudioSettings />
       <PinSettings />
 
       <section className="settings-card">

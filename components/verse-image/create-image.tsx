@@ -1,4 +1,5 @@
 "use client";
+import { ScriptureAudio } from "@/components/scripture/audio-player";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Check, Download, Share2, Leaf } from "lucide-react";
@@ -215,6 +216,7 @@ function ImageEditor({
           </p>
         </section>
         <div className="image-controls">
+          <ScriptureAudio passage={passage} />
           <section className="image-control-section">
             <h2>
               <span>01</span> Pick a format

@@ -1,4 +1,5 @@
 "use client";
+import { ScriptureAudio } from "./scripture/audio-player";
 import { useEffect, useState } from "react";
 import { Bible, type Corpus } from "@/lib/bible";
 import type { PassageType } from "@/lib/schemas";
@@ -59,6 +60,7 @@ export function PublicReader() {
       {passage && (
         <article className="reader-paper">
           <h2>{passage.reference}</h2>
+          <ScriptureAudio passage={passage} />
           {passage.verses.map((v) => (
             <p className="public-verse" key={v.verse}>
               <sup>{v.verse}</sup> {v.text}

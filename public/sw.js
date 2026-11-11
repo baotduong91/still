@@ -1,5 +1,5 @@
 /* Still's offline cache stores public shells and WEB only. Never cache API responses. */
-const CACHE='still-public-v8';
+const CACHE='still-public-v9';
 const PAGES=['/create-image','/read','/today','/journey','/create','/scripture','/chat','/journal','/settings'];
 async function prepareOffline(){
  const cache=await caches.open(CACHE);
@@ -17,5 +17,5 @@ self.addEventListener('fetch',event=>{
  if(request.mode==='navigate'){event.respondWith(fetch(request).then(async response=>{if(response.ok&&PAGES.includes(url.pathname)){const cache=await caches.open(CACHE);await cache.put(url.pathname,response.clone());}return response;}).catch(async()=>await caches.match(url.pathname)||await caches.match('/offline.html')));return;}
  // RSC responses must not be confused with HTML shells. Offline navigation uses full links.
  if(request.headers.get('RSC'))return;
- if(url.pathname.startsWith('/_next/static/')||url.pathname==='/bibles/WEB.json'||url.pathname==='/bibles/catalog.json'||url.pathname.startsWith('/icons/')||url.pathname.startsWith('/backgrounds/'))event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(async response=>{if(response.ok)(await caches.open(CACHE)).put(request,response.clone());return response;})));
+ if(url.pathname.startsWith('/_next/static/')||url.pathname==='/bibles/WEB.json'||url.pathname==='/bibles/catalog.json'||url.pathname.startsWith('/icons/')||url.pathname.startsWith('/backgrounds/')||url.pathname.startsWith('/tts/'))event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(async response=>{if(response.ok)(await caches.open(CACHE)).put(request,response.clone());return response;})));
 });

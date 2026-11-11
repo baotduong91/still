@@ -1,6 +1,7 @@
 import { openDB } from "idb";
 import type { PlanType, JournalType, TranslationId } from "@/lib/schemas";
 export type SavedState = {
+  speechEngine: "auto" | "edge" | "kokoro";
   pinLock: { salt: string; hash: string; iterations: number } | null;
   setupSeen: boolean;
   plans: PlanType[];
@@ -17,6 +18,7 @@ export type SavedState = {
   outbox: { path: string; body: unknown }[];
 };
 export const defaults: SavedState = {
+  speechEngine: "auto",
   pinLock: null,
   setupSeen: false,
   plans: [],

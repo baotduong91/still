@@ -15,17 +15,22 @@
     "samples": "node --import tsx scripts/samples.ts",
     "bible:import": "node --import tsx scripts/import-bible.ts",
     "db:migrate": "prisma migrate deploy",
-    "format": "prettier --write app components lib prisma scripts tests *.ts *.json *.mjs"
+    "format": "prettier --write app components lib prisma scripts tests *.ts *.json *.mjs",
+    "prebuild": "node scripts/prepare-tts.mjs",
+    "predev": "node scripts/prepare-tts.mjs"
   },
   "dependencies": {
+    "@huggingface/transformers": "3.8.1",
     "@prisma/client": "6.19.3",
     "@radix-ui/react-slot": "^1.2.0",
     "ai": "7.0.166",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "idb": "^8.0.3",
+    "kokoro-js": "1.2.1",
     "lucide-react": "^0.468.0",
     "next": "16.4.6",
+    "node-edge-tts": "1.2.12",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tailwind-merge": "^3.0.0",
@@ -47,7 +52,10 @@
     "vitest": "5.1.0"
   },
   "overrides": {
-    "deepmerge-ts": "^8.0.0"
+    "deepmerge-ts": "^8.0.0",
+    "@huggingface/transformers": {
+      "sharp": "^0.35.0"
+    }
   },
   "type": "module"
 }
