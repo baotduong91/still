@@ -1,7 +1,11 @@
 "use client";
+import { PinSettings } from "./privacy";
 import { PrayerWriter } from "./devotional/prayer-writer";
 import { Participation } from "./devotional/participation";
 import { usePassage } from "./scripture/use-passage";
+import { selectedProvider } from "@/lib/client/modes";
+import { buildGuidedPlan } from "@/lib/ai/guided";
+import { ModeSettings } from "./mode-settings";
 import { useEffect, useState } from "react";
 import Link from "@/components/smart-link";
 import { useRouter } from "next/navigation";
@@ -70,9 +74,9 @@ function Create() {
         prompt,
         days,
         translation: state.translation,
-        provider: state.provider,
+        provider: selectedProvider(state),
       };
-      if (online) {
+      if (online || input.provider === "ollama") {
         try {
           const { plan } = await api<{ plan: PlanType }>(
             "plans/generate",
@@ -81,14 +85,14 @@ function Create() {
           await savePlan(plan, true);
         } catch (error) {
           if (state.provider !== "curated" || !recoverable(error)) throw error;
-          await savePlan(buildPlan(input, bible));
+          await savePlan(buildGuidedPlan(input, bible));
         }
       } else {
         if (state.provider !== "curated")
           throw new Error(
             "Models need a connection. Select the local curated guide in Settings.",
           );
-        await savePlan(buildPlan(input, bible));
+        await savePlan(buildGuidedPlan(input, bible));
       }
       router.push("/today");
     } catch (e) {
@@ -119,6 +123,17 @@ function Create() {
         <p className="field-hint">
           Share only what you’re comfortable saving on this device.
         </p>
+        <p className="field-hint">
+          Guided mode accepts a theme such as anxiety or a reference such as
+          John 3:16. No model needed.
+        </p>
+        <button
+          type="button"
+          className="text-link"
+          onClick={() => setPrompt("Study John 3:16")}
+        >
+          Study a specific passage · John 3:16
+        </button>
         <div className="topic-chips">
           {Object.keys(themes).map((topic) => (
             <button
@@ -545,7 +560,7 @@ function Scripture() {
   );
 }
 function Chat() {
-  const { state, bible, online, setError } = useApp();
+  const { state, update, bible, online, setError } = useApp();
   const [question, setQuestion] = useState(""),
     [messages, setMessages] = useState<
       { question: string; response: ChatType }[]
@@ -559,20 +574,21 @@ function Chat() {
       const input = {
         question,
         translation: state.onlineScripture ? state.translation : "WEB",
-        provider: state.provider,
+        provider: selectedProvider(state),
         history: messages
           .slice(-8)
           .map((m) => ({ question: m.question, answer: m.response.answer })),
       };
-      if (!online && state.provider !== "curated")
+      if (!online && state.provider === "cloud")
         throw new Error(
           "This model requires a connection. Choose the local guide for offline use.",
         );
       let response: ChatType;
       try {
-        response = online
-          ? await api<ChatType>("chat", input)
-          : answerQuestion(input, bible);
+        response =
+          online || input.provider === "ollama"
+            ? await api<ChatType>("chat", input)
+            : answerQuestion(input, bible);
       } catch (error) {
         if (state.provider !== "curated" || !recoverable(error)) throw error;
         response = answerQuestion(input, bible);
@@ -592,6 +608,41 @@ function Chat() {
         title="Let’s open the Word."
         description="Thoughtful questions. Scripture at the center."
       />
+      <section className="notice" aria-label="Active chat mode">
+        <strong>
+          {state.provider === "curated"
+            ? "Guided study · reference and topic answers"
+            : state.provider === "ollama"
+              ? "Local Mac · Ollama · open-ended Bible Q&A"
+              : "Cloud model · open-ended Bible Q&A"}
+        </strong>
+        <p className="field-hint">
+          {state.provider === "curated"
+            ? "Checking a model connection does not select it. Choose Local Mac · Ollama in Settings to use your installed model for open-ended questions."
+            : state.provider === "ollama"
+              ? "Your selected local model answers using separately retrieved and validated Scripture. No cloud fallback."
+              : state.cloudConsent
+                ? "Cloud sharing is enabled for your next question."
+                : "Cloud sharing is not enabled. Enable it explicitly in Settings before sending."}
+        </p>
+        <Link className="text-link" href="/settings">
+          Change answer mode
+        </Link>
+        {state.provider === "curated" && (
+          <Button
+            variant="outline"
+            onClick={async () => {
+              await update((s) => ({
+                ...s,
+                provider: "ollama",
+                cloudConsent: false,
+              }));
+            }}
+          >
+            Use Local Mac · Ollama
+          </Button>
+        )}
+      </section>
       {!messages.length && (
         <div className="chat-welcome">
           <span className="large-leaf">
@@ -608,6 +659,8 @@ function Chat() {
               "What does Scripture say about anxiety?",
               "How can I begin to forgive?",
               "Help me understand Psalms 23:1-6",
+              "prayer",
+              "forgiveness",
             ].map((q) => (
               <button key={q} onClick={() => setQuestion(q)}>
                 {q}
@@ -822,6 +875,11 @@ function Settings() {
         title="A space that feels like you."
         description="Simple preferences. Your reading, your rhythm."
       />
+      <nav className="settings-anchors" aria-label="Settings sections">
+        <a href="#answer-modes">Answer mode</a>
+        <a href="#translation">Bible edition</a>
+        <a href="#privacy">PIN privacy</a>
+      </nav>
       <section className="settings-card">
         <h2>Your Bible</h2>
         <label htmlFor="translation">Preferred translation</label>
@@ -842,7 +900,7 @@ function Settings() {
                 {id} — {name}
                 {id === "WEB"
                   ? " (offline default)"
-                  : id === "NLT"
+                  : ["CSB", "NLT"].includes(id)
                     ? " (optional online)"
                     : ""}
               </option>
@@ -891,36 +949,11 @@ function Settings() {
           <option value="dark">Quiet evening</option>
         </select>
       </section>
-      <section className="settings-card">
-        <h2>Your devotional guide</h2>
-        <label htmlFor="provider">Guide</label>
-        <select
-          id="provider"
-          value={state.provider}
-          onChange={(e) =>
-            update((s) => ({
-              ...s,
-              provider: e.target.value as typeof s.provider,
-            }))
-          }
-        >
-          <option value="curated">Guided study · no key needed</option>
-          <option value="ollama">Local Mac · Ollama</option>
-          <option value="cloud">Optional cloud model</option>
-        </select>
-        <p className="field-hint">
-          The guided study mode matches supported themes to reviewed passages.
-          Ollama and cloud need to be connected by the person running this app.
-          Model output remains interpretation and may need discernment.
-        </p>
-        {state.provider === "cloud" && (
-          <p className="notice">
-            Cloud selected: goals, feedback included in prompts, selected
-            Scripture, and recent chat messages may be sent through AI Gateway
-            to your configured provider. Keys remain on the server.
-          </p>
-        )}
-      </section>
+      <div id="answer-modes">
+        <ModeSettings />
+      </div>
+      <PinSettings />
+
       <section className="settings-card">
         <h2>Take a little stillness with you.</h2>
         <p>

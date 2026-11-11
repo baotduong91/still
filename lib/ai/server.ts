@@ -1,3 +1,4 @@
+import { buildGuidedPlan } from "./guided";
 import { resolvePassage } from "@/lib/bible/api-bible";
 import { z } from "zod";
 import { AppError } from "@/lib/awp/errors";
@@ -12,7 +13,7 @@ const system =
 export async function generatePlan(raw: unknown) {
   const input = GenerateInput.parse(raw);
   const bible = await getBible("WEB");
-  if (input.provider === "curated") return buildPlan(input, bible);
+  if (input.provider === "curated") return buildGuidedPlan(input, bible);
   const provider = await getProvider(input.provider);
   const profileSchema = z.object({
     themes: z
@@ -147,7 +148,7 @@ export async function chat(raw: unknown) {
   if (
     input.provider !== "curated" &&
     !base.citations.length &&
-    /bible|scripture|god|jesus|holy|salvation|resurrection|baptis|faith/i.test(
+    !/smartphone|sports scores|weather forecast|stock price/i.test(
       input.question,
     )
   ) {
@@ -169,6 +170,12 @@ export async function chat(raw: unknown) {
     );
     base = {
       ...base,
+      provider: selector.name,
+      answer: selected.references.length
+        ? base.answer
+        : "Your selected model did not return any Scripture references to validate. Try rephrasing the question or include a passage such as Romans 8:18-25. No generated answer was presented without citations.",
+      interpretation:
+        "Model retrieval limitation; no Scripture quotation or theological claim has been generated.",
       citations: selected.references.map((ref) => {
         const p = bible.lookup(ref, input.translation);
         if (p.verses.length > 40)

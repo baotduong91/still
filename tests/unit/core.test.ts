@@ -168,7 +168,12 @@ describe("Multi-stage personalization", () => {
         "prompt",
       ),
     ).rejects.toMatchObject({ code: "LOCAL_MODEL_UNAVAILABLE" });
-    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(
+      fetcher.mock.calls.every(
+        (call) => new URL(String(call[0])).hostname === "127.0.0.1",
+      ),
+    ).toBe(true);
     expect(String(fetcher.mock.calls[0][0])).toContain("127.0.0.1:11434");
     fetcher.mockRestore();
   });

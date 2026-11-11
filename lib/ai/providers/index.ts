@@ -1,3 +1,4 @@
+import { modeConfiguration } from "../modes";
 import { z } from "zod";
 import { AppError } from "@/lib/awp/errors";
 export interface ModelProvider {
@@ -7,6 +8,14 @@ export interface ModelProvider {
 export async function getProvider(
   kind: "ollama" | "cloud",
 ): Promise<ModelProvider> {
+  const config = modeConfiguration();
+  if (!config[kind].configured)
+    throw new AppError(
+      kind === "ollama" ? "LOCAL_MODEL_UNAVAILABLE" : "PROVIDER_UNAVAILABLE",
+      kind === "ollama"
+        ? "Configure OLLAMA_MODEL on the Mac running Still. Hosted localhost cannot reach your Mac. No cloud request was made."
+        : "Configure AI_GATEWAY_API_KEY and CLOUD_MODEL on the server before selecting cloud.",
+    );
   if (kind === "ollama") return (await import("./ollama")).ollamaProvider;
   return (await import("./cloud")).cloudProvider;
 }

@@ -12,3 +12,5 @@ public/bibles/NIV.json
 public/bibles/ESV.json
 .vercel
 .env*
+
+.next-dev/

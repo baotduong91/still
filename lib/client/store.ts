@@ -1,6 +1,8 @@
 import { openDB } from "idb";
 import type { PlanType, JournalType, TranslationId } from "@/lib/schemas";
 export type SavedState = {
+  pinLock: { salt: string; hash: string; iterations: number } | null;
+  setupSeen: boolean;
   plans: PlanType[];
   activeId: string | null;
   translation: TranslationId;
@@ -9,11 +11,14 @@ export type SavedState = {
   journals: JournalType[];
   highlights: Record<string, string>;
   notes: Record<string, string>;
+  cloudConsent: boolean;
   onlineScripture: boolean;
   remoteIds: string[];
   outbox: { path: string; body: unknown }[];
 };
 export const defaults: SavedState = {
+  pinLock: null,
+  setupSeen: false,
   plans: [],
   activeId: null,
   translation: "WEB",
@@ -22,6 +27,7 @@ export const defaults: SavedState = {
   journals: [],
   highlights: {},
   notes: {},
+  cloudConsent: false,
   onlineScripture: false,
   remoteIds: [],
   outbox: [],

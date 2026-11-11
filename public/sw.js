@@ -1,6 +1,6 @@
 /* Still's offline cache stores public shells and WEB only. Never cache API responses. */
-const CACHE='still-public-v4';
-const PAGES=['/today','/journey','/create','/scripture','/chat','/journal','/settings'];
+const CACHE='still-public-v7';
+const PAGES=['/read','/today','/journey','/create','/scripture','/chat','/journal','/settings'];
 async function prepareOffline(){
  const cache=await caches.open(CACHE);
  await cache.addAll(['/offline.html','/manifest.webmanifest','/icons/icon-192.png','/icons/icon-512.png','/bibles/WEB.json','/bibles/catalog.json']);

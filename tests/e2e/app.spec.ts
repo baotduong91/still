@@ -1,4 +1,15 @@
 import { test, expect } from "@playwright/test";
+test("first-run Today renders and stays dismissed after reload", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/today");
+  await expect(page.getByText("A quiet start, your way.", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Continue with guided study" }).click();
+  await expect(page.getByText("A quiet start, your way.", { exact: false })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "A little stillness. A little closer." })).toBeVisible();
+  expect(errors).toEqual([]);
+});
 test("today opens at Day 1 and completes the guided sequence", async ({
   page,
 }) => {
@@ -270,4 +281,160 @@ test("personal prayers persist in the journal and WEB is the new default", async
     page.getByText("Personal prayer", { exact: false }),
   ).toBeVisible();
   await expect(page.getByLabel("Your participation")).toBeVisible();
+});
+
+test("cloud requires explicit sharing and sends only to the selected mode", async ({
+  page,
+}) => {
+  await page.route("**/api/modes", (r) =>
+    r.fulfill({
+      json: {
+        modes: {
+          guided: { configured: true },
+          ollama: { configured: true, hostedLoopback: false },
+          cloud: { configured: true },
+        },
+        ollamaReachable: null,
+      },
+    }),
+  );
+  const calls: string[] = [];
+  await page.route("**/api/awp/chat", (r) => {
+    calls.push(r.request().postDataJSON().provider);
+    return r.fulfill({
+      json: {
+        answer: "An interpretation from the chosen fixture provider.",
+        citations: [],
+        context: "Test mode routing.",
+        interpretation: "This is interpretation, not a Scripture quotation.",
+        provider: r.request().postDataJSON().provider,
+        limited: true,
+      },
+    });
+  });
+  await page.goto("/settings");
+  await page.getByLabel("Guide", { exact: true }).selectOption("cloud");
+  await page.goto("/chat");
+  await page.getByLabel("Your Bible question").fill("Why is there suffering?");
+  await page.getByRole("button", { name: "Send question" }).click();
+  await expect(page.locator(".error-banner")).toContainText(
+    "Enable cloud sharing",
+  );
+  expect(calls).toEqual([]);
+  await page.goto("/settings");
+  await page.getByRole("checkbox", { name: /I choose to send/ }).check();
+  await page.goto("/chat");
+  await page.getByLabel("Your Bible question").fill("Why is there suffering?");
+  await page.getByRole("button", { name: "Send question" }).click();
+  await expect.poll(() => calls).toEqual(["cloud"]);
+  await page.goto("/settings");
+  await page.getByLabel("Guide", { exact: true }).selectOption("ollama");
+  await page.goto("/chat");
+  await page
+    .getByLabel("Your Bible question")
+    .fill("Help me understand patience");
+  await page.getByRole("button", { name: "Send question" }).click();
+  await expect.poll(() => calls).toEqual(["cloud", "ollama"]);
+});
+
+test("reference-driven guided journeys start offline without a model", async ({
+  page,
+  context,
+}) => {
+  await page.goto("/settings");
+  await page.getByRole("button", { name: "Download for offline" }).click();
+  await expect(page.getByRole("status")).toContainText("Ready offline");
+  await page.reload();
+  await context.setOffline(true);
+  await page.goto("/create");
+  await page.getByLabel("I’d like to explore…").fill("Study John 3:16");
+  await page.getByRole("button", { name: "Begin my journey" }).click();
+  await expect(
+    page.getByRole("heading", { name: "1. Read slowly" }),
+  ).toBeVisible();
+  await expect(page.locator("blockquote")).toContainText(
+    "For God so loved the world",
+  );
+});
+
+test("phone Practice saves typed words with the day and survives completion", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/today");
+  await page.getByRole("tab", { name: "04 Practice" }).click();
+  await page
+    .getByLabel("My response for today")
+    .fill("I will tend one responsibility and release tomorrow's worry.");
+  await page.getByRole("button", { name: "Save my response" }).click();
+  await expect(page.getByRole("status")).toContainText("saved with Day 1");
+  await page.reload();
+  await page.getByRole("tab", { name: "04 Practice" }).click();
+  await expect(page.getByLabel("My response for today")).toHaveValue(
+    "I will tend one responsibility and release tomorrow's worry.",
+  );
+  await page
+    .getByLabel("My response for today")
+    .fill("An edited response saved on completion.");
+  await page
+    .getByRole("button", { name: "Complete today", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Day complete" }),
+  ).toBeDisabled();
+  await page.reload();
+  await page.getByRole("button", { name: "Open day 1", exact: true }).click();
+  await page.getByRole("tab", { name: "04 Practice" }).click();
+  await expect(page.getByLabel("My response for today")).toHaveValue(
+    "An edited response saved on completion.",
+  );
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
+test("PIN gates personal screens after reload and permits public WEB reading", async ({
+  page,
+}) => {
+  await page.goto("/journal");
+  await page
+    .getByLabel("Today, I’m noticing…")
+    .fill("Private words behind my PIN.");
+  await page.getByRole("button", { name: "Save this moment" }).click();
+  await page.goto("/settings#privacy");
+  await page.locator("#new-pin").fill("284691");
+  await page.locator("#confirm-pin").fill("284691");
+  await page.getByRole("button", { name: "Enable PIN screen lock" }).click();
+  await expect(page.getByRole("status")).toContainText("ready on this device");
+  await page.getByRole("link", { name: "Journal", exact: true }).click();
+  await expect(
+    page.getByText("Private words behind my PIN.", { exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "A little privacy." }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Private words behind my PIN.", { exact: true }),
+  ).toHaveCount(0);
+  await page.getByLabel("Your PIN", { exact: true }).fill("111111");
+  await page.getByRole("button", { name: "Open my space" }).click();
+  await expect(page.locator(".lock-screen")).toContainText("didn’t match");
+  await page
+    .getByRole("link", { name: "Read the public WEB Bible while locked" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Room for the Word." }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Private words behind my PIN.", { exact: true }),
+  ).toHaveCount(0);
+  await page.goto("/journal");
+  await page.getByLabel("Your PIN", { exact: true }).fill("284691");
+  await page.getByRole("button", { name: "Open my space" }).click();
+  await expect(
+    page.getByText("Private words behind my PIN.", { exact: true }),
+  ).toBeVisible();
 });

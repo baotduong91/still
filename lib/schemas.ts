@@ -36,6 +36,7 @@ export const Day = z.object({
   interpretation: z.string(),
   completedAt: z.string().nullable(),
   completedDate: z.string().nullable(),
+  practiceResponse: z.string().max(10000).optional(),
 });
 export const Profile = z.object({
   prompt: z.string(),

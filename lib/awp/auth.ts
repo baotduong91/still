@@ -25,6 +25,41 @@ function equal(a: string, b: string) {
     y = Buffer.from(b);
   return x.length === y.length && timingSafeEqual(x, y);
 }
+function loopback(url: URL) {
+  return ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+}
+export function validateBrowserOrigin(request: Request) {
+  const url = new URL(request.url);
+  const incoming = new URL(
+    `${url.protocol}//${request.headers.get("host") ?? url.host}`,
+  );
+  const configured = new URL(process.env.SITE_URL ?? incoming.origin);
+  const origin = request.headers.get("origin");
+  const local = !process.env.VERCEL && loopback(incoming);
+  if (request.headers.get("sec-fetch-site") === "cross-site")
+    throw new AppError("FORBIDDEN", "Cross-site requests are not permitted.");
+  if (origin) {
+    let browser: URL;
+    try {
+      browser = new URL(origin);
+    } catch {
+      throw new AppError("FORBIDDEN", "Invalid browser origin.");
+    }
+    // Only a local server accepts localhost/127.0.0.1 aliases and its actual listening port.
+    // Hosted deployments continue to require the configured public origin exactly.
+    const localMatch =
+      local &&
+      loopback(browser) &&
+      browser.protocol === incoming.protocol &&
+      browser.port === incoming.port;
+    if (browser.origin !== configured.origin && !localMatch)
+      throw new AppError(
+        "FORBIDDEN",
+        `Cross-origin requests are not permitted. Open Still at ${local ? incoming.origin : configured.origin}.`,
+      );
+  }
+  return local ? incoming.origin : configured.origin;
+}
 export async function identify(request: Request) {
   const auth = request.headers.get("authorization");
   if (auth) {
@@ -35,14 +70,7 @@ export async function identify(request: Request) {
       throw new AppError("AUTH_EXPIRED", "Invalid bearer credential.");
     return { owner: "agent-owner", cookie: null };
   }
-  const origin = request.headers.get("origin");
-  const expected =
-    process.env.SITE_URL ??
-    `${new URL(request.url).protocol}//${request.headers.get("host") ?? new URL(request.url).host}`;
-  if (origin && origin !== expected)
-    throw new AppError("FORBIDDEN", "Cross-origin requests are not permitted.");
-  if (request.headers.get("sec-fetch-site") === "cross-site")
-    throw new AppError("FORBIDDEN", "Cross-site requests are not permitted.");
+  const expected = validateBrowserOrigin(request);
   const key = await secret();
   const raw = request.headers
     .get("cookie")

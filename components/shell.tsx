@@ -1,4 +1,5 @@
 "use client";
+import { useEffect } from "react";
 import Link from "@/components/smart-link";
 import { usePathname } from "next/navigation";
 import {
@@ -13,6 +14,8 @@ import {
   X,
   Plus,
 } from "lucide-react";
+import { usePrivacy } from "./privacy";
+import { Button } from "./ui/button";
 import { useApp } from "./provider";
 const links = [
   { href: "/today", label: "Today", Icon: Sun },
@@ -23,7 +26,31 @@ const links = [
 ];
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
-  const { online, error, setError } = useApp();
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const sync = () => {
+      const offset = Math.max(
+        0,
+        window.innerHeight - viewport.height - viewport.offsetTop,
+      );
+      document.documentElement.dataset.keyboard =
+        offset > 100 ? "open" : "closed";
+      document.documentElement.style.setProperty(
+        "--keyboard-offset",
+        `${offset}px`,
+      );
+    };
+    sync();
+    viewport.addEventListener("resize", sync);
+    viewport.addEventListener("scroll", sync);
+    return () => {
+      viewport.removeEventListener("resize", sync);
+      viewport.removeEventListener("scroll", sync);
+    };
+  }, []);
+  const { online, error, setError, state } = useApp();
+  const { locked, lock } = usePrivacy();
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main">
@@ -87,6 +114,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
               </>
             )}
           </span>
+          {state.pinLock && !locked && (
+            <Button variant="ghost" size="sm" onClick={lock}>
+              Lock
+            </Button>
+          )}
           <Link
             href="/settings"
             className="mobile-settings"
@@ -95,7 +127,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Settings size={20} />
           </Link>
         </header>
-        {error && (
+        {error && !locked && (
           <div className="error-banner" role="alert">
             {error}
             <button onClick={() => setError("")} aria-label="Dismiss message">

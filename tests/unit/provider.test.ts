@@ -121,3 +121,33 @@ it("rejects fictional outline passages before devotional generation", async () =
   ).rejects.toMatchObject({ code: "SCRIPTURE_NOT_FOUND" });
   expect(generate).toHaveBeenCalledTimes(2);
 });
+
+it("routes open-ended questions without theme keywords through local Scripture selection", async () => {
+  generate
+    .mockResolvedValueOnce({ references: ["Job 1:20-22"] })
+    .mockResolvedValueOnce({
+      answer:
+        "The selected passage shows a grieving response and worship amid loss. It does not offer a complete explanation for every experience of suffering.",
+      interpretation:
+        "This is an interpretation of the retrieved passage, with room for different readings.",
+    });
+  const result = await chat({
+    question: "Why is there suffering?",
+    provider: "ollama",
+  });
+  expect(generate).toHaveBeenCalledTimes(2);
+  expect(result.citations[0].reference).toBe("Job 1:20-22");
+  expect(result.provider).toBe("mock-model");
+});
+
+it("identifies an empty local-model retrieval as a model limitation, not guided mode", async () => {
+  generate.mockResolvedValueOnce({ references: [] });
+  const result = await chat({
+    question: "Why is there suffering?",
+    provider: "ollama",
+  });
+  expect(result.provider).toBe("mock-model");
+  expect(result.answer).toContain("selected model");
+  expect(result.answer).not.toContain("reviewed Scripture context");
+  expect(result.citations).toHaveLength(0);
+});

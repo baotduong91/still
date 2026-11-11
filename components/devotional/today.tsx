@@ -1,4 +1,6 @@
 "use client";
+import { FirstRun } from "@/components/first-run";
+import { PracticeWriter } from "./practice-writer";
 import { PrayerWriter } from "./prayer-writer";
 import { Participation } from "./participation";
 import { useState } from "react";
@@ -131,6 +133,7 @@ export function Today() {
   }
   return (
     <div className="today-page">
+      <FirstRun />
       <div className="page-heading">
         <div>
           <p className="eyebrow date-line">
@@ -261,6 +264,12 @@ export function Today() {
                 <p className="eyebrow">ONE SMALL, FAITHFUL STEP</p>
                 <h3>Carry it into your day.</h3>
                 <p>{day.action}</p>
+                <PracticeWriter
+                  key={`${plan.id}:${day.number}`}
+                  plan={plan}
+                  day={day}
+                  onComplete={complete}
+                />
                 {day.completedAt && (
                   <div className="completion-note">
                     <Check size={20} />
@@ -275,12 +284,21 @@ export function Today() {
                 PACE
               </span>
               {step < 3 ? (
-                <Button onClick={() => setStep(step + 1)}>
+                <Button
+                  key="continue-step"
+                  type="button"
+                  onClick={() => setStep(step + 1)}
+                >
                   Continue to {labels[step + 1].toLowerCase()}{" "}
                   <ArrowRight size={16} />
                 </Button>
               ) : (
-                <Button onClick={complete} disabled={busy || !!day.completedAt}>
+                <Button
+                  key="complete-day"
+                  type="submit"
+                  form="practice-response-form"
+                  disabled={busy || !!day.completedAt}
+                >
                   {day.completedAt ? (
                     <>
                       <Check size={16} />

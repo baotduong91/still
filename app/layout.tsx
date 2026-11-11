@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { PrivacyProvider, PrivacyBoundary } from "@/components/privacy";
 import { Provider } from "@/components/provider";
 import { Shell } from "@/components/shell";
 import "./globals.css";
@@ -24,7 +25,11 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body>
         <Provider>
-          <Shell>{children}</Shell>
+          <PrivacyProvider>
+            <Shell>
+              <PrivacyBoundary>{children}</PrivacyBoundary>
+            </Shell>
+          </PrivacyProvider>
         </Provider>
       </body>
     </html>

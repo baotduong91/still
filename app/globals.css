@@ -497,9 +497,7 @@ main {
   line-height: 1.4;
   min-height: 42px;
   border: 1px solid transparent;
-  transition:
-    background 0.15s,
-    transform 0.15s;
+  transition: transform 0.15s;
   white-space: nowrap;
 }
 .button:hover:not(:disabled) {
@@ -1718,3 +1716,10 @@ textarea::placeholder {
   color: var(--muted);
   opacity: 1;
 }
+
+/* Personal writing, privacy, and phone ergonomics. */
+.practice-form{margin-top:24px;padding:20px;background:var(--sage-light);border:1px solid var(--line);border-radius:10px}.practice-form textarea{font-size:16px}.practice-form [role=status]{font-size:12px;color:var(--sage);margin:12px 0 0}.settings-anchors{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 24px}.settings-anchors a{padding:11px 15px;min-height:44px;border:1px solid var(--line);border-radius:24px;background:var(--paper);font-size:12px}.lock-screen{max-width:480px;margin:6vh auto;padding:28px;text-align:center;background:var(--paper);border:1px solid var(--line);border-radius:14px}.lock-screen h1{font-size:38px}.lock-screen>p{color:var(--muted)}.lock-screen form{display:grid;gap:14px;margin:28px 0;text-align:left}.lock-screen input{font-size:22px;letter-spacing:8px;min-width:0;width:100%}.settings-card input[type=password]{display:block;width:100%;font-size:18px;margin-bottom:18px}.settings-card form>.button{margin-bottom:15px}.first-run{padding:18px 22px;border:1px solid var(--line);border-radius:10px;background:var(--sage-light);margin-bottom:25px;display:flex;gap:20px;align-items:center}.first-run strong{font-family:Georgia,serif;font-size:20px;font-weight:400}.first-run p{font-size:12px;line-height:1.7;color:var(--muted);margin:6px 0 0}.first-run .toolbar{flex-shrink:0;max-width:245px}.public-verse{font-family:Georgia,serif;font-size:22px;line-height:1.85}.public-verse sup{font:11px Arial,sans-serif;color:var(--muted)}:target{scroll-margin-top:22px}
+@media(max-width:720px){.first-run{display:block;padding:18px}.first-run .toolbar{max-width:none;margin-top:14px}.first-run .button{white-space:normal}.sequence button{min-height:48px}.sequence button>span{font-size:10px;width:19px;height:19px}.sequence button{font-size:11px}.day-dots button{width:44px;height:44px;font-size:12px}.day-dots{gap:5px}.daily-bottom{position:relative}.daily-bottom>.button{min-height:48px;width:100%;font-size:14px}.today-aside{grid-template-columns:1fr}.intention-card{display:none}.chat-compose{bottom:calc(80px + env(safe-area-inset-bottom));z-index:20}.chat-compose textarea{font-size:16px;max-height:160px}.chat-compose .button{min-width:44px;min-height:44px}.button{min-height:44px}.verse-number{min-width:32px;min-height:44px}.topic-chips button{min-height:44px}.form-card{padding:20px}.form-card textarea,input,select,textarea{font-size:16px}.form-row{grid-template-columns:1fr;gap:18px}.form-card>button[type=submit]{width:100%;position:sticky;bottom:calc(84px + env(safe-area-inset-bottom));z-index:15;box-shadow:0 0 0 8px var(--paper);white-space:normal}.lock-screen{margin:20px auto;padding:23px}.practice-form{padding:16px}.settings-anchors{position:relative}.settings-anchors a{flex:1;text-align:center}.nav-link{min-height:48px}.mobile-settings{padding:10px;margin-right:-10px}}
+
+.button{transition:transform .15s}
+@media(max-width:720px){.mobile-settings{padding:12px}html[data-keyboard="open"] .sidebar{display:none}html[data-keyboard="open"] .chat-compose{position:fixed;left:20px;right:20px;bottom:calc(var(--keyboard-offset,0px) + 12px);z-index:50}}

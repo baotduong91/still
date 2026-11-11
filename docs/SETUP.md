@@ -1,5 +1,7 @@
 # Still: setup and operations
 
+For the complete offline / Mac Ollama / hosted cloud / online CSB mode table and explicit opt-in steps, see [MODES.md](MODES.md).
+
 ## Start locally
 
 Requires Node.js 22.12+ (Node 24 recommended) and npm. No account, model server, or database is required for personal use.

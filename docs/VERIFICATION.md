@@ -55,3 +55,15 @@ DATABASE_URL='postgresql://USER:PASSWORD@127.0.0.1:5432/TEST_DB' \
 ```
 
 The script inserts only records owned by a randomly generated verification principal, checks them, then removes those records. It does not drop tables or erase existing application records.
+
+
+## Answer-mode update
+
+The richer-answer mode update passed strict TypeScript, the production build, 58 unit/contract tests, and 15 browser scenarios (the existing suite plus focused consent/routing and offline-reference checks). New coverage verifies guided reference journeys, no network calls in guided mode, explicit cloud consent before sending, local/cloud route selection, secret-free configuration status, an explicit Ollama model-list probe, unavailable-provider errors, and open-ended citation retrieval without a theme-keyword requirement. Live model quality and API.Bible entitlement still require operator-provided services/credentials.
+
+
+## Mobile Practice and optional PIN screen lock
+
+The latest local verification passed strict TypeScript, the production build, 71 unit/contract tests, and all 17 Chrome browser scenarios. New scenarios exercise a 390px Practice response, edited text saved during completion, reload persistence, PIN setup, personal-screen gating after reload, wrong-PIN rejection, successful unlock, and public WEB reading without revealing journal text. Automated light/dark accessibility checks passed. Existing AWP contract, offline, citation, mode-routing, and prayer scenarios remain passing.
+
+The PIN is explicitly a browser display gate, not encryption or API/server authentication. Its documented limits are part of the delivered feature. Physical iOS keyboard behavior and biometric authentication were not tested; viewport-aware chat positioning and larger mobile controls are implemented. Live model/translation quality still depends on configured services and credentials.

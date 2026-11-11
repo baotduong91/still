@@ -35,7 +35,7 @@ export function answerQuestion(raw: unknown, bible: Bible): ChatType {
   if (!theme.score)
     return {
       answer:
-        "I do not have enough reviewed Scripture context to answer that question responsibly. Try a specific reference, or ask about anxiety, grief, forgiveness, prayer, patience, decisions, healing, or gratitude.",
+        "Guided study has no reviewed passage match for this question. For an open-ended answer, choose Local Mac · Ollama or an explicitly enabled cloud model in Settings. You can also enter a specific reference or a guided topic such as grief, prayer, or anxiety.",
       citations: [],
       context:
         "No matching passage was selected; no biblical claim is being made.",

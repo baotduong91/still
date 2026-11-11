@@ -123,14 +123,36 @@ export function Provider({ children }: { children: React.ReactNode }) {
     sync();
     window.addEventListener("online", sync);
     window.addEventListener("offline", sync);
-    if ("serviceWorker" in navigator)
-      navigator.serviceWorker
-        .register("/sw.js")
-        .catch(() =>
-          setError(
-            "Offline installation failed. Reading remains available while connected.",
-          ),
-        );
+    if ("serviceWorker" in navigator) {
+      if (process.env.NODE_ENV === "development") {
+        // Next development chunks have mutable URLs; a production PWA worker can
+        // otherwise replay stale JavaScript and cause spurious ReferenceErrors.
+        void navigator.serviceWorker
+          .getRegistration("/")
+          .then(async (registration) => {
+            if (!registration?.active?.scriptURL.endsWith("/sw.js")) return;
+            const controlled = !!navigator.serviceWorker.controller;
+            if (
+              (await registration.unregister()) &&
+              controlled &&
+              !sessionStorage.getItem("still-dev-worker-cleared")
+            ) {
+              sessionStorage.setItem("still-dev-worker-cleared", "1");
+              window.location.reload();
+            }
+          })
+          .catch(() =>
+            setError("Could not clear the old offline worker for development."),
+          );
+      } else
+        navigator.serviceWorker
+          .register("/sw.js")
+          .catch(() =>
+            setError(
+              "Offline installation failed. Reading remains available while connected.",
+            ),
+          );
+    }
     return () => {
       window.removeEventListener("online", sync);
       window.removeEventListener("offline", sync);
@@ -219,12 +241,27 @@ export function Provider({ children }: { children: React.ReactNode }) {
     };
   }, [online, ready, state.outbox, update]);
   const savePlan = (plan: PlanType, remote = false) =>
-    update((s) => ({
-      ...s,
-      plans: [plan, ...s.plans.filter((p) => p.id !== plan.id)],
-      activeId: plan.id,
-      remoteIds: remote ? [...new Set([...s.remoteIds, plan.id])] : s.remoteIds,
-    }));
+    update((s) => {
+      const old = s.plans.find((p) => p.id === plan.id);
+      const merged = {
+        ...plan,
+        days: plan.days.map((d) => ({
+          ...d,
+          ...(d.practiceResponse === undefined &&
+          old?.days[d.number - 1]?.practiceResponse !== undefined
+            ? { practiceResponse: old.days[d.number - 1].practiceResponse }
+            : {}),
+        })),
+      };
+      return {
+        ...s,
+        plans: [merged, ...s.plans.filter((p) => p.id !== plan.id)],
+        activeId: plan.id,
+        remoteIds: remote
+          ? [...new Set([...s.remoteIds, plan.id])]
+          : s.remoteIds,
+      };
+    });
   return (
     <Context.Provider
       value={{
