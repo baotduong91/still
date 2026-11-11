@@ -13,6 +13,9 @@ export const Passage = z.object({
   translation: Translation,
   fallback: z.boolean(),
   notice: z.string(),
+  attribution: z.string().optional(),
+  source: z.enum(["local", "api.bible"]).optional(),
+  fumsTokens: z.array(z.string()).optional(),
   verses: z.array(Verse).min(1),
   text: z.string(),
 });
@@ -57,20 +60,20 @@ export const GenerateInput = z
   .object({
     prompt: z.string().trim().min(3).max(1200),
     days: z.number().int().min(3).max(14).default(7),
-    translation: Translation.default("CSB"),
+    translation: Translation.default("WEB"),
     provider: z.enum(["curated", "ollama", "cloud"]).default("curated"),
   })
   .strict();
 export const LookupInput = z
   .object({
     reference: z.string().trim().min(3).max(100),
-    translation: Translation.default("CSB"),
+    translation: Translation.default("WEB"),
   })
   .strict();
 export const SearchInput = z
   .object({
     query: z.string().trim().min(2).max(160),
-    translation: Translation.default("CSB"),
+    translation: Translation.default("WEB"),
     offset: z.coerce.number().int().min(0).default(0),
     limit: z.coerce.number().int().min(1).max(50).default(20),
   })
@@ -109,7 +112,7 @@ export const Journal = JournalInput.extend({ createdAt: z.string() });
 export const ChatInput = z
   .object({
     question: z.string().trim().min(3).max(1200),
-    translation: Translation.default("CSB"),
+    translation: Translation.default("WEB"),
     provider: z.enum(["curated", "ollama", "cloud"]).default("curated"),
     history: z
       .array(

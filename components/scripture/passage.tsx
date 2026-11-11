@@ -1,4 +1,5 @@
 "use client";
+import { usePassage } from "./use-passage";
 import { Volume2, Square, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { PassageType } from "@/lib/schemas";
@@ -55,12 +56,13 @@ export function exportVerse(p: PassageType) {
   });
 }
 export function PassageCard({
-  passage,
+  passage: localPassage,
   compact = false,
 }: {
   passage: PassageType;
   compact?: boolean;
 }) {
+  const passage = usePassage(localPassage);
   const [speaking, setSpeaking] = useState(false);
   const [audio, setAudio] = useState(false);
   useEffect(() => {
@@ -99,6 +101,9 @@ export function PassageCard({
       {passage.fallback && (
         <p className="translation-notice">{passage.notice}</p>
       )}
+      {passage.attribution && (
+        <p className="translation-notice">{passage.attribution}</p>
+      )}
       <div className="passage-actions">
         {audio && (
           <Button variant="ghost" size="sm" onClick={speak}>
@@ -106,7 +111,12 @@ export function PassageCard({
             {speaking ? "Stop" : "Listen"}
           </Button>
         )}
-        <Button variant="ghost" size="sm" onClick={() => exportVerse(passage)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={passage.source === "api.bible"}
+          onClick={() => exportVerse(passage)}
+        >
           <Share2 size={15} /> Verse artwork
         </Button>
         <span className="exact-label">EXACT SCRIPTURE TEXT</span>

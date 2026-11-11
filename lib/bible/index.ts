@@ -44,7 +44,7 @@ export class Bible {
     }))
       this.aliases.set(alias, book);
   }
-  lookup(input: string, requested: TranslationId = "CSB"): PassageType {
+  lookup(input: string, requested: TranslationId = "WEB"): PassageType {
     const match = input
       .trim()
       .replace(/[–—]/g, "-")

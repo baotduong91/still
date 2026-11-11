@@ -9,18 +9,20 @@ export type SavedState = {
   journals: JournalType[];
   highlights: Record<string, string>;
   notes: Record<string, string>;
+  onlineScripture: boolean;
   remoteIds: string[];
   outbox: { path: string; body: unknown }[];
 };
 export const defaults: SavedState = {
   plans: [],
   activeId: null,
-  translation: "CSB",
+  translation: "WEB",
   theme: "system",
   provider: "curated",
   journals: [],
   highlights: {},
   notes: {},
+  onlineScripture: false,
   remoteIds: [],
   outbox: [],
 };

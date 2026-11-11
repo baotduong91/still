@@ -70,7 +70,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Settings size={18} />
             Settings
           </Link>
-          <p className="privacy-note">YOUR SPACE. NO ADS. NO TRACKING.</p>
+          <p className="privacy-note">YOUR SPACE. PRIVATE BY DEFAULT.</p>
         </div>
       </aside>
       <div className="main-shell">

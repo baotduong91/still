@@ -1,3 +1,4 @@
+import { resolvePassage } from "@/lib/bible/api-bible";
 import { ZodError } from "zod";
 import * as S from "@/lib/schemas";
 import { actions, type ActionId } from "./actions";
@@ -27,10 +28,7 @@ export async function execute(
         : (plan.days.find((d) => !d.completedAt) ?? plan.days.at(-1));
       if (!day) throw new AppError("NOT_FOUND", "Day not found.");
       const translation = input.translation ?? plan.translation;
-      const passage = (await getBible(translation)).lookup(
-        day.passage.reference,
-        translation,
-      );
+      const passage = await resolvePassage(day.passage.reference, translation);
       return {
         day: { ...day, passage },
         planId: plan.id,
@@ -67,30 +65,35 @@ export async function execute(
     case "lookup_scripture": {
       const input = S.LookupInput.parse(raw);
       return {
-        passage: (await getBible(input.translation)).lookup(
-          input.reference,
-          input.translation,
-        ),
+        passage: await resolvePassage(input.reference, input.translation),
       };
     }
     case "search_scripture": {
       const input = S.SearchInput.parse(raw);
       const bible = await getBible(input.translation);
       const theme = themes[input.query.toLowerCase()];
-      if (theme)
-        return {
-          results: theme.lessons
-            .slice(input.offset, input.offset + input.limit)
-            .map((l) => bible.lookup(l.reference, input.translation)),
-          total: theme.lessons.length,
-          offset: input.offset,
-        };
-      return bible.search(
-        input.query,
-        input.translation,
-        input.offset,
-        input.limit,
-      );
+      const found = theme
+        ? {
+            results: theme.lessons
+              .slice(input.offset, input.offset + input.limit)
+              .map((l) => bible.lookup(l.reference, input.translation)),
+            total: theme.lessons.length,
+            offset: input.offset,
+          }
+        : bible.search(
+            input.query,
+            input.translation,
+            input.offset,
+            input.limit,
+          );
+      return {
+        ...found,
+        results: await Promise.all(
+          found.results.map((p) =>
+            resolvePassage(p.reference, input.translation),
+          ),
+        ),
+      };
     }
     case "bible_chat":
       return chat(raw);
@@ -109,7 +112,7 @@ export async function execute(
     case "list_journal":
       return { entries: await repo.listJournal(owner) };
     case "get_translations":
-      return { translations: await translations(), default: "CSB" };
+      return { translations: await translations(), default: "WEB" };
   }
 }
 export async function handle(request: Request, path: string) {

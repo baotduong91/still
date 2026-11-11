@@ -50,9 +50,10 @@ The schema contains Plan, Journal, Scripture, and RateLimit. PostgreSQL uses own
 
 Use PostgreSQL rather than local files for multiple workers. Configure a stable SESSION_SECRET across instances. Supply a persistent DATA_DIR or SESSION_SECRET so a redeploy does not invalidate browser sessions. Set SITE_URL to the exact externally visible origin behind a reverse proxy.
 
-## Translation licensing: CSB preference, honest fallback
+## Translation licensing: WEB default, optional online editions
 
-CSB is the default *requested* translation. NLT is the primary alternative; NIV, ESV, and WEB are selectable. Only WEB ships. Do not relabel WEB as CSB. Every passage includes requestedTranslation, actual translation, fallback, notice, exact verses, and assembled text. Changing Settings applies the selected translation to reading, Today, chat, and new generation. Existing plan snapshots retain their original exact text; Today re-retrieves in the currently selected translation.
+WEB is the default and offline validation corpus. Optional CSB/NLT online access and its licensing/caching boundaries are documented in [API-BIBLE.md](API-BIBLE.md). Existing explicitly selected preferences are preserved. Saved plans retain WEB; online displays can retrieve the selected edition with attribution.
+
 
 Obtain a licensed, authorized corpus from the rights holder before importing CSB/NLT/NIV/ESV. A general ability to quote brief excerpts is not a license to bundle a whole translation. The loader cannot grant a license or verify your legal entitlement. This implementation serves imported corpus files to its readers; your license must permit local storage, browser/offline delivery, and artwork export for your intended deployment. If your license is API-only or forbids offline redistribution, do not use this file loader for that corpus.
 

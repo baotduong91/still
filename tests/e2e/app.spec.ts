@@ -245,3 +245,29 @@ test("curated chat and journals survive unavailable server storage", async ({
     }),
   ).toBeVisible();
 });
+
+test("personal prayers persist in the journal and WEB is the new default", async ({
+  page,
+}) => {
+  await page.goto("/settings");
+  await expect(page.getByLabel("Preferred translation")).toHaveValue("WEB");
+  await expect(
+    page.getByRole("checkbox", { name: /Enable API.Bible/ }),
+  ).not.toBeChecked();
+  await page.goto("/today");
+  await page.getByRole("tab", { name: "03 Prayer" }).click();
+  await page
+    .getByLabel("God, today I bring…")
+    .fill("Give me patience for this ordinary day.");
+  await page.getByRole("button", { name: "Keep this prayer" }).click();
+  await expect(page.getByRole("status")).toContainText("Saved privately");
+  await page.goto("/journal");
+  await expect(
+    page.getByText("Personal prayer", { exact: false }),
+  ).toContainText("Give me patience for this ordinary day.");
+  await page.reload();
+  await expect(
+    page.getByText("Personal prayer", { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Your participation")).toBeVisible();
+});

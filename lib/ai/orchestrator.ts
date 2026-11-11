@@ -127,9 +127,13 @@ export function validatePlan(plan: PlanType, bible: Bible) {
       );
   return plan;
 }
-export function buildPlan(raw: unknown, bible: Bible): PlanType {
+export function buildPlan(
+  raw: unknown,
+  bible: Bible,
+  profileOverride?: ReturnType<typeof extractGoals>,
+): PlanType {
   const input = GenerateInput.parse(raw);
-  const profile = extractGoals(input.prompt);
+  const profile = profileOverride ?? extractGoals(input.prompt);
   const outline = designObjectives(profile, input.days);
   const days: DayType[] = outline.map((step, i) => {
     const passage = bible.lookup(step.lesson.reference, input.translation);

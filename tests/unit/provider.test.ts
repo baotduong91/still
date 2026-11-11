@@ -17,6 +17,27 @@ describe("Model enhancement boundary", () => {
   it("keeps citations out of model control while validating a full plan", async () => {
     generate.mockImplementation(async (_schema, _system, prompt: string) => {
       const request = JSON.parse(prompt);
+      if (request.stage === "goals")
+        return { themes: ["patience"], pace: "gentle" };
+      if (request.stage === "outline")
+        return {
+          days: Array.from({ length: request.count }, (_, i) => ({
+            number: i + 1,
+            title: `A faithful step ${i + 1}`,
+            objective: `Explore the stated goal through a distinct practice for day ${i + 1}`,
+            reference: [
+              "Psalms 27:13-14",
+              "James 1:19-20",
+              "Psalms 37:7-9",
+              "Galatians 5:22-25",
+              "James 5:7-11",
+              "Romans 12:9-12",
+              "Isaiah 40:28-31",
+            ][i],
+            context: `A careful devotional reading for day ${i + 1}, held within its literary context.`,
+            bridge: `Carry your observation into the next practice after day ${i + 1}.`,
+          })),
+        };
       return {
         days: request.days.map((d: { number: number }) => ({
           number: d.number,
@@ -40,7 +61,7 @@ describe("Model enhancement boundary", () => {
     const bible = await getBible("WEB");
     expect(plan.provider).toBe("mock-model");
     expect(plan.days.every((d) => bible.validate(d.passage))).toBe(true);
-    expect(generate).toHaveBeenCalledOnce();
+    expect(generate).toHaveBeenCalledTimes(3);
   });
   it("rejects model-generated citations before saving", async () => {
     generate.mockResolvedValue({
@@ -61,6 +82,7 @@ describe("Model enhancement boundary", () => {
     const answer = await chat({
       question: "How can I deal with anxiety?",
       provider: "ollama",
+      translation: "CSB",
     });
     expect(answer.citations).toHaveLength(3);
     expect(answer.provider).toBe("mock-model");
@@ -74,4 +96,28 @@ describe("Model enhancement boundary", () => {
     expect(answer.citations).toHaveLength(0);
     expect(generate).not.toHaveBeenCalled();
   });
+});
+
+it("rejects fictional outline passages before devotional generation", async () => {
+  generate
+    .mockResolvedValueOnce({ themes: ["prayer"], pace: "gentle" })
+    .mockResolvedValueOnce({
+      days: Array.from({ length: 3 }, (_, i) => ({
+        number: i + 1,
+        title: `Step of prayer ${i + 1}`,
+        objective: "Attend to the explicitly stated prayer goal with care",
+        reference: "Imaginary 99:1",
+        context:
+          "A devotional interpretation supplied by the model for testing.",
+        bridge: "Carry your observation into tomorrow's practice.",
+      })),
+    });
+  await expect(
+    generatePlan({
+      prompt: "Help me deepen prayer",
+      days: 3,
+      provider: "cloud",
+    }),
+  ).rejects.toMatchObject({ code: "SCRIPTURE_NOT_FOUND" });
+  expect(generate).toHaveBeenCalledTimes(2);
 });

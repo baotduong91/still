@@ -1,4 +1,6 @@
 "use client";
+import { PrayerWriter } from "./prayer-writer";
+import { Participation } from "./participation";
 import { useState } from "react";
 import Link from "@/components/smart-link";
 import {
@@ -156,6 +158,7 @@ export function Today() {
           days of showing up
         </span>
       </div>
+      <Participation />
       <div className="today-columns">
         <section className="daily-card">
           <div className="landscape">
@@ -356,6 +359,7 @@ export function Today() {
           </Link>
         </aside>
       </div>
+      {step === 2 && <PrayerWriter />}
       <section className="reflection-strip">
         <span className="journal-icon">
           <PenLine size={22} />

@@ -113,7 +113,7 @@ export function manifest(origin: string) {
     },
     agent_hints: {
       translation:
-        "Request CSB by default. Check the returned translation; a missing licensed corpus falls back to WEB, never mislabeled.",
+        "Request WEB by default. Check the returned translation; missing online access falls back to WEB, never mislabeled.",
       privacy:
         "Send sensitive prompts to cloud only with the user’s explicit choice. Curated is the default.",
       schema:

@@ -1,11 +1,12 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { apiBibleEnabled } from "./api-bible";
 import { db } from "@/lib/db/client";
 import { Bible, type Corpus, translationNames } from "./index";
 import type { TranslationId } from "@/lib/schemas";
 const cache = new Map<TranslationId, Bible>();
 export async function getBible(
-  translation: TranslationId = "CSB",
+  translation: TranslationId = "WEB",
 ): Promise<Bible> {
   if (cache.has(translation)) return cache.get(translation)!;
   if (process.env.DATABASE_URL) {
@@ -55,13 +56,14 @@ export async function translations() {
     (Object.keys(translationNames) as TranslationId[]).map(async (id) => ({
       id,
       name: translationNames[id],
-      available: (await getBible(id)).corpus.translation === id,
-      preferred: id === "CSB",
+      available:
+        apiBibleEnabled(id) || (await getBible(id)).corpus.translation === id,
+      preferred: id === "WEB",
       primaryAlternative: id === "NLT",
       license:
         id === "WEB"
           ? "Public domain"
-          : "Requires a licensed local import permitting this use",
+          : "Optional API.Bible access for non-commercial use; attribution and usage reporting required",
     })),
   );
 }

@@ -1,4 +1,7 @@
 "use client";
+import { PrayerWriter } from "./devotional/prayer-writer";
+import { Participation } from "./devotional/participation";
+import { usePassage } from "./scripture/use-passage";
 import { useEffect, useState } from "react";
 import Link from "@/components/smart-link";
 import { useRouter } from "next/navigation";
@@ -150,7 +153,7 @@ function Create() {
             <label>Your guide</label>
             <p className="provider-label">
               {state.provider === "curated"
-                ? "Local curated guide"
+                ? "Guided study"
                 : state.provider === "ollama"
                   ? "Your Mac · Ollama"
                   : "Cloud model"}
@@ -294,10 +297,25 @@ function Scripture() {
       setReference(ref);
     }
   }, []);
+  let preview: PassageType;
+  try {
+    preview = bible?.lookup(reference, state.translation) ?? {
+      reference: "John 1",
+      requestedTranslation: state.translation,
+      translation: "WEB" as const,
+      fallback: false,
+      notice: "",
+      verses: [],
+      text: "",
+    };
+  } catch {
+    preview = bible!.lookup("John 1", state.translation);
+  }
+  const displayedPassage = usePassage(preview);
   if (!bible) return <p className="loading">Preparing the Bible…</p>;
   let passage: PassageType;
   try {
-    passage = bible.lookup(reference, state.translation);
+    passage = displayedPassage;
   } catch {
     passage = bible.lookup("John 1", state.translation);
   }
@@ -428,6 +446,9 @@ function Scripture() {
             <h2>
               {book} <em>{chapter}</em>
             </h2>
+            {passage.attribution && (
+              <p className="translation-notice">{passage.attribution}</p>
+            )}
             {passage.fallback && (
               <p className="translation-notice">{passage.notice}</p>
             )}
@@ -537,7 +558,7 @@ function Chat() {
     try {
       const input = {
         question,
-        translation: state.translation,
+        translation: state.onlineScripture ? state.translation : "WEB",
         provider: state.provider,
         history: messages
           .slice(-8)
@@ -603,7 +624,9 @@ function Chat() {
             <article className="answer">
               <div className="eyebrow">
                 <Leaf size={15} /> SCRIPTURE GUIDE ·{" "}
-                {m.response.provider.toUpperCase()}
+                {m.response.provider === "curated"
+                  ? "GUIDED STUDY"
+                  : m.response.provider.toUpperCase()}
               </div>
               <p className="chat-answer">{m.response.answer}</p>
               <p className="fine-print">{m.response.interpretation}</p>
@@ -625,7 +648,7 @@ function Chat() {
               ))}
               {m.response.limited && (
                 <p className="guide-limit">
-                  Local guide: reviewed thematic passages, with a deliberately
+                  Guided study: reviewed thematic passages, with a deliberately
                   limited answer.
                 </p>
               )}
@@ -715,6 +738,8 @@ function Journal() {
           Save this moment <Plus size={16} />
         </Button>
       </form>
+      <Participation />
+      <PrayerWriter />
       <div className="journal-entries">
         {state.journals.map((entry) => (
           <article key={entry.id}>
@@ -810,23 +835,45 @@ function Settings() {
             }))
           }
         >
-          {Object.entries(translationNames).map(([id, name]) => (
-            <option value={id} key={id}>
-              {id} — {name}
-              {id === "CSB"
-                ? " (default)"
-                : id === "NLT"
-                  ? " (primary alternative)"
-                  : ""}
-            </option>
-          ))}
+          {Object.entries(translationNames)
+            .sort(([a], [b]) => (a === "WEB" ? -1 : b === "WEB" ? 1 : 0))
+            .map(([id, name]) => (
+              <option value={id} key={id}>
+                {id} — {name}
+                {id === "WEB"
+                  ? " (offline default)"
+                  : id === "NLT"
+                    ? " (optional online)"
+                    : ""}
+              </option>
+            ))}
         </select>
         <p className="field-hint">
           {available.includes(state.translation)
-            ? `${state.translation} is installed.`
-            : `${state.translation} requires a licensed import. Exact WEB text is shown and labeled until then.`}{" "}
+            ? `${state.translation} is available. Online editions require the opt-in below.`
+            : `${state.translation} online access is not configured. Exact WEB text is shown until access is available.`}{" "}
           WEB includes all 66 books. Licensed translations are never bundled
           without permission.
+        </p>
+      </section>
+      <section className="settings-card">
+        <h2>Optional online Scripture</h2>
+        <label>
+          <input
+            type="checkbox"
+            checked={state.onlineScripture}
+            onChange={(e) =>
+              update((s) => ({ ...s, onlineScripture: e.target.checked }))
+            }
+          />{" "}
+          Enable API.Bible editions and required Scripture-view reporting
+        </label>
+        <p className="field-hint">
+          CSB and NLT require a server-configured API.Bible key and access to
+          that edition. Choosing this sends Bible references and anonymous
+          device/session identifiers to API.Bible for its required usage
+          reporting. Personal prompts and journals are not sent. WEB stays fully
+          local. Saved journeys retain WEB for offline use.
         </p>
       </section>
       <section className="settings-card">
@@ -857,12 +904,12 @@ function Settings() {
             }))
           }
         >
-          <option value="curated">Local curated guide · no key needed</option>
+          <option value="curated">Guided study · no key needed</option>
           <option value="ollama">Local Mac · Ollama</option>
           <option value="cloud">Optional cloud model</option>
         </select>
         <p className="field-hint">
-          The curated guide matches supported themes to reviewed passages.
+          The guided study mode matches supported themes to reviewed passages.
           Ollama and cloud need to be connected by the person running this app.
           Model output remains interpretation and may need discernment.
         </p>
@@ -910,9 +957,10 @@ function Settings() {
       <section className="settings-card">
         <h2>Your words belong to you.</h2>
         <p>
-          No ads. No analytics. No account required. Browser storage and local
-          server files are unencrypted; use a private device. Export a backup
-          before clearing browser data.
+          No ads. No account required. WEB stays local; optional online
+          Scripture includes disclosed usage reporting. Browser storage and
+          local server files are unencrypted; use a private device. Export a
+          backup before clearing browser data.
         </p>
         <Button variant="outline" onClick={exportData}>
           <Download size={16} />

@@ -63,3 +63,5 @@ Errors are JSON: `{ "error": { "code": "...", "message": "...", "recovery": "...
 | INTERNAL_ERROR | 500 | Retry later and inspect configuration. |
 
 No streaming, webhooks, batch actions, OAuth refresh, or other unimplemented transports are advertised. There is no cloud fallback without an explicit provider selection. These contracts are tested by invoking every declared action and validating its actual response against its generated schema.
+
+Default translation is now WEB. Optional fields on Passage are source, attribution, and fumsTokens. HTTP clients displaying API.Bible results must honor that provider’s attribution and usage reporting terms. All declared actions are retained. See API-BIBLE.md.
