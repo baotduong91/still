@@ -2,27 +2,25 @@
 import { useEffect, useState } from "react";
 import { useApp } from "@/components/provider";
 import { api } from "@/lib/client/store";
-import type { PassageType } from "@/lib/schemas";
-export function usePassage(local: PassageType) {
+import type { PassageType, TranslationId } from "@/lib/schemas";
+export function usePassage(local: PassageType, requested?: TranslationId) {
   const { state, online, bible } = useApp();
+  const translation = requested ?? state.translation;
   const [remote, setRemote] = useState<PassageType | null>(null);
-  const signature = local.reference + state.translation;
+  const signature = local.reference + translation;
   useEffect(() => {
     let alive = true;
     setRemote(null);
     if (
       online &&
       state.onlineScripture &&
-      ["CSB", "NLT"].includes(state.translation)
+      ["CSB", "NLT"].includes(translation)
     ) {
-      if (
-        local.source === "api.bible" &&
-        local.translation === state.translation
-      )
+      if (local.source === "api.bible" && local.translation === translation)
         setRemote(local);
       else
         api<{ passage: PassageType }>(
-          `scripture?${new URLSearchParams({ reference: local.reference, translation: state.translation })}`,
+          `scripture?${new URLSearchParams({ reference: local.reference, translation })}`,
         )
           .then((r) => {
             if (alive) setRemote(r.passage);
@@ -35,11 +33,13 @@ export function usePassage(local: PassageType) {
   }, [signature, online, state.onlineScripture]);
   const safeLocal =
     local.source === "api.bible" && (!state.onlineScripture || !online)
-      ? (bible?.lookup(local.reference, state.translation) ?? local)
+      ? (bible?.lookup(local.reference, translation) ?? local)
       : local;
   const displayed =
     remote?.reference === local.reference &&
-    remote.requestedTranslation === state.translation
+    remote.requestedTranslation === translation &&
+    online &&
+    state.onlineScripture
       ? remote
       : safeLocal;
   useEffect(() => {

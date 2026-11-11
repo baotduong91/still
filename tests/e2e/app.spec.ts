@@ -176,10 +176,12 @@ test("offline completion synchronizes its revision before later feedback", async
 
 test("verse artwork exports a real PNG", async ({ page }) => {
   await page.goto("/today");
+  await page.getByRole("link", { name: "Create Image", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Save to device" })).toBeEnabled();
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Verse artwork" }).click();
+  await page.getByRole("button", { name: "Save to device" }).click();
   const file = await download;
-  expect(file.suggestedFilename()).toBe("still-daily-verse.png");
+  expect(file.suggestedFilename()).toBe("still-Matthew-6-34-WEB-story.png");
   expect(await file.failure()).toBeNull();
 });
 

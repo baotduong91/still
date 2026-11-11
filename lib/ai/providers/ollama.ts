@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ollamaRequestOptions } from "./ollama-access";
 import { AppError } from "@/lib/awp/errors";
 import type { ModelProvider } from "./index";
 const capabilities = new Map<string, boolean>();
@@ -16,8 +17,12 @@ export const ollamaProvider: ModelProvider = {
       if (!capabilities.has(identity)) {
         try {
           const probe = await fetch(new URL("/api/show", url), {
+            ...ollamaRequestOptions(),
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              ...ollamaRequestOptions().headers,
+              "Content-Type": "application/json",
+            },
             body: JSON.stringify({ model }),
             signal: AbortSignal.timeout(5000),
           });
@@ -32,8 +37,12 @@ export const ollamaProvider: ModelProvider = {
         } catch {}
       }
       const response = await fetch(url, {
+        ...ollamaRequestOptions(),
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          ...ollamaRequestOptions().headers,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           model,
           stream: false,

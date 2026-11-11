@@ -490,6 +490,13 @@ function Scripture() {
                         <p>{v.text}</p>
                         {selected === key && (
                           <div className="verse-tools">
+                            <Button variant="outline" size="sm" asChild>
+                              <Link
+                                href={`/create-image?${new URLSearchParams({ ref, translation: state.translation })}`}
+                              >
+                                Create Image
+                              </Link>
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"

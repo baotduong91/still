@@ -1,3 +1,4 @@
+import { ollamaRequestOptions } from "@/lib/ai/providers/ollama-access";
 import { modeConfiguration } from "@/lib/ai/modes";
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
@@ -13,7 +14,11 @@ export async function GET(request: Request) {
           "/api/tags",
           process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434",
         ),
-        { signal: AbortSignal.timeout(3000), cache: "no-store" },
+        {
+          ...ollamaRequestOptions(),
+          signal: AbortSignal.timeout(3000),
+          cache: "no-store",
+        },
       );
       const data = await response.json();
       ollamaReachable =
