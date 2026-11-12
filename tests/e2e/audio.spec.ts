@@ -30,6 +30,7 @@ test.beforeEach(async ({ page }) => {
     }
     (window as unknown as { activeReaders: number }).activeReaders = 0;
     (window as unknown as { workerReplies: number }).workerReplies = 0;
+    (window as unknown as { kokoroJobs: object[] }).kokoroJobs = [];
     Object.defineProperty(window, "Audio", { value: TestAudio });
     HTMLMediaElement.prototype.play = async function () {
       this.dispatchEvent(new Event("playing"));
@@ -41,11 +42,54 @@ test.beforeEach(async ({ page }) => {
       constructor() {
         super();
       }
-      postMessage(data: { id: number; text?: string; mode?: string }) {
+      postMessage(data: {
+        id: number;
+        text?: string | null;
+        mode?: string;
+        prepare?: boolean;
+      }) {
         if (["cancel", "clear"].includes(data.mode ?? "")) return;
+        (window as unknown as { kokoroJobs: object[] }).kokoroJobs.push({
+          mode: data.mode,
+          text: data.text ?? null,
+          prepare: data.prepare,
+        });
         (
           window as unknown as { localReading: string | undefined }
-        ).localReading = data.text;
+        ).localReading = data.text ?? undefined;
+        if (data.mode === "warm" || (data.prepare && data.text == null)) {
+          queueMicrotask(() =>
+            this.dispatchEvent(
+              new MessageEvent("message", {
+                data: {
+                  id: data.id,
+                  type: "ready",
+                  backend: "WASM",
+                  modelWarmed: true,
+                },
+              }),
+            ),
+          );
+          return;
+        }
+        if (data.mode === "prime") {
+          setTimeout(
+            () =>
+              this.dispatchEvent(
+                new MessageEvent("message", {
+                  data: {
+                    id: data.id,
+                    type: "primed",
+                    backend: "WASM",
+                    modelWarmed: true,
+                    wav: new ArrayBuffer(100),
+                  },
+                }),
+              ),
+            (window as unknown as { readingDelay?: number }).readingDelay ?? 20,
+          );
+          return;
+        }
         const state = window as unknown as {
           slowFirst?: boolean;
           readingDelay?: number;
@@ -150,6 +194,34 @@ test.beforeEach(async ({ page }) => {
     Object.defineProperty(window, "Worker", { value: LocalWorker });
   });
 });
+
+async function seedOfflineKokoroAssets(page: Page) {
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.open("still-tts-models", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("assets");
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction("assets", "readwrite");
+        tx.objectStore("assets").put(
+          new Blob(["model"]),
+          "https://still.test/model_quantized.onnx",
+        );
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onerror = () => reject(tx.error);
+      };
+      req.onerror = () => reject(req.error);
+    });
+    const cache = await caches.open("kokoro-voices");
+    await cache.put(
+      "https://still.test/voices/af_bella.bin",
+      new Response(new Blob(["voice"])),
+    );
+  });
+}
 
 async function deviceSpy(page: Page) {
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -378,10 +450,12 @@ test("private Kokoro choice does not call Edge and survives reload", async ({
   );
   expect(edgeCalls).toBe(0);
   expect(
-    await page.evaluate(
-      () => (window as unknown as { localReading: string }).localReading,
+    await page.evaluate(() =>
+      (
+        window as unknown as { kokoroJobs: { text: string | null }[] }
+      ).kokoroJobs.map((job) => job.text),
     ),
-  ).toContain("\n\nMatthew 6:34");
+  ).toContainEqual(expect.stringContaining("\n\nMatthew 6:34"));
 });
 test("Edge failure falls back to local Kokoro with no cloud model request", async ({
   page,
@@ -432,10 +506,12 @@ test("Today curated steps stay local with Auto online and never read personal fi
     page.getByRole("button", { name: "Pause reflection" }),
   ).toBeVisible();
   expect(
-    await page.evaluate(
-      () => (window as unknown as { localReading: string }).localReading,
+    await page.evaluate(() =>
+      (
+        window as unknown as { kokoroJobs: { text: string | null }[] }
+      ).kokoroJobs.map((job) => job.text),
     ),
-  ).toBe(reflection);
+  ).toContain(reflection);
   await page.getByRole("button", { name: "Pause reflection" }).click();
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
   await page.getByRole("link", { name: "03 Prayer" }).click();
@@ -463,10 +539,12 @@ test("Today curated steps stay local with Auto online and never read personal fi
     page.getByRole("button", { name: "Pause prayer" }),
   ).toBeVisible();
   expect(
-    await page.evaluate(
-      () => (window as unknown as { localReading: string }).localReading,
+    await page.evaluate(() =>
+      (
+        window as unknown as { kokoroJobs: { text: string | null }[] }
+      ).kokoroJobs.map((job) => job.text),
     ),
-  ).toBe(
+  ).toContain(
     `A prayer inspired by today’s reading. This is not Scripture.\n\n${prayer}`,
   );
   await page.getByRole("link", { name: "04 Practice" }).click();
@@ -490,16 +568,23 @@ test("Today curated steps stay local with Auto online and never read personal fi
     page.getByRole("button", { name: "Pause action" }),
   ).toBeVisible();
   expect(
-    await page.evaluate(
-      () => (window as unknown as { localReading: string }).localReading,
+    await page.evaluate(() =>
+      (
+        window as unknown as { kokoroJobs: { text: string | null }[] }
+      ).kokoroJobs.map((job) => job.text),
     ),
-  ).toBe(action);
+  ).toContain(action);
   await page.getByRole("button", { name: "Stop action" }).click();
   await page.getByRole("link", { name: "Journal", exact: true }).click();
   await expect(
     page.getByRole("button", { name: /Play|Read .*aloud/ }),
   ).toHaveCount(0);
   expect(edgeCalls).toBe(0);
+  const sent = await page.evaluate(() =>
+    JSON.stringify((window as unknown as { kokoroJobs: object[] }).kokoroJobs),
+  );
+  expect(sent).not.toContain("Private personal prayer must never be spoken.");
+  expect(sent).not.toContain("My private typed worry.");
 });
 
 test("changing step cancels a pending local reader before its audio arrives", async ({
@@ -604,7 +689,7 @@ test("locking the PIN boundary stops a curated reader", async ({ page }) => {
   ).toBe(0);
 });
 
-test("Bella starts the first segment before synthesis finishes and queues later segments without overlap", async ({
+test("Bella buffers a slow reading before sound and queues segments without gaps", async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -655,22 +740,29 @@ test("Bella starts the first segment before synthesis finishes and queues later 
   );
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
   await expect(
-    page.getByRole("button", { name: "Pause reflection" }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Read reflection aloud" }),
+  ).toBeDisabled();
   expect(
     await page.evaluate(
       () =>
-        (window as unknown as { scheduledChunks: number[] }).scheduledChunks
-          .length,
+        (window as unknown as { scheduledChunks?: number[] }).scheduledChunks ??
+        [],
     ),
-  ).toBe(1);
-  await page.getByRole("button", { name: "Pause reflection" }).click();
+  ).toEqual([]);
+  await page.waitForFunction(
+    () =>
+      typeof (window as unknown as { releaseStream?: unknown })
+        .releaseStream === "function",
+  );
+  // Let the mocked first chunk arrive before releasing the deliberately delayed second.
+  await page.waitForTimeout(50);
   await page.evaluate(() =>
     (window as unknown as { releaseStream: () => void }).releaseStream(),
   );
   await expect(
-    page.getByRole("button", { name: "Read reflection aloud" }),
+    page.getByRole("button", { name: "Pause reflection" }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Pause reflection" }).click();
   await expect
     .poll(() =>
       page.evaluate(
@@ -792,6 +884,7 @@ test("Today is one vertical flow; finishing audio gently moves to reflection wit
         }),
   );
   await page.goto("/today");
+  await page.getByRole("checkbox", { name: "Autoplay next section" }).uncheck();
   await expect(page.getByRole("tab")).toHaveCount(0);
   await expect(page.locator(".flow-section")).toHaveCount(4);
   expect(
@@ -850,4 +943,129 @@ test("Today is one vertical flow; finishing audio gently moves to reflection wit
     "A quiet step I want to keep while scrolling.",
   );
   expect(new URL(page.url()).pathname).toBe("/today");
+});
+
+test("Today preloads the next section and reuses its player at the autoplay handoff", async ({
+  page,
+}) => {
+  await page.route("**/api/tts", (route) =>
+    route.request().method() === "HEAD"
+      ? route.fulfill({ status: 204 })
+      : route.fulfill({
+          contentType: "audio/mpeg",
+          body: Buffer.from([0xff, 0xfb, 0x90, 0x00]),
+        }),
+  );
+  await page.goto("/settings");
+  await seedOfflineKokoroAssets(page);
+  await page.goto("/today");
+  await expect(page.locator(".today-player")).toHaveAttribute(
+    "data-bella-ready",
+    "true",
+    { timeout: 15000 },
+  );
+  const jobs = await page.evaluate(
+    () => (window as unknown as { kokoroJobs: { mode?: string }[] }).kokoroJobs,
+  );
+  expect(jobs.some((job) => job.mode === "warm")).toBe(true);
+  expect(jobs.filter((job) => job.mode === "prime")).toHaveLength(1);
+  await page.evaluate(() => {
+    const state = window as unknown as {
+      testPlayers: { preload?: string }[];
+      preparedReader?: object;
+    };
+    state.preparedReader = state.testPlayers.find(
+      (player) => player.preload === "auto",
+    );
+  });
+  const jobsBeforeFlow = jobs.length;
+  const warmBeforeFlow = jobs.filter((job) => job.mode === "warm").length;
+  await page.getByRole("button", { name: "Play Scripture" }).click();
+  await expect(
+    page.getByRole("button", { name: "Pause Scripture" }),
+  ).toBeVisible();
+  await page.evaluate(() => {
+    const player = (
+      window as unknown as {
+        testPlayers: { pause: () => void; onended?: () => void }[];
+      }
+    ).testPlayers.at(-1)!;
+    player.pause();
+    player.onended?.();
+  });
+  await expect(
+    page.getByRole("button", { name: "Pause reflection" }),
+  ).toBeVisible({ timeout: 5000 });
+  const jobsAfterAutoplay = await page.evaluate(
+    () => (window as unknown as { kokoroJobs: { mode?: string }[] }).kokoroJobs,
+  );
+  // The foreground read consumes the preloaded reflection. Only prayer may
+  // enqueue new work once reflection starts; no redundant synthesis or warm-up.
+  expect(jobsAfterAutoplay.length).toBeLessThanOrEqual(jobsBeforeFlow + 1);
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { preparedReader: { active: boolean } })
+          .preparedReader.active,
+    ),
+  ).toBe(true);
+  expect(jobsAfterAutoplay.filter((job) => job.mode === "warm").length).toBe(
+    warmBeforeFlow,
+  );
+});
+
+test("Today autoplay reads each next section, and unchecking prevents another reading", async ({
+  page,
+}) => {
+  await page.route("**/api/tts", (route) =>
+    route.request().method() === "HEAD"
+      ? route.fulfill({ status: 204 })
+      : route.fulfill({
+          contentType: "audio/mpeg",
+          body: Buffer.from([0xff, 0xfb, 0x90, 0x00]),
+        }),
+  );
+  await page.goto("/today");
+  const autoplay = page.getByRole("checkbox", {
+    name: "Autoplay next section",
+  });
+  await expect(autoplay).toBeChecked();
+  await page.getByRole("button", { name: "Play Scripture" }).click();
+  const finish = async () =>
+    page.evaluate(() => {
+      const player = (
+        window as unknown as {
+          testPlayers: {
+            active: boolean;
+            pause: () => void;
+            onended?: () => void;
+          }[];
+        }
+      ).testPlayers.find((player) => player.active)!;
+      player.pause();
+      player.onended?.();
+    });
+  await expect(
+    page.getByRole("button", { name: "Pause Scripture" }),
+  ).toBeVisible();
+  await finish();
+  await expect(
+    page.getByRole("button", { name: "Pause reflection" }),
+  ).toBeVisible();
+  await expect(page.locator("#today-reflection")).toBeInViewport();
+  await finish();
+  await expect(
+    page.getByRole("button", { name: "Pause prayer" }),
+  ).toBeVisible();
+  await autoplay.uncheck();
+  await finish();
+  await expect(
+    page.getByRole("button", { name: "Read action aloud" }),
+  ).toBeVisible();
+  await page.waitForTimeout(1000);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { activeReaders: number }).activeReaders,
+    ),
+  ).toBe(0);
 });

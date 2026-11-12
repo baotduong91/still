@@ -1,4 +1,3 @@
-import { speechChunks } from "./chunks";
 import { offlineModelStored } from "./model-cache";
 export const kokoroAutoExtends = 3;
 export const kokoroTimeouts = {
@@ -36,6 +35,10 @@ const pending = new Map<
 let warming: Promise<boolean> | null = null;
 const previews = new Map<string, Blob>();
 let previewEpoch = 0;
+const preparing = new Map<string, Promise<boolean>>();
+export function preparedKokoro(text: string) {
+  return previews.get(text);
+}
 export function kokoroAudio(
   text: string | null,
   progress: (s: string) => void,
@@ -201,18 +204,18 @@ export function kokoroAudio(
       abort();
       return;
     }
-    const preview =
-      text && !options?.mode
-        ? previews.get(speechChunks(text, { warmed: modelWarmed })[0])
-        : undefined;
-    const skipFirst = !!preview && !!onChunk;
-    if (skipFirst) onChunk!(preview!, "WASM");
+    const preview = text && !options?.mode ? previews.get(text) : undefined;
+    if (preview) {
+      cleanup();
+      resolve({ blob: preview, backend: "WASM" });
+      return;
+    }
     current.postMessage({
       id,
       text,
       prepare: text === null,
       mode: options?.mode,
-      skipFirst,
+      skipFirst: false,
     });
   });
 }
@@ -227,19 +230,14 @@ export function bellaSessionPrepared() {
 
 // No worker or download is started on an unprepared device.
 export function warmKokoro() {
+  if (modelWarmed && worker) return Promise.resolve(true);
   if (warming) return warming;
   const task = (async () => {
     if (!(await offlineModelStored())) return false;
-    await kokoroAudio(
-      null,
-      () => {},
-      new AbortController().signal,
-      undefined,
-      {
-        mode: "warm",
-        onWaiting: () => {},
-      },
-    );
+    await kokoroAudio(null, () => {}, new AbortController().signal, undefined, {
+      mode: "warm",
+      onWaiting: () => {},
+    });
     return true;
   })()
     .catch(() => false)
@@ -249,7 +247,17 @@ export function warmKokoro() {
   warming = task;
   return task;
 }
-export async function primeKokoro(text: string) {
+export function primeKokoro(text: string): Promise<boolean> {
+  if (previews.has(text)) return Promise.resolve(true);
+  const existing = preparing.get(text);
+  if (existing) return existing;
+  const task = prepare(text).finally(() => {
+    if (preparing.get(text) === task) preparing.delete(text);
+  });
+  preparing.set(text, task);
+  return task;
+}
+async function prepare(text: string) {
   const epoch = previewEpoch;
   if (!(await warmKokoro()) || epoch !== previewEpoch) return false;
   const result = await kokoroAudio(
@@ -260,14 +268,15 @@ export async function primeKokoro(text: string) {
     { mode: "prime" },
   );
   if (result.blob && epoch === previewEpoch) {
-    while (previews.size >= 8) previews.delete(previews.keys().next().value!);
-    previews.set(speechChunks(text, { warmed: modelWarmed })[0], result.blob);
+    while (previews.size >= 4) previews.delete(previews.keys().next().value!);
+    previews.set(text, result.blob);
   }
   return !!result.blob && epoch === previewEpoch;
 }
 export function clearKokoroPreviews() {
   previewEpoch++;
   previews.clear();
+  preparing.clear();
   warming = null;
   for (const request of [...pending.values()])
     if (request.mode === "prime" || request.mode === "warm")

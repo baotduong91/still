@@ -72,12 +72,53 @@ Sources: [Kokoro.js](https://github.com/hexgrad/kokoro/tree/main/kokoro.js), [no
 
 ## Continuous Today journey and readiness
 
-Today renders Verse → Reflection → Prayer → Practice as one vertical page, with a mountain-backed verse card and a single minimal fixed player above mobile navigation. Section links and Continue controls scroll within the page and respect reduced motion. Passive viewport tracking selects the current section; changing sections cancels the previous reading. Natural completion scrolls toward the next section but never autoplays it. Personal prayer and typed Practice fields stay mounted while scrolling; only the plan's fixed day copy can be narrated. PIN locking and navigation still unmount/cancel the reader.
+Today renders Verse → Reflection → Prayer → Practice as one vertical page, with a mountain-backed verse card and a single minimal fixed player above mobile navigation. Section links and Continue controls scroll within the page and respect reduced motion. Passive viewport tracking selects the current section; changing sections cancels the previous reading. Natural completion scrolls toward the next section; with Autoplay next section enabled (the default), it then starts that section’s reading. Personal prayer and typed Practice fields stay mounted while scrolling; only the plan's fixed day copy can be narrated. PIN locking and navigation still unmount/cancel the reader.
 
 Shortly after Today’s first paint, a deferred task warms already downloaded Bella assets. It never initiates a model download on page load. The first segment of each app-owned reflection, plan prayer, and fixed action is prepared on-device and held in a bounded in-memory cache. Play can consume that segment synchronously, while the worker generates the remaining segments. Nothing is spoken during preparation. This memory cache is cleared when Today exits. Cold devices still need an explicit download/first-use setup; an installed local voice remains available immediately.
 
 For online Scripture, Today sends a text-free HEAD request to warm the Next.js runtime. Only Play sends the exact displayed text/reference in a POST. With `stream:true`, the server returns MP3 bytes as soon as the first audio chunk arrives. Browsers supporting MediaSource `audio/mpeg` append those bytes progressively; other browsers retain buffered MP3 playback. Successfully played Scripture audio is cached only in the reader’s memory for immediate replay and is cleared on unmount. No new persistent personal audio cache is introduced. Network and cold-start latency cannot be eliminated, so the player keeps its quiet loading state and explicit device-voice fallback.
 
-Tests cover four simultaneously mounted sections, typed response retention across scrolling, active-section engine selection, natural-completion scrolling without autoplay, private text staying off Edge, first-byte MP3 delivery, and warm Bella's synchronous first segment. The opt-in real-runtime checks also measure warm Today latency and decode an actual Edge MP3 with browser output muted.
+Tests cover four simultaneously mounted sections, typed response retention across scrolling, active-section engine selection, natural-completion scrolling with Autoplay next section (on by default), Today Bella warm plus prime before Play, autoplay reusing preloaded Kokoro audio while preparing only the next section, whole-section Web Audio buffering for gapless Bella playback, private text staying off Edge, first-byte MP3 delivery, and reuse of complete prepared Bella readings. The opt-in real-runtime checks also measure warm Today latency and decode an actual Edge MP3 with browser output muted.
 
 Production diagnosis (November 11, 2026): deployment `56acd22` served both runtime URLs as 404. Its Vercel build log directly ran Prisma and `next build`, bypassing `npm run prebuild`. The committed build configuration fixes that omission for the next deployment; production needs this commit deployed before those URLs change. After deploying, check both runtime URLs return 200 (or 206 for a range request), not an HTML 404.
+
+### Continuous Today listening
+
+Today’s player has an **Autoplay next section** checkbox (on by default).
+After a reading finishes, Today scrolls to the next section; when checked it
+starts that section after the scroll. The sequence ends at Practice and never
+completes the day or submits a personal response. Turning autoplay off prevents
+further automatic readings. Manual scrolling selects a section without starting
+it. Browser audio restrictions may still require tapping Play.
+
+Bella now prepares **complete sections**, not just their opening words, while
+Today is open and the model is already downloaded. Up to four prepared readings
+stay in memory and are cleared when the flow changes or unmounts; personal audio
+is not uploaded or persisted. Foreground playback reuses that complete audio.
+Uncached Bella readings buffer every segment before starting, so slow WASM
+inference does not interrupt the voice every few words. The loading UI and Stop
+remain available. This trades initial preparation time for uninterrupted reading;
+it does not make slow-device inference instant. Download Bella in Settings first
+and allow Today to prepare while reading the verse for the fastest start.
+
+Scripture still uses Edge online according to the selected engine. Reflection,
+prayer and practice stay on-device. No automatic device-voice substitution was
+added, and the exact retrieved Scripture text is unchanged.
+
+### Next-section lookahead
+
+Today prepares the reflection as soon as it opens with an already downloaded
+Bella model. With autoplay enabled, starting each subsequent reading prepares
+its immediate successor. This gives synthesis the whole current reading as a
+head start rather than waiting for the last few words. Later sections are not
+queued ahead of that successor. Identical preparation requests share one task;
+a compiled worker skips redundant warm-up jobs.
+
+Prepared audio is loaded into an HTML audio player before the handoff. Playback
+reuses that player and skips model-cache checks; scrolling and the next reading
+start together, without the previous fixed 750 ms delay. Preloaded media is
+released on day changes, navigation, engine changes, and PIN unmount. Preparation
+is local only and never downloads an uncached model automatically or sends
+personal text to Edge. A cold model or synthesis slower than the current reading
+can still require waiting; this is near-continuous playback when ready, not a
+sample-accurate gapless guarantee across browser audio engines.

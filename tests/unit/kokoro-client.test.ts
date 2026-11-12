@@ -40,7 +40,7 @@ it("does not create a worker or download a model when Today warms an unprepared 
   expect(await primeKokoro("An app-owned reflection.")).toBe(false);
   expect(TestWorker.all).toHaveLength(0);
 });
-it("prepares a local first segment ahead of Play and delivers it synchronously without duplication", async () => {
+it("prepares a complete local reading ahead of Play without another worker job", async () => {
   const { primeKokoro, kokoroAudio, clearKokoroPreviews } =
     await import("@/lib/tts/kokoro-client");
   const primed = primeKokoro("Exact verse text.");
@@ -62,10 +62,9 @@ it("prepares a local first segment ahead of Play and delivers it synchronously w
     new AbortController().signal,
     (b) => chunks.push(b),
   );
-  expect(chunks).toHaveLength(1);
-  expect(worker.last.skipFirst).toBe(true);
-  worker.send({ type: "done", backend: "WASM" });
-  await playing;
+  expect(chunks).toHaveLength(0);
+  expect(worker.last.mode).toBe("prime");
+  expect((await playing).blob?.size).toBeGreaterThan(44);
   clearKokoroPreviews();
   const controller = new AbortController();
   const next = kokoroAudio(
@@ -295,4 +294,29 @@ it("clear cancels preparation without stopping an unrelated active read or losin
     wav: new ArrayBuffer(44),
   });
   expect((await request).blob).toBeInstanceOf(Blob);
+});
+
+it("deduplicates next-section preparation and keeps a warmed worker out of the queue", async () => {
+  const { primeKokoro, warmKokoro, preparedKokoro } =
+    await import("@/lib/tts/kokoro-client");
+  const first = primeKokoro("Next private section.");
+  const duplicate = primeKokoro("Next private section.");
+  expect(first).toBe(duplicate);
+  await vi.waitFor(() => expect(TestWorker.all).toHaveLength(1));
+  const worker = TestWorker.all[0];
+  worker.send({ type: "ready", backend: "WASM" });
+  await vi.waitFor(() => expect(worker.last.mode).toBe("prime"));
+  const id = worker.id;
+  expect(await warmKokoro()).toBe(true);
+  expect(worker.id).toBe(id);
+  worker.send({
+    type: "primed",
+    backend: "WASM",
+    wav: wavBytes(new Float32Array([0.1])),
+  });
+  expect(await first).toBe(true);
+  expect(await duplicate).toBe(true);
+  expect(await primeKokoro("Next private section.")).toBe(true);
+  expect(preparedKokoro("Next private section.")?.size).toBeGreaterThan(44);
+  expect(worker.id).toBe(id);
 });

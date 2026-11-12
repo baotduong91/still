@@ -7,14 +7,10 @@ import { Button } from "@/components/ui/button";
 import { ReadingControls } from "@/components/scripture/audio-player";
 import { useReadingAudio } from "@/components/scripture/use-reading-audio";
 import { usePassage } from "@/components/scripture/use-passage";
-import { buildSpokenText, type ReadingPayload } from "@/lib/tts/reading";
+import { type ReadingPayload } from "@/lib/tts/reading";
 import { verseSpeech } from "@/lib/tts/shared";
 import { offlineModelStored } from "@/lib/tts/model-cache";
-import {
-  warmKokoro,
-  primeKokoro,
-  clearKokoroPreviews,
-} from "@/lib/tts/kokoro-client";
+import { warmKokoro, clearKokoroPreviews } from "@/lib/tts/kokoro-client";
 import type { PassageType, DayType, PlanType } from "@/lib/schemas";
 import { PracticeWriter } from "./practice-writer";
 import { PrayerWriter } from "./prayer-writer";
@@ -42,6 +38,9 @@ export function DailyFlow({
   const { state, online } = useApp();
   const passage = usePassage(localPassage);
   const [active, setActive] = useState(0);
+  const [autoplay, setAutoplay] = useState(true);
+  const autoplayTarget = useRef<number | null>(null);
+  const latestReader = useRef<ReturnType<typeof useReadingAudio> | null>(null);
   const [bellaReady, setBellaReady] = useState(false);
   const [needsBellaDownload, setNeedsBellaDownload] = useState(false);
   const refs = useRef<(HTMLElement | null)[]>([]),
@@ -54,6 +53,7 @@ export function DailyFlow({
     { kind: "action", text: day.action, title: day.title },
   ];
   const reader = useReadingAudio(payloads[active]);
+  latestReader.current = reader;
   useEffect(() => {
     const linked = anchors.indexOf(window.location.hash.slice(1));
     if (linked >= 0) {
@@ -64,7 +64,8 @@ export function DailyFlow({
       });
     }
   }, []);
-  function go(index: number) {
+  function go(index: number, automatic = false) {
+    if (!automatic) autoplayTarget.current = null;
     lockScroll.current = performance.now() + 700;
     setActive(index);
     const section = refs.current[index];
@@ -112,10 +113,35 @@ export function DailyFlow({
   useEffect(() => {
     if (reader.completed <= consumed.current) return;
     consumed.current = reader.completed;
-    if (active < 3) go(active + 1);
-    // Completion moves the viewport, never starts the next reading automatically.
+    if (active < 3) {
+      autoplayTarget.current = autoplay ? active + 1 : null;
+      go(active + 1, true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reader.completed]);
+  useEffect(() => {
+    if (!autoplay || autoplayTarget.current !== active) {
+      autoplayTarget.current = null;
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      if (autoplayTarget.current !== active) return;
+      autoplayTarget.current = null;
+      void latestReader.current?.play();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [active, autoplay]);
+  const playerReader = {
+    ...reader,
+    stop() {
+      autoplayTarget.current = null;
+      reader.stop();
+    },
+    play() {
+      autoplayTarget.current = null;
+      return reader.play();
+    },
+  };
   const warmSignature = JSON.stringify([
     day.reflection,
     day.prayer,
@@ -137,22 +163,34 @@ export function DailyFlow({
       if (!alive) return;
       setNeedsBellaDownload(!stored);
       if (!stored || !(await warmKokoro()) || !alive) return;
-      let ready = true;
-      for (const payload of payloads.slice(1)) {
-        if (!alive) return;
-        if (!(await primeKokoro(buildSpokenText(payload)).catch(() => false)))
-          ready = false;
-      }
-      if (alive) setBellaReady(ready);
     }, 250);
     return () => {
       alive = false;
       clearTimeout(timer);
+      latestReader.current?.clearPrepared();
       clearKokoroPreviews();
     };
     // Only app-owned day copy is primed, using previously downloaded model files.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warmSignature, online]);
+  // Prepare as soon as a section is selected, rather than waiting for its final
+  // words. Only the immediate successor competes for the serial WASM worker.
+  useEffect(() => {
+    if (active >= 3 || state.speechEngine === "device") return;
+    if (active > 0 && (!autoplay || reader.status !== "playing")) return;
+    let alive = true;
+    setBellaReady(false);
+    void latestReader.current
+      ?.prepareNext(payloads[active + 1])
+      .then((ready) => {
+        if (alive) setBellaReady(ready);
+      });
+    return () => {
+      alive = false;
+    };
+    // Payload changes are represented by warmSignature.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, autoplay, warmSignature, reader.status, online]);
   function next(index: number) {
     return (
       <Button
@@ -336,7 +374,12 @@ export function DailyFlow({
       <div className="today-player" data-bella-ready={bellaReady}>
         <ReadingControls
           minimal
-          reader={reader}
+          autoplay={autoplay}
+          onAutoplayChange={(enabled) => {
+            autoplayTarget.current = null;
+            setAutoplay(enabled);
+          }}
+          reader={playerReader}
           payload={payloads[active]}
           contextLabel={`${String(active + 1).padStart(2, "0")} · ${sections[active]}${active === 0 ? ` · ${passage.translation}` : " · on-device"}`}
         />

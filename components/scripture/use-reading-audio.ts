@@ -12,8 +12,9 @@ import { supportsMp3Stream, streamMp3 } from "@/lib/tts/edge-stream";
 import {
   bellaSessionPrepared,
   kokoroAudio,
+  primeKokoro,
+  preparedKokoro,
   KokoroTimeoutError,
-  warmKokoro,
 } from "@/lib/tts/kokoro-client";
 import { ChunkScheduler } from "@/lib/tts/chunk-playback";
 import { offlineModelStored } from "@/lib/tts/model-cache";
@@ -33,6 +34,47 @@ export function useReadingAudio(payload: ReadingPayload) {
     url = useRef<string | null>(null),
     abort = useRef<AbortController | null>(null),
     device = useRef(false);
+  const nextAudio = useRef<{
+    text: string;
+    blob: Blob;
+    player: HTMLAudioElement;
+    url: string;
+  } | null>(null);
+  const preparationEpoch = useRef(0);
+  function clearPrepared() {
+    preparationEpoch.current++;
+    const next = nextAudio.current;
+    nextAudio.current = null;
+    if (next) {
+      next.player.pause();
+      next.player.removeAttribute("src");
+      next.player.load();
+      URL.revokeObjectURL(next.url);
+    }
+  }
+  async function prepareNext(next: ReadingPayload) {
+    // Lookahead is strictly local; it never requests Edge or another cloud voice.
+    if (engineForKind(next.kind, state.speechEngine, online) !== "kokoro")
+      return false;
+    const text = buildSpokenText(next);
+    if (nextAudio.current?.text === text) return true;
+    clearPrepared();
+    const epoch = preparationEpoch.current;
+    if (
+      !(await primeKokoro(text).catch(() => false)) ||
+      epoch !== preparationEpoch.current
+    )
+      return false;
+    const blob = preparedKokoro(text);
+    if (!blob) return false;
+    const href = URL.createObjectURL(blob);
+    const player = new Audio(href);
+    player.preload = "auto";
+    player.load();
+    nextAudio.current = { text, blob, player, url: href };
+    return true;
+  }
+  useEffect(() => () => clearPrepared(), [path, state.speechEngine]);
   const edgeFiles = useRef(new Map<string, Blob>());
   useEffect(() => () => edgeFiles.current.clear(), []);
   const generation = useRef(0),
@@ -199,8 +241,10 @@ export function useReadingAudio(payload: ReadingPayload) {
         audio.current.removeAttribute("src");
       }
       if (url.current) URL.revokeObjectURL(url.current);
-      url.current = URL.createObjectURL(blob);
-      const player = new Audio(url.current);
+      const ready = nextAudio.current?.blob === blob ? nextAudio.current : null;
+      if (ready) nextAudio.current = null;
+      url.current = ready?.url ?? URL.createObjectURL(blob);
+      const player = ready?.player ?? new Audio(url.current);
       audio.current = player;
       player.playbackRate = speedRef.current;
       let finish = () => {},
@@ -360,6 +404,13 @@ export function useReadingAudio(payload: ReadingPayload) {
       }
       if (!alive()) return;
       setEngine("Kokoro · Bella");
+      const ready = preparedKokoro(spoken);
+      if (ready) {
+        setMessage("");
+        setEngine("Kokoro · Bella · WASM");
+        await playBlob(ready);
+        return;
+      }
       const stored = await offlineModelStored().catch(() => false);
       if (stored) {
         setMessage(
@@ -367,11 +418,12 @@ export function useReadingAudio(payload: ReadingPayload) {
             ? "Loading Bella on this device…"
             : "Warming Bella for private reading…",
         );
-        await warmKokoro().catch(() => false);
       } else if (!online) setMessage("Loading your downloaded voice…");
+      if (!alive()) return;
+      setMessage("Preparing a continuous Bella reading on-device…");
       let playbackError: unknown,
         streamed = false;
-      const kokoroPlayback = new ChunkScheduler(speedRef.current);
+      const kokoroPlayback = new ChunkScheduler(speedRef.current, true);
       scheduler.current = kokoroPlayback;
       const kokoroOptions = {
         onWaiting: (text: string) => {
@@ -503,6 +555,8 @@ export function useReadingAudio(payload: ReadingPayload) {
       extend();
     },
     preferredEngine,
+    prepareNext,
+    clearPrepared,
     empty: !spoken.trim(),
     changeSpeed(rate: number) {
       setSpeed(rate);

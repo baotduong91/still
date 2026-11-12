@@ -121,3 +121,22 @@ it("clear cancels an in-flight prime before its result can repopulate previews",
   expect(messages().some((m) => m.id === 1 && m.type === "primed")).toBe(false);
   expect(fixture.generate).toHaveBeenCalledTimes(2);
 });
+
+it("primes every segment and reuses the complete reading without more inference", async () => {
+  const text = Array.from({ length: 110 }, (_, i) => `word${i}`).join(" ");
+  scope.onmessage({ data: { id: 1, text, mode: "prime" } });
+  await vi.waitFor(() =>
+    expect(messages().some((m) => m.type === "primed")).toBe(true),
+  );
+  const calls = fixture.generate.mock.calls.length;
+  expect(calls).toBeGreaterThan(1);
+  expect(fixture.generate.mock.calls.map((c) => c[0]).join("")).toBe(text);
+  scope.onmessage({ data: { id: 2, text } });
+  await vi.waitFor(() =>
+    expect(messages().some((m) => m.id === 2 && m.type === "audio")).toBe(true),
+  );
+  expect(fixture.generate).toHaveBeenCalledTimes(calls);
+  expect(
+    messages().find((m) => m.id === 2 && m.type === "audio").wav.byteLength,
+  ).toBe(44 + calls * 16 * 2);
+});

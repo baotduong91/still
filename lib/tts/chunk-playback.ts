@@ -6,10 +6,13 @@ export class ChunkScheduler {
   private alive = true;
   private pending = 0;
   private started = false;
-  private closed = false;
+  private queued: { wav: Blob; onFirstSound?: () => void }[] = [];
   private paused = false;
 
-  constructor(rate: number) {
+  constructor(
+    rate: number,
+    private bufferWholeReading = false,
+  ) {
     this.speed = rate;
   }
 
@@ -29,7 +32,7 @@ export class ChunkScheduler {
 
   stop() {
     this.alive = false;
-    this.closed = true;
+    this.queued = [];
     if (this.context) {
       void this.context.close().catch(() => {});
       this.context = null;
@@ -40,6 +43,10 @@ export class ChunkScheduler {
 
   async append(wav: Blob, onFirstSound?: () => void) {
     if (!this.alive) return;
+    if (this.bufferWholeReading) {
+      this.queued.push({ wav, onFirstSound });
+      return;
+    }
     this.pending++;
     try {
       if (!this.context) this.context = new AudioContext({ sampleRate: 48000 });
@@ -65,13 +72,33 @@ export class ChunkScheduler {
       };
       source.start(start);
       this.nextAt = start + buffer.duration / this.speed;
-    } catch {
+    } catch (error) {
       this.pending--;
+      throw error;
     }
   }
 
   async drain() {
-    this.closed = true;
+    this.bufferWholeReading = false;
+    const queued = this.queued;
+    this.queued = [];
+    // Decode all buffers before starting: slow inference/decode cannot leave gaps.
+    if (queued.length && this.alive) {
+      this.context ??= new AudioContext({ sampleRate: 48000 });
+      await this.context.suspend();
+      let onFirstSound: (() => void) | undefined;
+      for (const item of queued) {
+        if (!this.alive) return;
+        this.paused = true;
+        await this.append(item.wav, () => {
+          onFirstSound = item.onFirstSound;
+        });
+      }
+      if (!this.alive) return;
+      this.paused = false;
+      await this.context?.resume();
+      if (this.alive) onFirstSound?.();
+    }
     while (this.alive && this.pending > 0) {
       await new Promise((r) => setTimeout(r, 40));
     }

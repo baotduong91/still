@@ -36,12 +36,16 @@ export function ReadingControls({
   compact = false,
   minimal = false,
   contextLabel,
+  autoplay,
+  onAutoplayChange,
 }: {
   payload: ReadingPayload;
   reader: ReturnType<typeof useReadingAudio>;
   compact?: boolean;
   minimal?: boolean;
   contextLabel?: string;
+  autoplay?: boolean;
+  onAutoplayChange?: (enabled: boolean) => void;
 }) {
   const {
     status,
@@ -117,6 +121,16 @@ export function ReadingControls({
             ))}
           </select>
         </label>
+        {onAutoplayChange && (
+          <label className="audio-autoplay">
+            <input
+              type="checkbox"
+              checked={autoplay ?? false}
+              onChange={(event) => onAutoplayChange(event.target.checked)}
+            />
+            Autoplay next section
+          </label>
+        )}
         <span className="audio-engine">
           {engine ||
             (preferredEngine === "device"

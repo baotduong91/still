@@ -18,7 +18,7 @@ env.backends.onnx.wasm!.wasmPaths = `${self.location.origin}/tts/`;
 let model: Promise<KokoroTTS> | null = null;
 let modelWarmed = false;
 const backend = "WASM";
-const firstSegments = new Map<string, ArrayBuffer>();
+const preparedReadings = new Map<string, ArrayBuffer>();
 let cacheEpoch = 0;
 type Input = {
   id: number;
@@ -112,15 +112,27 @@ async function handle(job: Job) {
     }
     const parts = speechChunks(text ?? "", { warmed: modelWarmed });
     if (mode === "prime") {
-      const first = parts[0];
-      if (first && !firstSegments.has(first)) {
-        const result = await generate(job, tts, first);
+      const key = text ?? "";
+      if (key && !preparedReadings.has(key)) {
+        const samples: Float32Array[] = [];
+        for (const part of parts) {
+          if (job.cancelled) return;
+          samples.push((await generate(job, tts, part)).audio);
+        }
         if (job.cancelled || job.epoch !== cacheEpoch) return;
-        while (firstSegments.size >= 8)
-          firstSegments.delete(firstSegments.keys().next().value!);
-        firstSegments.set(first, wavBytes(result.audio));
+        const joined = new Float32Array(
+          samples.reduce((n, a) => n + a.length, 0),
+        );
+        let offset = 0;
+        for (const sample of samples) {
+          joined.set(sample, offset);
+          offset += sample.length;
+        }
+        while (preparedReadings.size >= 4)
+          preparedReadings.delete(preparedReadings.keys().next().value!);
+        preparedReadings.set(key, wavBytes(joined));
       }
-      const wav = first ? firstSegments.get(first)?.slice(0) : undefined;
+      const wav = preparedReadings.get(key)?.slice(0);
       send(
         job,
         wav ? { type: "primed", wav } : { type: "ready" },
@@ -128,12 +140,15 @@ async function handle(job: Job) {
       );
       return;
     }
+    // A foreground read queued behind preparation reuses the entire section.
+    const prepared = preparedReadings.get(text ?? "")?.slice(0);
+    if (prepared) {
+      send(job, { type: "audio", wav: prepared }, [prepared]);
+      return;
+    }
     for (let index = skipFirst ? 1 : 0; index < parts.length; index++) {
       if (job.cancelled) return;
-      const cached = index === 0 ? firstSegments.get(parts[index]) : undefined;
-      const wav = cached
-        ? cached.slice(0)
-        : wavBytes((await generate(job, tts, parts[index])).audio);
+      const wav = wavBytes((await generate(job, tts, parts[index])).audio);
       if (job.cancelled) return;
       send(job, { type: "chunk", wav, index, total: parts.length }, [wav]);
     }
@@ -158,7 +173,7 @@ self.onmessage = (event: MessageEvent<Input>) => {
   }
   if (input.mode === "clear") {
     cacheEpoch++;
-    firstSegments.clear();
+    preparedReadings.clear();
     for (const job of pending.values())
       if (job.input.mode === "warm" || job.input.mode === "prime") {
         job.cancelled = true;
