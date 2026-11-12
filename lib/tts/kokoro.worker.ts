@@ -110,7 +110,7 @@ async function handle(job: Job) {
       send(job, { type: "ready" });
       return;
     }
-    const parts = speechChunks(text ?? "");
+    const parts = speechChunks(text ?? "", { warmed: modelWarmed });
     if (mode === "prime") {
       const first = parts[0];
       if (first && !firstSegments.has(first)) {

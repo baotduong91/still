@@ -85,11 +85,12 @@ afterEach(() => {
 it("splits for early playback without losing Scripture words, punctuation or whitespace", () => {
   const text =
     "  Therefore don’t be anxious for tomorrow, for tomorrow will be anxious for itself. Each day’s own evil is sufficient.\n\nMatthew 6:34";
-  const chunks = speechChunks(text);
-  expect(chunks.join("")).toBe(text);
-  expect(chunks[0].trim().split(/\s+/).length).toBeLessThanOrEqual(10);
-  for (const chunk of chunks)
-    expect(chunk.trim().split(/\s+/).length).toBeLessThanOrEqual(24);
+  const cold = speechChunks(text);
+  expect(cold.join("")).toBe(text);
+  expect(cold[0].trim().split(/\s+/).length).toBeLessThanOrEqual(22);
+  const warm = speechChunks(text, { warmed: true });
+  expect(warm.join("")).toBe(text);
+  expect(warm).toHaveLength(1);
 });
 it("delivers the first WAV chunk before synthesis completes", async () => {
   const { kokoroAudio } = await import("@/lib/tts/kokoro-client");

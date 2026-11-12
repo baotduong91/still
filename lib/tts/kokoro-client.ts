@@ -202,7 +202,9 @@ export function kokoroAudio(
       return;
     }
     const preview =
-      text && !options?.mode ? previews.get(speechChunks(text)[0]) : undefined;
+      text && !options?.mode
+        ? previews.get(speechChunks(text, { warmed: modelWarmed })[0])
+        : undefined;
     const skipFirst = !!preview && !!onChunk;
     if (skipFirst) onChunk!(preview!, "WASM");
     current.postMessage({
@@ -259,7 +261,7 @@ export async function primeKokoro(text: string) {
   );
   if (result.blob && epoch === previewEpoch) {
     while (previews.size >= 8) previews.delete(previews.keys().next().value!);
-    previews.set(speechChunks(text)[0], result.blob);
+    previews.set(speechChunks(text, { warmed: modelWarmed })[0], result.blob);
   }
   return !!result.blob && epoch === previewEpoch;
 }

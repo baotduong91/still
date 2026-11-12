@@ -15,6 +15,7 @@ import {
   KokoroTimeoutError,
   warmKokoro,
 } from "@/lib/tts/kokoro-client";
+import { ChunkScheduler } from "@/lib/tts/chunk-playback";
 import { offlineModelStored } from "@/lib/tts/model-cache";
 type Status = "idle" | "loading" | "playing" | "paused";
 export function useReadingAudio(payload: ReadingPayload) {
@@ -38,7 +39,8 @@ export function useReadingAudio(payload: ReadingPayload) {
     speedRef = useRef(speed),
     paused = useRef(false),
     resumeChunk = useRef<(() => void) | null>(null),
-    started = useRef(false);
+    started = useRef(false),
+    scheduler = useRef<ChunkScheduler | null>(null);
   speedRef.current = speed;
   const input = { text: payload.text, reference: payload.reference },
     spoken = buildSpokenText(payload);
@@ -58,6 +60,8 @@ export function useReadingAudio(payload: ReadingPayload) {
     resumeChunk.current?.();
     resumeChunk.current = null;
     started.current = false;
+    scheduler.current?.stop();
+    scheduler.current = null;
     if (audio.current) {
       audio.current.pause();
       audio.current.removeAttribute("src");
@@ -144,6 +148,7 @@ export function useReadingAudio(payload: ReadingPayload) {
     if (status === "playing") {
       paused.current = true;
       if (device.current) speechSynthesis.pause();
+      else if (scheduler.current) scheduler.current.pause();
       else audio.current?.pause();
       setStatus("paused");
       return;
@@ -153,6 +158,7 @@ export function useReadingAudio(payload: ReadingPayload) {
       try {
         paused.current = false;
         if (device.current) speechSynthesis.resume();
+        else if (scheduler.current) scheduler.current.resume();
         else if (audio.current) await audio.current.play();
         resumeChunk.current?.();
         resumeChunk.current = null;
@@ -363,9 +369,10 @@ export function useReadingAudio(payload: ReadingPayload) {
         );
         await warmKokoro().catch(() => false);
       } else if (!online) setMessage("Loading your downloaded voice…");
-      let playback = Promise.resolve(),
-        playbackError: unknown,
+      let playbackError: unknown,
         streamed = false;
+      const kokoroPlayback = new ChunkScheduler(speedRef.current);
+      scheduler.current = kokoroPlayback;
       const kokoroOptions = {
         onWaiting: (text: string) => {
           if (alive() && !started.current) setMessage(text);
@@ -402,11 +409,12 @@ export function useReadingAudio(payload: ReadingPayload) {
               setCanKeepWaiting(false);
               streamed = true;
               setEngine(`Kokoro · Bella · ${backend}`);
-              playback = playback
-                .then(async () => {
-                  if (alive() && !playbackError) {
+              void kokoroPlayback
+                .append(blob, () => {
+                  if (alive()) {
                     setMessage("");
-                    await playBlob(blob, true);
+                    started.current = true;
+                    setStatus("playing");
                   }
                 })
                 .catch((error) => {
@@ -430,9 +438,10 @@ export function useReadingAudio(payload: ReadingPayload) {
             return;
           }
           if (!streamed) throw new Error("No audio was generated");
-          await playback;
           if (playbackError) throw playbackError;
+          await kokoroPlayback.drain();
           if (alive() && streamed) {
+            scheduler.current = null;
             setStatus("idle");
             setCompleted((n) => n + 1);
             setMessage("");
@@ -498,6 +507,7 @@ export function useReadingAudio(payload: ReadingPayload) {
     changeSpeed(rate: number) {
       setSpeed(rate);
       if (audio.current) audio.current.playbackRate = rate;
+      scheduler.current?.setRate(rate);
       if (device.current) stop();
     },
   };
