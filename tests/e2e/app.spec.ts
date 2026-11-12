@@ -1,18 +1,15 @@
-import { test, expect } from "@playwright/test";
-test("first-run Today renders and stays dismissed after reload", async ({
+import { test, expect } from "./fixtures";
+test("an existing journey skips welcome even without onboarding metadata", async ({
   page,
 }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/today");
   await expect(
-    page.getByText("A quiet start, your way.", { exact: false }),
+    page.getByRole("heading", { name: "One day at a time" }),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Continue with guided study" })
-    .click();
   await expect(
-    page.getByText("A quiet start, your way.", { exact: false }),
+    page.getByRole("heading", { name: "Your Still on this device." }),
   ).toHaveCount(0);
   await page.reload();
   await expect(

@@ -1,5 +1,7 @@
 "use client";
 import { AudioSettings } from "./scripture/audio-settings";
+import { DeviceWelcome, StartFreshSettings } from "./first-run";
+import { needsJourneyWelcome } from "@/lib/client/onboarding";
 import { ReadingAudio, ScriptureAudio } from "./scripture/audio-player";
 import { PinSettings } from "./privacy";
 import { PrayerWriter } from "./devotional/prayer-writer";
@@ -907,6 +909,7 @@ function Settings() {
         <a href="#translation">Bible edition</a>
         <a href="#reading-voice">Reading voice</a>
         <a href="#privacy">PIN privacy</a>
+        <a href="#device-welcome">This device</a>
       </nav>
       <section className="settings-card">
         <h2>Your Bible</h2>
@@ -982,6 +985,7 @@ function Settings() {
       </div>
       <AudioSettings />
       <PinSettings />
+      <StartFreshSettings />
 
       <section className="settings-card">
         <h2>Take a little stillness with you.</h2>
@@ -1040,7 +1044,7 @@ interface InstallEvent extends Event {
   prompt: () => Promise<void>;
 }
 export function AppScreen({ screen }: { screen: string }) {
-  const { ready } = useApp();
+  const { ready, state } = useApp();
   if (!ready)
     return (
       <div className="loading-screen">
@@ -1048,6 +1052,8 @@ export function AppScreen({ screen }: { screen: string }) {
         <p>Make a little space.</p>
       </div>
     );
+  if (["today", "journey"].includes(screen) && needsJourneyWelcome(state))
+    return <DeviceWelcome />;
   return screen === "today" ? (
     <Today />
   ) : screen === "create" ? (

@@ -1,6 +1,15 @@
 import { openDB } from "idb";
 import type { PlanType, JournalType, TranslationId } from "@/lib/schemas";
+export type DeviceProfile = {
+  id: string;
+  createdAt: string;
+  formFactor: "mobile" | "tablet" | "desktop";
+  starterIntent?: string;
+  starterVariant?: number;
+};
 export type SavedState = {
+  deviceProfile?: DeviceProfile;
+  journeyOnboarding?: { completedAt?: string; dismissedWelcome?: boolean };
   speechEngine: "auto" | "edge" | "kokoro" | "device";
   pinLock: { salt: string; hash: string; iterations: number } | null;
   setupSeen: boolean;
@@ -18,6 +27,7 @@ export type SavedState = {
   outbox: { path: string; body: unknown }[];
 };
 export const defaults: SavedState = {
+  journeyOnboarding: {},
   speechEngine: "auto",
   pinLock: null,
   setupSeen: false,
@@ -46,16 +56,26 @@ const database = () => {
   if (!databasePromise) throw new Error("Browser storage is unavailable.");
   return databasePromise;
 };
+export function mergeSavedState(saved?: Partial<SavedState>): SavedState {
+  return {
+    ...defaults,
+    ...saved,
+    journeyOnboarding: {
+      ...defaults.journeyOnboarding,
+      ...saved?.journeyOnboarding,
+    },
+  };
+}
 export async function readState(): Promise<SavedState> {
   const pending = localStorage.getItem("still-pending-save");
   if (pending) {
-    const restored = { ...defaults, ...JSON.parse(pending) } as SavedState;
+    const restored = mergeSavedState(JSON.parse(pending));
     await (await database()).put("state", restored, "current");
     if (localStorage.getItem("still-pending-save") === pending)
       localStorage.removeItem("still-pending-save");
     return restored;
   }
-  return { ...defaults, ...(await (await database()).get("state", "current")) };
+  return mergeSavedState(await (await database()).get("state", "current"));
 }
 let writing = Promise.resolve();
 export function writeState(state: SavedState) {

@@ -1,6 +1,5 @@
 "use client";
 import { DailyFlow } from "./daily-flow";
-import { FirstRun } from "@/components/first-run";
 import { Participation } from "./participation";
 import { useState } from "react";
 import Link from "@/components/smart-link";
@@ -211,7 +210,6 @@ export function Today() {
         </aside>
       </div>
       <Participation />
-      <FirstRun />
       <section className="reflection-strip">
         <span className="journal-icon">
           <PenLine size={22} />

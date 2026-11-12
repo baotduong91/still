@@ -1,4 +1,6 @@
-import { test, expect, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { test, expect } from "./fixtures";
+import { kokoroAutoExtends, kokoroTimeouts } from "../../lib/tts/kokoro-client";
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => {
@@ -202,7 +204,7 @@ test("desktop cold Bella may take 45 seconds without switching to Zira", async (
   ).toBe(0);
 });
 
-test("after 180 seconds Keep waiting extends the same Bella job without automatic Zira", async ({
+test("after automatic cold-start extensions Keep waiting continues the same Bella job without Zira", async ({
   page,
 }) => {
   await deviceSpy(page);
@@ -214,13 +216,22 @@ test("after 180 seconds Keep waiting extends the same Bella job without automati
   await page.goto("/today");
   await page.getByRole("link", { name: "02 Reflection" }).click();
   await page.clock.install();
-  await page.evaluate(() =>
-    Object.assign(window, { slowFirst: true, readingDelay: 240000 }),
+  await page.evaluate(
+    (readingDelay) => Object.assign(window, { slowFirst: true, readingDelay }),
+    kokoroTimeouts.first_inference * (kokoroAutoExtends + 1) + 60000,
   );
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
   await expect(page.getByRole("status")).toContainText("First Bella synthesis");
-  await page.clock.fastForward(180001);
-  await expect(page.getByRole("status")).toContainText("Bella needs more time");
+  for (let attempt = 0; attempt < kokoroAutoExtends; attempt++) {
+    await page.clock.fastForward(kokoroTimeouts.first_inference + 1);
+    await expect(
+      page.getByRole("button", { name: "Keep waiting", exact: true }),
+    ).toHaveCount(0);
+  }
+  await page.clock.fastForward(kokoroTimeouts.first_inference + 1);
+  await expect(page.getByRole("status")).toContainText(
+    "Bella still needs more time",
+  );
   await expect(
     page.getByRole("button", { name: "Keep waiting", exact: true }),
   ).toBeVisible();
@@ -596,6 +607,46 @@ test("locking the PIN boundary stops a curated reader", async ({ page }) => {
 test("Bella starts the first segment before synthesis finishes and queues later segments without overlap", async ({
   page,
 }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  // Deterministic Web Audio boundaries; real WAV decoding stays covered by the
+  // opt-in runtime suite. This replaces the old HTMLAudioElement-only fixture.
+  await page.addInitScript(() => {
+    class TestContext {
+      state = "running";
+      currentTime = 0;
+      destination = {};
+      constructor() {
+        Object.assign(window, { chunkContext: this, scheduledChunks: [] });
+      }
+      async decodeAudioData() {
+        return { duration: 2 };
+      }
+      async suspend() {
+        this.state = "suspended";
+      }
+      async resume() {
+        this.state = "running";
+      }
+      async close() {
+        this.state = "closed";
+      }
+      createBufferSource() {
+        return {
+          buffer: null,
+          playbackRate: { value: 1 },
+          connect() {},
+          disconnect() {},
+          onended: null,
+          start(at: number) {
+            (
+              window as unknown as { scheduledChunks: number[] }
+            ).scheduledChunks.push(at);
+          },
+        };
+      }
+    }
+    Object.defineProperty(window, "AudioContext", { value: TestContext });
+  });
   await page.goto("/today");
   await page.getByRole("link", { name: "02 Reflection" }).click();
   await page.evaluate(
@@ -609,7 +660,8 @@ test("Bella starts the first segment before synthesis finishes and queues later 
   expect(
     await page.evaluate(
       () =>
-        (window as unknown as { testPlayers: unknown[] }).testPlayers.length,
+        (window as unknown as { scheduledChunks: number[] }).scheduledChunks
+          .length,
     ),
   ).toBe(1);
   await page.getByRole("button", { name: "Pause reflection" }).click();
@@ -619,43 +671,45 @@ test("Bella starts the first segment before synthesis finishes and queues later 
   await expect(
     page.getByRole("button", { name: "Read reflection aloud" }),
   ).toBeVisible();
-  expect(
-    await page.evaluate(
-      () => (window as unknown as { activeReaders: number }).activeReaders,
-    ),
-  ).toBe(0);
-  await page.getByRole("button", { name: "Read reflection aloud" }).click();
-  await page.evaluate(() => {
-    const p = (
-      window as unknown as {
-        testPlayers: { pause: () => void; onended?: () => void }[];
-      }
-    ).testPlayers[0];
-    p.pause();
-    p.onended?.();
-  });
   await expect
     .poll(() =>
       page.evaluate(
         () =>
-          (window as unknown as { testPlayers: unknown[] }).testPlayers.length,
+          (window as unknown as { scheduledChunks: number[] }).scheduledChunks
+            .length,
       ),
     )
     .toBe(2);
   expect(
     await page.evaluate(
-      () => (window as unknown as { activeReaders: number }).activeReaders,
+      () =>
+        (window as unknown as { chunkContext: { state: string } }).chunkContext
+          .state,
     ),
-  ).toBe(1);
+  ).toBe("suspended");
+  const starts = await page.evaluate(
+    () => (window as unknown as { scheduledChunks: number[] }).scheduledChunks,
+  );
+  expect(starts[1] - starts[0]).toBeCloseTo(2, 5);
+  await page.getByRole("button", { name: "Read reflection aloud" }).click();
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { chunkContext: { state: string } }).chunkContext
+          .state,
+    ),
+  ).toBe("running");
   await page.getByRole("button", { name: "Stop reflection" }).click();
   await expect(
     page.getByRole("button", { name: "Stop reflection" }),
   ).toBeDisabled();
   expect(
     await page.evaluate(
-      () => (window as unknown as { activeReaders: number }).activeReaders,
+      () =>
+        (window as unknown as { chunkContext: { state: string } }).chunkContext
+          .state,
     ),
-  ).toBe(0);
+  ).toBe("closed");
 });
 
 test("installed device voice is immediate and never invokes Edge or a model worker", async ({

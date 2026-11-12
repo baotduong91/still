@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 test.use({ launchOptions: { args: ["--mute-audio"] } });
 test("production build serves the same-origin Bella WASM runtime and loader", async ({
   request,

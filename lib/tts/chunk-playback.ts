@@ -7,6 +7,7 @@ export class ChunkScheduler {
   private pending = 0;
   private started = false;
   private closed = false;
+  private paused = false;
 
   constructor(rate: number) {
     this.speed = rate;
@@ -17,10 +18,12 @@ export class ChunkScheduler {
   }
 
   pause() {
+    this.paused = true;
     void this.context?.suspend();
   }
 
   resume() {
+    this.paused = false;
     void this.context?.resume();
   }
 
@@ -39,9 +42,8 @@ export class ChunkScheduler {
     if (!this.alive) return;
     this.pending++;
     try {
-      if (!this.context)
-        this.context = new AudioContext({ sampleRate: 48000 });
-      if (this.context.state === "suspended")
+      if (!this.context) this.context = new AudioContext({ sampleRate: 48000 });
+      if (this.context.state === "suspended" && !this.paused)
         await this.context.resume().catch(() => {});
       const buffer = await this.context.decodeAudioData(
         await wav.arrayBuffer(),

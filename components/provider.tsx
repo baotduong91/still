@@ -8,7 +8,11 @@ import {
   useState,
 } from "react";
 import { Bible, type Corpus } from "@/lib/bible";
-import { buildPlan } from "@/lib/ai/orchestrator";
+import {
+  createDeviceProfile,
+  measureFormFactor,
+  needsJourneyWelcome,
+} from "@/lib/client/onboarding";
 import {
   api,
   ApiError,
@@ -80,36 +84,10 @@ export function Provider({ children }: { children: React.ReactNode }) {
         const saved = await readState();
         latest.current = saved;
         if (alive) setState(saved);
-        const corpus = await getBible(saved.translation);
+        const corpus = await getBible(
+          needsJourneyWelcome(saved) ? "WEB" : saved.translation,
+        );
         if (alive) setBible(corpus);
-        if (!saved.plans.length) {
-          let plan: PlanType,
-            remote = false;
-          try {
-            ({ plan } = await api<{ plan: PlanType }>("plans/generate", {
-              prompt: "I want to find peace when I feel anxious",
-              days: 7,
-              translation: saved.translation,
-            }));
-            remote = true;
-          } catch {
-            plan = buildPlan(
-              {
-                prompt: "I want to find peace when I feel anxious",
-                days: 7,
-                translation: saved.translation,
-              },
-              corpus,
-            );
-          }
-          if (alive)
-            await update((s) => ({
-              ...s,
-              plans: [plan],
-              activeId: plan.id,
-              remoteIds: remote ? [plan.id] : [],
-            }));
-        }
       } catch (e) {
         if (alive) setError((e as Error).message);
       } finally {
@@ -120,6 +98,26 @@ export function Provider({ children }: { children: React.ReactNode }) {
       alive = false;
     };
   }, [getBible, update]);
+  useEffect(() => {
+    if (!ready || state.deviceProfile) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const measure = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        void update((s) =>
+          s.deviceProfile
+            ? s
+            : { ...s, deviceProfile: createDeviceProfile(measureFormFactor()) },
+        ).catch(() => {});
+      }, 120);
+    };
+    measure();
+    window.addEventListener("resize", measure, { passive: true });
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", measure);
+    };
+  }, [ready, state.deviceProfile, update]);
   useEffect(() => {
     const sync = () => setOnline(navigator.onLine);
     sync();
@@ -184,10 +182,13 @@ export function Provider({ children }: { children: React.ReactNode }) {
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
   }, [state.theme]);
+  const bibleTranslation = needsJourneyWelcome(state)
+    ? "WEB"
+    : state.translation;
   useEffect(() => {
     if (!ready) return;
     let alive = true;
-    getBible(state.translation)
+    getBible(bibleTranslation)
       .then((b) => {
         if (alive) setBible(b);
       })
@@ -195,7 +196,7 @@ export function Provider({ children }: { children: React.ReactNode }) {
     return () => {
       alive = false;
     };
-  }, [state.translation, ready, getBible]);
+  }, [bibleTranslation, ready, getBible]);
   useEffect(() => {
     if (!ready || !online || !state.outbox.length) return;
     let cancelled = false;
