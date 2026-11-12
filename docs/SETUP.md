@@ -96,9 +96,13 @@ Install Ollama following https://docs.ollama.com/quickstart. Use `ollama list` t
 
 The browser never talks directly to Ollama. The Node server must be on the Mac or able to reach its configured Ollama endpoint. Do not expose Ollama to the public Internet. A model timeout, malformed JSON, or unavailable model returns LOCAL_MODEL_UNAVAILABLE; no cloud call is made.
 
-## Optional OpenAI, Gemini, or Anthropic cloud model
+## Optional Groq cloud: one key
 
-The cloud interface uses Vercel AI Gateway with the installed AI SDK. It supports provider/model IDs for OpenAI, Google Gemini, and Anthropic. Create an AI Gateway key using its official documentation: https://vercel.com/docs/ai-gateway. Fetch current model IDs with:
+Create a key at [Groq Console](https://console.groq.com/keys), add `GROQ_API_KEY` to Vercel Production environment variables (or local `.env.local`), redeploy/restart, and choose **Cloud · Groq** plus the sharing checkbox in Settings. No other model variable or account is needed. Rate limits/unreachable Groq return labelled guided WEB content. See [GROQ.md](GROQ.md) for setup, free-tier limits, status checks, streaming, and privacy details.
+
+## Alternative OpenAI, Gemini, or Anthropic cloud model
+
+When `GROQ_API_KEY` is absent, the existing cloud interface uses Vercel AI Gateway with the installed AI SDK. It supports provider/model IDs for OpenAI, Google Gemini, and Anthropic. Create an AI Gateway key using its official documentation: https://vercel.com/docs/ai-gateway. Fetch current model IDs with:
 
 ```sh
 curl https://ai-gateway.vercel.sh/v1/models

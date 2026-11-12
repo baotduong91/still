@@ -1,5 +1,6 @@
 "use client";
 import { DailyFlow } from "./daily-flow";
+import { CloudFallbackNotice } from "@/components/cloud-status";
 import { Participation } from "./participation";
 import { useState } from "react";
 import Link from "@/components/smart-link";
@@ -122,6 +123,7 @@ export function Today() {
   }
   return (
     <div className="today-page">
+      <CloudFallbackNotice />
       <h1 className="sr-only">A little stillness. A little closer.</h1>
       <div className="today-columns">
         <DailyFlow

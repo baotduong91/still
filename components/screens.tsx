@@ -1,5 +1,6 @@
 "use client";
 import { AudioSettings } from "./scripture/audio-settings";
+import { CloudFallbackNotice } from "./cloud-status";
 import { DeviceWelcome, StartFreshSettings } from "./first-run";
 import { needsJourneyWelcome } from "@/lib/client/onboarding";
 import { ReadingAudio, ScriptureAudio } from "./scripture/audio-player";
@@ -10,7 +11,14 @@ import { usePassage } from "./scripture/use-passage";
 import { selectedProvider } from "@/lib/client/modes";
 import { buildGuidedPlan } from "@/lib/ai/guided";
 import { ModeSettings } from "./mode-settings";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { readChatStream } from "@/lib/client/chat-stream";
+import {
+  readCloudVendor,
+  recordCloudVendor,
+  recordCloudStatus,
+} from "@/lib/client/cloud-status";
+import { groqGuidedPlan } from "@/lib/ai/groq-guided";
 import Link from "@/components/smart-link";
 import { useRouter } from "next/navigation";
 import {
@@ -64,7 +72,7 @@ function Heading({
   );
 }
 function Create() {
-  const { state, bible, savePlan, online, setError } = useApp();
+  const { state, bible, getBible, savePlan, online, setError } = useApp();
   const router = useRouter();
   const [prompt, setPrompt] = useState(""),
     [days, setDays] = useState(7),
@@ -85,18 +93,34 @@ function Create() {
           const { plan } = await api<{ plan: PlanType }>(
             "plans/generate",
             input,
+            { cloudConsent: state.cloudConsent },
           );
           await savePlan(plan, true);
         } catch (error) {
-          if (state.provider !== "curated" || !recoverable(error)) throw error;
-          await savePlan(buildGuidedPlan(input, bible));
+          if (
+            input.provider === "cloud" &&
+            readCloudVendor() === "groq" &&
+            recoverable(error)
+          ) {
+            recordCloudStatus("unavailable", true);
+            await savePlan(groqGuidedPlan(input, await getBible("WEB")));
+          } else {
+            if (state.provider !== "curated" || !recoverable(error))
+              throw error;
+            await savePlan(buildGuidedPlan(input, bible));
+          }
         }
       } else {
-        if (state.provider !== "curated")
-          throw new Error(
-            "Models need a connection. Select the local curated guide in Settings.",
-          );
-        await savePlan(buildGuidedPlan(input, bible));
+        if (input.provider === "cloud" && readCloudVendor() === "groq") {
+          recordCloudStatus("unavailable", true);
+          await savePlan(groqGuidedPlan(input, await getBible("WEB")));
+        } else {
+          if (state.provider !== "curated")
+            throw new Error(
+              "Models need a connection. Select the local curated guide in Settings.",
+            );
+          await savePlan(buildGuidedPlan(input, bible));
+        }
       }
       router.push("/today");
     } catch (e) {
@@ -585,6 +609,33 @@ function Chat() {
       { question: string; response: ChatType }[]
     >([]),
     [busy, setBusy] = useState(false);
+  const [groq, setGroq] = useState<boolean | null>(null);
+  const [draft, setDraft] = useState<{
+    text: string;
+    citations: PassageType[];
+  } | null>(null);
+  const streamAbort = useRef<AbortController | null>(null);
+  useEffect(
+    () => () => {
+      streamAbort.current?.abort();
+    },
+    [],
+  );
+  useEffect(() => {
+    if (state.provider !== "cloud" || !online) return;
+    let alive = true;
+    fetch("/api/modes")
+      .then((r) => r.json())
+      .then((status) => {
+        if (!alive) return;
+        recordCloudVendor(status.modes.cloud.vendor);
+        setGroq(status.modes.cloud.vendor === "groq");
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [state.provider, online]);
   async function ask(e: React.FormEvent) {
     e.preventDefault();
     if (!bible) return;
@@ -598,30 +649,78 @@ function Chat() {
           .slice(-8)
           .map((m) => ({ question: m.question, answer: m.response.answer })),
       };
-      if (!online && state.provider === "cloud")
+      if (!online && state.provider === "cloud" && readCloudVendor() !== "groq")
         throw new Error(
           "This model requires a connection. Choose the local guide for offline use.",
         );
       let response: ChatType;
       try {
-        response =
-          online || input.provider === "ollama"
-            ? await api<ChatType>("chat", input)
-            : answerQuestion(input, bible);
+        let useGroq = groq;
+        if (online && input.provider === "cloud" && useGroq === null) {
+          const status = await fetch("/api/modes").then((r) => r.json());
+          recordCloudVendor(status.modes.cloud.vendor);
+          useGroq = status.modes.cloud.vendor === "groq";
+          setGroq(useGroq);
+        }
+        if (online && input.provider === "cloud" && useGroq) {
+          const controller = new AbortController();
+          streamAbort.current = controller;
+          setDraft({ text: "", citations: [] });
+          response = await readChatStream(
+            input,
+            state.cloudConsent,
+            controller.signal,
+            (event) => {
+              if (controller.signal.aborted) return;
+              if (event.type === "citations")
+                setDraft((d) => ({
+                  text: d?.text ?? "",
+                  citations: event.passages,
+                }));
+              if (event.type === "text")
+                setDraft((d) => ({
+                  text: (d?.text ?? "") + event.text,
+                  citations: d?.citations ?? [],
+                }));
+            },
+          );
+        } else {
+          response =
+            online || input.provider === "ollama"
+              ? await api<ChatType>("chat", input, {
+                  cloudConsent: state.cloudConsent,
+                })
+              : answerQuestion(input, bible);
+          if (!online && input.provider === "cloud")
+            recordCloudStatus("unavailable", true);
+        }
       } catch (error) {
-        if (state.provider !== "curated" || !recoverable(error)) throw error;
-        response = answerQuestion(input, bible);
+        if (streamAbort.current?.signal.aborted) return;
+        if (
+          input.provider === "cloud" &&
+          readCloudVendor() === "groq" &&
+          recoverable(error)
+        ) {
+          recordCloudStatus("unavailable", true);
+          response = answerQuestion({ ...input, provider: "curated" }, bible);
+        } else {
+          if (state.provider !== "curated" || !recoverable(error)) throw error;
+          response = answerQuestion(input, bible);
+        }
       }
       setMessages((m) => [...m, { question, response }]);
       setQuestion("");
     } catch (e) {
       setError((e as Error).message);
     } finally {
+      setDraft(null);
+      streamAbort.current = null;
       setBusy(false);
     }
   }
   return (
     <div className="chat-page">
+      <CloudFallbackNotice />
       <Heading
         label="YOUR QUESTIONS ARE WELCOME"
         title="Let’s open the Word."
@@ -737,6 +836,33 @@ function Chat() {
             </article>
           </div>
         ))}
+        {draft && (
+          <article
+            className="answer chat-stream-preview"
+            aria-label="Interpretation in progress"
+          >
+            <p className="eyebrow">GROQ · INTERPRETATION IN PROGRESS</p>
+            <p>
+              {draft.text ||
+                "Retrieving Scripture and preparing a grounded answer…"}
+            </p>
+            {draft.citations.map((p) => (
+              <div key={p.reference} className="passage">
+                <p className="eyebrow">
+                  {p.reference} · {p.translation}
+                </p>
+                <blockquote>
+                  {p.verses.map((v) => (
+                    <span key={v.verse}>
+                      <sup>{v.verse}</sup>
+                      {v.text}{" "}
+                    </span>
+                  ))}
+                </blockquote>
+              </div>
+            ))}
+          </article>
+        )}
       </div>
       <form className="chat-compose" onSubmit={ask}>
         <label className="sr-only" htmlFor="chat-question">

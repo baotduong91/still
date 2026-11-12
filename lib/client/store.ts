@@ -1,4 +1,11 @@
 import { openDB } from "idb";
+import {
+  cloudConsentHeader,
+  cloudStatusHeader,
+  cloudFallbackHeader,
+  isCloudStatus,
+} from "@/lib/ai/cloud-status";
+import { recordCloudStatus } from "./cloud-status";
 import type { PlanType, JournalType, TranslationId } from "@/lib/schemas";
 export type DeviceProfile = {
   id: string;
@@ -108,17 +115,39 @@ export function recoverable(error: unknown) {
       [401, 404, 500, 502, 503, 504].includes(error.status))
   );
 }
-export async function api<T>(path: string, body?: unknown): Promise<T> {
+export async function api<T>(
+  path: string,
+  body?: unknown,
+  options: { cloudConsent?: boolean } = {},
+): Promise<T> {
+  const cloud =
+    body &&
+    typeof body === "object" &&
+    "provider" in body &&
+    body.provider === "cloud";
+  if (cloud && !options.cloudConsent)
+    throw new Error(
+      "Enable cloud sharing in Settings before sending a personal prompt.",
+    );
   const response = await fetch(
     `/api/awp/${path}`,
     body
       ? {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(cloud ? { [cloudConsentHeader]: "true" } : {}),
+          },
           body: JSON.stringify(body),
         }
       : {},
   );
+  const status = response.headers.get(cloudStatusHeader);
+  if (isCloudStatus(status))
+    recordCloudStatus(
+      status,
+      response.headers.get(cloudFallbackHeader) === "guided",
+    );
   const data = await response.json();
   if (!response.ok)
     throw new ApiError(

@@ -4,6 +4,8 @@ A local-first, personal Scripture app with a calm editorial UI, complete WEB Bib
 
 **Architecture:** Next.js 16 App Router + strict TypeScript → shared devotional orchestration / exact Scripture validation → PostgreSQL + Prisma or atomic local personal storage. IndexedDB and a service worker keep saved plans and Scripture available offline. Optional Ollama or AI SDK cloud models enrich commentary only; citations remain exact local retrieval.
 
+**Simplest optional cloud:** add `GROQ_API_KEY` on Vercel or in `.env.local`, redeploy/restart, then choose **Cloud · Groq** and the explicit sharing checkbox in Settings. No model configuration needed. Groq failures return labelled guided WEB content. [One-key setup and free-tier limits](docs/GROQ.md).
+
 ```sh
 npm ci
 cp .env.example .env

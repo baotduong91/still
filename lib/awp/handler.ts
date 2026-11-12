@@ -10,14 +10,24 @@ import { getBible, translations } from "@/lib/bible/server";
 import { adaptPlan } from "@/lib/ai/orchestrator";
 import { themes } from "@/lib/ai/themes";
 import * as repo from "@/lib/db/repository";
+import { requireCloudConsent } from "@/lib/ai/consent";
+import {
+  cloudStatusHeader,
+  cloudFallbackHeader,
+  type CloudStatus,
+  type ModelRunOptions,
+} from "@/lib/ai/cloud-status";
 export async function execute(
   id: ActionId,
   raw: unknown,
   owner: string,
+  options: ModelRunOptions = {},
 ): Promise<unknown> {
   switch (id) {
     case "generate_plan":
-      return { plan: await repo.savePlan(owner, await generatePlan(raw)) };
+      return {
+        plan: await repo.savePlan(owner, await generatePlan(raw, options)),
+      };
     case "list_plans":
       return { plans: await repo.listPlans(owner) };
     case "get_daily": {
@@ -96,7 +106,7 @@ export async function execute(
       };
     }
     case "bible_chat":
-      return chat(raw);
+      return chat(raw, options);
     case "create_journal": {
       const input = S.JournalInput.parse(raw);
       if (input.reference)
@@ -117,6 +127,12 @@ export async function execute(
 }
 export async function handle(request: Request, path: string) {
   let cookie: string | null = null;
+  let cloudStatus: CloudStatus | undefined;
+  let fallback = false;
+  const cloudHeaders = () => ({
+    ...(cloudStatus ? { [cloudStatusHeader]: cloudStatus } : {}),
+    ...(fallback ? { [cloudFallbackHeader]: "guided" } : {}),
+  });
   try {
     const match = Object.entries(actions).find(
       ([, a]) => a.path === path && a.method === request.method,
@@ -141,11 +157,19 @@ export async function handle(request: Request, path: string) {
       }
     }
     const parsed = action.input.parse(raw);
-    const result = await execute(id as ActionId, parsed, identity.owner);
+    requireCloudConsent(request, parsed);
+    const result = await execute(id as ActionId, parsed, identity.owner, {
+      signal: request.signal,
+      onCloudStatus: (status, guided = false) => {
+        cloudStatus = status;
+        fallback = guided;
+      },
+    });
     action.output.parse(result);
     return Response.json(result, {
       headers: {
         "Cache-Control": "no-store",
+        ...cloudHeaders(),
         ...(cookie ? { "Set-Cookie": cookie } : {}),
       },
     });
@@ -176,6 +200,7 @@ export async function handle(request: Request, path: string) {
         status: errors[app.code].status,
         headers: {
           "Cache-Control": "no-store",
+          ...cloudHeaders(),
           ...(cookie ? { "Set-Cookie": cookie } : {}),
           ...(app.code === "RATE_LIMITED" ? { "Retry-After": "60" } : {}),
         },

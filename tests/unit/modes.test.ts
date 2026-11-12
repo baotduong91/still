@@ -1,10 +1,11 @@
-import { afterEach, describe, it, expect, vi } from "vitest";
+import { beforeEach, afterEach, describe, it, expect, vi } from "vitest";
 import { modeConfiguration } from "@/lib/ai/modes";
 import { selectedProvider } from "@/lib/client/modes";
 import { getProvider } from "@/lib/ai/providers";
 import { buildGuidedPlan } from "@/lib/ai/guided";
 import { getBible } from "@/lib/bible/server";
 import { GET } from "@/app/api/modes/route";
+beforeEach(() => vi.stubEnv("GROQ_API_KEY", ""));
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.restoreAllMocks();

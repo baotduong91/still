@@ -4,7 +4,7 @@
 |---|---|---|---|---|
 | Guided study, reference journeys, theme/reference chat | Browser, including offline after download | None | Default | Exact local WEB |
 | Open-ended Bible Q&A and generated plans | Node app running on your Mac + Ollama | OLLAMA_MODEL; optional OLLAMA_BASE_URL | Settings → Local Mac · Ollama | Model references must resolve to exact WEB before writing |
-| Open-ended hosted answers and plans | Vercel/Node + AI Gateway | AI_GATEWAY_API_KEY + CLOUD_MODEL | Settings → Cloud, then explicit sharing checkbox | Same WEB retrieval and validation gate |
+| Open-ended hosted answers and plans | Vercel/Node + Groq (or existing AI Gateway) | GROQ_API_KEY; alternatively AI_GATEWAY_API_KEY + CLOUD_MODEL | Settings → Cloud · Groq, then explicit sharing checkbox | Same WEB retrieval and validation gate |
 | CSB/NLT wording online | App server + API.Bible | API_BIBLE_KEY, authorized edition IDs, API_BIBLE_NONCOMMERCIAL=true | Online Scripture/reporting toggle + translation selection | Exact API text and attribution; WEB fallback |
 
 Model choice and translation choice are independent. CSB wording does not enable a language model. Choosing Ollama never invokes cloud, even if cloud credentials are configured. Guided study never invokes a model. Settings shows configured modes without sending personal text. Check Ollama connection only queries the local server's model list, and sends no personal prompt. Configuration is not a guarantee that a provider is currently reachable.
@@ -39,9 +39,11 @@ The Next.js server must run on the Mac that can reach Ollama. Opening the Vercel
 
 ## 3. Open-ended hosted mode
 
-Set AI_GATEWAY_API_KEY and CLOUD_MODEL in the Vercel project environment. Use a current `provider/model` identifier from the AI Gateway catalog at https://ai-gateway.vercel.sh/v1/models. Redeploy. Set SITE_URL to the exact public origin, keep SESSION_SECRET stable, and use PostgreSQL for durable server-side plans rather than serverless temporary files.
+The simplest path is one `GROQ_API_KEY`: create it at [Groq Console](https://console.groq.com/keys), add it to the Vercel project environment (or local `.env.local`), then redeploy/restart. The default model is selected automatically. See [GROQ.md](GROQ.md) for exact steps, free-tier limits, streaming, and guided fallback.
 
-Settings → Cloud model makes the disclosure visible. Check the sharing checkbox before sending any personal prompt. Changing modes clears that consent; a restored old cloud selection cannot silently send. Questions, goals, recent chat context, and retrieved passages go to the chosen cloud model only after this choice. Journals and personal prayers are not automatically included. Keys stay on the server. A failed or unavailable model returns an error rather than selecting another provider. AWP agents express their choice explicitly through the provider input; omitted provider defaults to guided (`curated` for backward compatibility).
+The existing AI Gateway path remains available when `GROQ_API_KEY` is absent. Set AI_GATEWAY_API_KEY and CLOUD_MODEL using a current `provider/model` identifier from https://ai-gateway.vercel.sh/v1/models. Redeploy. Set SITE_URL to the exact public origin, keep SESSION_SECRET stable, and use PostgreSQL for durable server-side plans rather than serverless temporary files.
+
+Settings → Cloud makes the disclosure visible. Check the sharing checkbox before sending any personal prompt. Changing modes clears that consent; a restored old cloud selection cannot silently send. Questions, goals, recent chat context, and retrieved passages go to the chosen cloud model only after this choice. Journals and personal prayers are not automatically included. Keys stay on the server. Groq rate limits and connection failures return labelled guided WEB content; no other network model is selected automatically. Gateway and Ollama failures retain their existing explicit errors. AWP agents express their choice explicitly through the provider input; omitted provider defaults to guided (`curated` for backward compatibility).
 
 ## 4. CSB/NLT online wording
 
@@ -51,7 +53,7 @@ CSB is copyrighted by Holman/Lifeway. Its general allowance of up to 1,000 quote
 
 ## Protocol and verification
 
-Both `/agent.json` and `/.well-known/agent.json`, and every existing action endpoint, remain available. `/api/modes` is a UI configuration/status helper, not an additional AWP action. It reports booleans only, never credentials, model IDs, or personal content. Existing clients keep the curated/ollama/cloud provider enum.
+Both `/agent.json` and `/.well-known/agent.json`, and every existing action endpoint, remain available. `/api/modes` is a UI configuration/status helper, not an additional AWP action. It reports availability, vendor, and optional connection status, never credentials, model IDs, or personal content. Existing clients keep the curated/ollama/cloud provider enum. App-only `/api/chat/stream` sends validated commentary sentences and separately retrieved citations; AWP actions retain their JSON contracts.
 
 Run `npm run typecheck`, `npm test`, `npm run build`, then `npm run test:e2e`. Unit tests cover configuration/routing, consent, exact text, fallback, invalid citations, and model failure with no silent cloud calls. Live cloud/Ollama quality and licensed API access require your configured services; tests use marked fixtures and mocks.
 

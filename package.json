@@ -21,6 +21,7 @@
     "predev": "node scripts/prepare-tts.mjs"
   },
   "dependencies": {
+    "@ai-sdk/groq": "^4.0.78",
     "@huggingface/transformers": "3.8.1",
     "@prisma/client": "6.19.3",
     "@radix-ui/react-slot": "^1.2.0",
