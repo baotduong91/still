@@ -1,8 +1,9 @@
 import { speechChunks } from "./chunks";
 import { offlineModelStored } from "./model-cache";
+export const kokoroAutoExtends = 3;
 export const kokoroTimeouts = {
-  download: 120000,
-  model_load: 120000,
+  download: 180000,
+  model_load: 180000,
   first_inference: 180000,
   warm_inference: 45000,
 };
@@ -18,7 +19,9 @@ export class KokoroTimeoutError extends Error {
 type Options = {
   mode?: "warm" | "prime";
   onTimeout?: (extend: () => void) => void;
+  onWaiting?: (message: string) => void;
 };
+const sessionKey = "still-bella-session";
 let worker: Worker | null = null;
 let modelWarmed = false;
 let serial = 0;
@@ -54,7 +57,8 @@ export function kokoroAudio(
       phaseKey = "",
       deadline = Infinity,
       lastProgress = "",
-      extended = false,
+      autoExtended = 0,
+      manualExtended = false,
       waiting = false,
       settled = false;
     const cleanup = () => {
@@ -89,16 +93,30 @@ export function kokoroAudio(
       );
     const expired = () => {
       if (settled) return;
-      if (options?.onTimeout && !extended) {
+      if (autoExtended < kokoroAutoExtends) {
+        autoExtended++;
+        waiting = false;
+        deadline = Date.now() + kokoroTimeouts[phase];
+        options?.onWaiting?.(
+          autoExtended === 1
+            ? "Bella is preparing on-device. This can take a few minutes the first time…"
+            : `Still preparing Bella (${autoExtended + 1}/${kokoroAutoExtends + 1})…`,
+        );
+        arm();
+        return;
+      }
+      if (options?.onTimeout && !manualExtended) {
         waiting = true;
         options.onTimeout(() => {
-          if (settled || !waiting || extended) return;
+          if (settled || !waiting || manualExtended) return;
           waiting = false;
-          extended = true;
+          manualExtended = true;
           deadline = Date.now() + kokoroTimeouts[phase];
           arm();
         });
-      } else fail(new KokoroTimeoutError(phase));
+        return;
+      }
+      fail(new KokoroTimeoutError(phase));
     };
     const arm = () => {
       clearTimeout(timer);
@@ -163,6 +181,9 @@ export function kokoroAudio(
       }
       if (!["ready", "done", "audio", "primed"].includes(data.type)) return;
       modelWarmed = true;
+      try {
+        sessionStorage.setItem(sessionKey, "1");
+      } catch {}
       cleanup();
       resolve({
         backend: data.backend,
@@ -194,14 +215,29 @@ export function kokoroAudio(
   });
 }
 
+export function bellaSessionPrepared() {
+  try {
+    return sessionStorage.getItem(sessionKey) === "1";
+  } catch {
+    return false;
+  }
+}
+
 // No worker or download is started on an unprepared device.
 export function warmKokoro() {
   if (warming) return warming;
   const task = (async () => {
     if (!(await offlineModelStored())) return false;
-    await kokoroAudio(null, () => {}, new AbortController().signal, undefined, {
-      mode: "warm",
-    });
+    await kokoroAudio(
+      null,
+      () => {},
+      new AbortController().signal,
+      undefined,
+      {
+        mode: "warm",
+        onWaiting: () => {},
+      },
+    );
     return true;
   })()
     .catch(() => false)

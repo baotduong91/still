@@ -9,7 +9,13 @@ import {
   type ReadingPayload,
 } from "@/lib/tts/reading";
 import { supportsMp3Stream, streamMp3 } from "@/lib/tts/edge-stream";
-import { kokoroAudio, KokoroTimeoutError } from "@/lib/tts/kokoro-client";
+import {
+  bellaSessionPrepared,
+  kokoroAudio,
+  KokoroTimeoutError,
+  warmKokoro,
+} from "@/lib/tts/kokoro-client";
+import { offlineModelStored } from "@/lib/tts/model-cache";
 type Status = "idle" | "loading" | "playing" | "paused";
 export function useReadingAudio(payload: ReadingPayload) {
   const { state, online } = useApp(),
@@ -348,12 +354,40 @@ export function useReadingAudio(payload: ReadingPayload) {
       }
       if (!alive()) return;
       setEngine("Kokoro · Bella");
-      if (!online) setMessage("Loading your downloaded voice…");
+      const stored = await offlineModelStored().catch(() => false);
+      if (stored) {
+        setMessage(
+          bellaSessionPrepared()
+            ? "Loading Bella on this device…"
+            : "Warming Bella for private reading…",
+        );
+        await warmKokoro().catch(() => false);
+      } else if (!online) setMessage("Loading your downloaded voice…");
       let playback = Promise.resolve(),
         playbackError: unknown,
         streamed = false;
+      const kokoroOptions = {
+        onWaiting: (text: string) => {
+          if (alive() && !started.current) setMessage(text);
+        },
+        onTimeout: (extend: () => void) => {
+          if (!alive()) return;
+          if (started.current) {
+            stop();
+            setMessage(
+              "Bella could not finish this reading. Use device voice to restart immediately, or tap Play to try again.",
+            );
+            return;
+          }
+          extendWait.current = extend;
+          setCanKeepWaiting(true);
+          setMessage(
+            "Bella still needs more time. Keep waiting to continue this same reading, or choose a device voice.",
+          );
+        },
+      };
       // Retry one genuine worker/model error before offering an explicit choice.
-      // Timeouts never trigger a new job or switch the reader to a device voice.
+      // Timeouts auto-extend several times; they never switch to a device voice.
       for (let attempt = 0; attempt < 2; attempt++)
         try {
           const result = await kokoroAudio(
@@ -385,23 +419,7 @@ export function useReadingAudio(payload: ReadingPayload) {
                   }
                 });
             },
-            {
-              onTimeout: (extend) => {
-                if (!alive()) return;
-                if (started.current) {
-                  stop();
-                  setMessage(
-                    "Bella could not finish this reading. Use device voice to restart immediately, or tap Play to try again.",
-                  );
-                  return;
-                }
-                extendWait.current = extend;
-                setCanKeepWaiting(true);
-                setMessage(
-                  "Bella needs more time on first use (up to 3 minutes). Keep waiting, or choose a device voice.",
-                );
-              },
-            },
+            kokoroOptions,
           );
           if (result.blob && alive()) {
             extendWait.current = null;
@@ -441,7 +459,7 @@ export function useReadingAudio(payload: ReadingPayload) {
           else
             setMessage(
               error instanceof KokoroTimeoutError
-                ? "Bella still needs more time. Tap Play to try Bella again, or choose Use device voice. Your text stays on-device."
+                ? "Bella could not finish in time. Tap Play once more to continue on-device, or choose Use device voice."
                 : "Bella could not load after a retry. Tap Play to try Bella again, or choose Use device voice. Your text stays on-device.",
             );
           return;

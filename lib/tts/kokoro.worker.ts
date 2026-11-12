@@ -174,8 +174,13 @@ self.onmessage = (event: MessageEvent<Input>) => {
     step: 0,
     epoch: cacheEpoch,
     timer: setInterval(() => {
-      // Don't let heartbeats hide a stalled asset download or model load.
-      if (job.phase !== "queued" && !job.phase.endsWith("inference")) return;
+      if (
+        job.phase !== "queued" &&
+        !job.phase.endsWith("inference") &&
+        job.phase !== "model_load" &&
+        job.phase !== "download"
+      )
+        return;
       send(job, {
         type: "progress",
         phase: job.phase,

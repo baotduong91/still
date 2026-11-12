@@ -18,6 +18,8 @@ import {
   type SavedState,
 } from "@/lib/client/store";
 import type { PlanType, TranslationId } from "@/lib/schemas";
+import { warmKokoro } from "@/lib/tts/kokoro-client";
+import { offlineModelStored } from "@/lib/tts/model-cache";
 type AppContext = {
   state: SavedState;
   update: (fn: (old: SavedState) => SavedState) => Promise<void>;
@@ -156,6 +158,17 @@ export function Provider({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener("online", sync);
       window.removeEventListener("offline", sync);
+    };
+  }, []);
+  useEffect(() => {
+    let alive = true;
+    void offlineModelStored()
+      .then((stored) => {
+        if (alive && stored && navigator.onLine) void warmKokoro();
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
     };
   }, []);
   useEffect(() => {

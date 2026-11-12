@@ -116,13 +116,16 @@ it("delivers the first WAV chunk before synthesis completes", async () => {
   worker.send({ type: "done", backend: "WASM" });
   expect((await pending).backend).toBe("WASM");
 });
-it("allows 180 seconds for cold inference and cancels only the timed-out job", async () => {
-  const { kokoroAudio, KokoroTimeoutError } =
+it("auto-extends cold inference before failing the job", async () => {
+  const { kokoroAudio, KokoroTimeoutError, kokoroAutoExtends } =
     await import("@/lib/tts/kokoro-client");
+  const waiting = vi.fn();
   const result = kokoroAudio(
     "Verse",
     () => {},
     new AbortController().signal,
+    undefined,
+    { onWaiting: waiting },
   ).catch((e) => e as Error);
   const worker = TestWorker.all[0];
   const progress = {
@@ -131,10 +134,13 @@ it("allows 180 seconds for cold inference and cancels only the timed-out job", a
     message: "Preparing audio 1 of 2",
   };
   worker.send(progress);
-  await vi.advanceTimersByTimeAsync(179000);
-  expect(worker.last.mode).not.toBe("cancel");
-  worker.send(progress);
-  await vi.advanceTimersByTimeAsync(1001);
+  for (let i = 0; i < kokoroAutoExtends; i++) {
+    await vi.advanceTimersByTimeAsync(180000);
+    expect(worker.last.mode).not.toBe("cancel");
+    expect(waiting).toHaveBeenCalled();
+    worker.send(progress);
+  }
+  await vi.advanceTimersByTimeAsync(180001);
   expect(await result).toBeInstanceOf(KokoroTimeoutError);
   expect(worker.last.mode).toBe("cancel");
   expect(worker.terminated).toBe(false);
@@ -223,13 +229,14 @@ it("uses 45 seconds for the second, warm inference chunk", async () => {
   });
   await vi.advanceTimersByTimeAsync(44999);
   expect(worker.last.mode).not.toBe("cancel");
-  await vi.advanceTimersByTimeAsync(1);
-  expect(await result).toBeInstanceOf(KokoroTimeoutError);
+  worker.send({ type: "done", backend: "WASM" });
+  expect((await result).backend).toBe("WASM");
   expect(worker.terminated).toBe(false);
 });
 
-it("offers one extension of the same slow job without duplicate synthesis or automatic fallback", async () => {
-  const { kokoroAudio } = await import("@/lib/tts/kokoro-client");
+it("offers a manual extension after automatic ones on the same slow job", async () => {
+  const { kokoroAudio, kokoroAutoExtends } =
+    await import("@/lib/tts/kokoro-client");
   let extend: (() => void) | undefined;
   const onTimeout = vi.fn((resume: () => void) => {
     extend = resume;
@@ -248,19 +255,10 @@ it("offers one extension of the same slow job without duplicate synthesis or aut
     step: 1,
     message: "Preparing",
   });
-  for (let n = 0; n < 36; n++) {
-    await vi.advanceTimersByTimeAsync(5000);
-    worker.send({
-      type: "progress",
-      phase: "first_inference",
-      step: 1,
-      heartbeat: true,
-      message: "Still preparing Bella…",
-    });
-  }
+  for (let i = 0; i <= kokoroAutoExtends; i++)
+    await vi.advanceTimersByTimeAsync(180000);
   expect(onTimeout).toHaveBeenCalledOnce();
   expect(worker.last.mode).not.toBe("cancel");
-  extend!();
   extend!();
   await vi.advanceTimersByTimeAsync(179999);
   expect(worker.last.mode).not.toBe("cancel");

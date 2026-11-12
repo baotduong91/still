@@ -75,12 +75,13 @@ export function AudioSettings() {
               controller.signal,
               undefined,
               {
+                onWaiting: setMessage,
                 onTimeout: (extend) => {
                   if (controller.signal.aborted) return;
                   extendWait.current = extend;
                   setCanKeepWaiting(true);
                   setMessage(
-                    "Bella needs more time on first use (up to 3 minutes). Keep waiting, or cancel and try again later.",
+                    "Bella still needs more time. Keep waiting, or cancel and try again later.",
                   );
                 },
               },
