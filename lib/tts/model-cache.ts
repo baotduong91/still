@@ -50,3 +50,15 @@ export async function offlineModelStored() {
     key.url.endsWith("/voices/af_bella.bin"),
   );
 }
+
+// kokoro-js otherwise fetches Bella only after model loading and phonemization.
+// Use its exact cache namespace/URL so the library consumes the same bytes.
+export async function preloadBellaVoice() {
+  const url =
+    "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/main/voices/af_bella.bin";
+  const cache = await caches.open("kokoro-voices");
+  if (await cache.match(url)) return;
+  const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
+  if (!response.ok) throw new Error("Bella voice download failed");
+  await cache.put(url, response);
+}

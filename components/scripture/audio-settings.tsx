@@ -45,13 +45,14 @@ export function AudioSettings() {
       </p>
       <p className="field-hint">
         Bella now uses the smaller, roughly 90 MB model on every device,
-        avoiding the large GPU download and GPU compilation stalls. Audio starts
-        in short segments. For immediate reading without a download, choose an
-        installed device voice; quality depends on your installed voices. Both
-        choices keep reading text on-device. Keep this screen open until Bella
-        is ready; browsers may remove downloads when storage is low. First
-        synthesis can take 1–3 minutes on desktop, even after the download
-        finishes.
+        avoiding the large GPU download and GPU compilation stalls. Today
+        prepares the next section while the current one reads, then plays fully
+        buffered audio without synthesis gaps. For immediate reading without a
+        download, choose an installed device voice; quality depends on your
+        installed voices. Both choices keep reading text on-device. Keep this
+        screen open until Bella is ready; browsers may remove downloads when
+        storage is low. First synthesis can take 1–3 minutes on desktop, even
+        after the download finishes.
       </p>
       <Button
         variant="outline"

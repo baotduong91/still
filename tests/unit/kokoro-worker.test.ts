@@ -8,6 +8,7 @@ vi.mock("kokoro-js", () => ({ KokoroTTS: { from_pretrained: fixture.load } }));
 vi.mock("@huggingface/transformers", () => ({ env: fixture.env }));
 vi.mock("@/lib/tts/model-cache", () => ({
   modelCache: {},
+  preloadBellaVoice: async () => {},
   optimizedModelStored: async () => true,
 }));
 let scope: {
@@ -139,4 +140,17 @@ it("primes every segment and reuses the complete reading without more inference"
   expect(
     messages().find((m) => m.id === 2 && m.type === "audio").wav.byteLength,
   ).toBe(44 + calls * 16 * 2);
+});
+
+it("cold lookahead synthesizes a short full section in one useful inference", async () => {
+  const text = Array.from({ length: 45 }, (_, i) => `word${i}`).join(" ");
+  scope.onmessage({ data: { id: 1, text, mode: "prime" } });
+  await vi.waitFor(() =>
+    expect(messages().some((m) => m.type === "primed")).toBe(true),
+  );
+  expect(fixture.generate).toHaveBeenCalledExactlyOnceWith(text, {
+    voice: "af_bella",
+    speed: 1,
+  });
+  expect(messages().some((m) => m.phase === "first_inference")).toBe(true);
 });

@@ -1,7 +1,11 @@
 import { KokoroTTS } from "kokoro-js";
 import { env } from "@huggingface/transformers";
 import { speechChunks, wavBytes } from "./chunks";
-import { modelCache, optimizedModelStored } from "./model-cache";
+import {
+  modelCache,
+  optimizedModelStored,
+  preloadBellaVoice,
+} from "./model-cache";
 env.allowLocalModels = false;
 env.useBrowserCache = false;
 env.useCustomCache = true;
@@ -55,30 +59,37 @@ function progress(job: Job, message: string, phase: string, loaded?: number) {
 function load(job: Job) {
   return (model ??= (async () => {
     const cached = await optimizedModelStored().catch(() => false);
-    return KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", {
-      device: "wasm",
-      dtype: "q8",
-      progress_callback: (p) => {
-        if (p.status === "progress") {
-          const percent = Number.isFinite(p.progress)
-            ? `${Math.round(p.progress)}%`
-            : `${Math.round(p.loaded / 1048576)} MB`;
-          progress(
-            job,
-            `${cached ? "Loading downloaded Bella" : "Downloading smaller Bella voice"}… ${percent} (${p.file.split("/").at(-1)})`,
-            cached ? "model_load" : "download",
-            p.loaded,
-          );
-        } else
-          progress(
-            job,
-            cached
-              ? "Loading downloaded Bella on-device…"
-              : "Preparing Bella’s model. First use downloads the smaller model…",
-            "model_load",
-          );
+    // Start the small voice download beside model/tokenizer loading, not after.
+    const voice = preloadBellaVoice().catch(() => {});
+    const tts = await KokoroTTS.from_pretrained(
+      "onnx-community/Kokoro-82M-v1.0-ONNX",
+      {
+        device: "wasm",
+        dtype: "q8",
+        progress_callback: (p) => {
+          if (p.status === "progress") {
+            const percent = Number.isFinite(p.progress)
+              ? `${Math.round(p.progress)}%`
+              : `${Math.round(p.loaded / 1048576)} MB`;
+            progress(
+              job,
+              `${cached ? "Loading downloaded Bella" : "Downloading smaller Bella voice"}… ${percent} (${p.file.split("/").at(-1)})`,
+              cached ? "model_load" : "download",
+              p.loaded,
+            );
+          } else
+            progress(
+              job,
+              cached
+                ? "Loading downloaded Bella on-device…"
+                : "Preparing Bella’s model. First use downloads the smaller model…",
+              "model_load",
+            );
+        },
       },
-    });
+    );
+    await voice;
+    return tts;
   })().catch((error) => {
     model = null;
     throw error;
@@ -110,7 +121,11 @@ async function handle(job: Job) {
       send(job, { type: "ready" });
       return;
     }
-    const parts = speechChunks(text ?? "", { warmed: modelWarmed });
+    // Lookahead buffers the entire section: use sentence-sized batches even
+    // on a cold model instead of paying for multiple tiny startup inferences.
+    const parts = speechChunks(text ?? "", {
+      warmed: modelWarmed || mode === "prime",
+    });
     if (mode === "prime") {
       const key = text ?? "";
       if (key && !preparedReadings.has(key)) {

@@ -967,7 +967,7 @@ test("Today preloads the next section and reuses its player at the autoplay hand
   const jobs = await page.evaluate(
     () => (window as unknown as { kokoroJobs: { mode?: string }[] }).kokoroJobs,
   );
-  expect(jobs.some((job) => job.mode === "warm")).toBe(true);
+  expect(jobs.some((job) => job.mode === "warm")).toBe(false);
   expect(jobs.filter((job) => job.mode === "prime")).toHaveLength(1);
   await page.evaluate(() => {
     const state = window as unknown as {
@@ -1068,4 +1068,57 @@ test("Today autoplay reads each next section, and unchecking prevents another re
       () => (window as unknown as { activeReaders: number }).activeReaders,
     ),
   ).toBe(0);
+});
+
+test("fresh autoplay prepares Bella during Scripture without a Settings download or cloud devotional text", async ({
+  page,
+}) => {
+  const scriptureRequests: unknown[] = [];
+  await page.route("**/api/tts", (route) => {
+    if (route.request().method() === "HEAD")
+      return route.fulfill({ status: 204 });
+    scriptureRequests.push(route.request().postDataJSON());
+    return route.fulfill({
+      contentType: "audio/mpeg",
+      body: Buffer.from([0xff, 0xfb, 0x90, 0x00]),
+    });
+  });
+  await page.goto("/today");
+  await page.waitForTimeout(350);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { kokoroJobs: object[] }).kokoroJobs,
+    ),
+  ).toEqual([]);
+  await page.getByRole("button", { name: "Play Scripture" }).click();
+  await expect(
+    page.getByRole("button", { name: "Pause Scripture" }),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as unknown as { kokoroJobs: { mode?: string }[] }
+          ).kokoroJobs.filter((job) => job.mode === "prime").length,
+      ),
+    )
+    .toBe(1);
+  await expect(page.locator(".today-player")).toHaveAttribute(
+    "data-bella-ready",
+    "true",
+  );
+  const jobs = await page.evaluate(
+    () =>
+      (window as unknown as { kokoroJobs: { mode?: string; text?: string }[] })
+        .kokoroJobs,
+  );
+  expect(jobs.some((job) => job.mode === "warm")).toBe(false);
+  const reflection = (await page
+    .locator("#today-reflection .devotional-prose > p")
+    .first()
+    .textContent())!.trim();
+  expect(jobs[0].text).toBe(reflection);
+  expect(JSON.stringify(scriptureRequests)).not.toContain(reflection);
+  expect(scriptureRequests).toHaveLength(1);
 });

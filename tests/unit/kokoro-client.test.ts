@@ -46,8 +46,6 @@ it("prepares a complete local reading ahead of Play without another worker job",
   const primed = primeKokoro("Exact verse text.");
   await vi.waitFor(() => expect(TestWorker.all).toHaveLength(1));
   const worker = TestWorker.all[0];
-  expect(worker.last.mode).toBe("warm");
-  worker.send({ type: "ready", backend: "WASM" });
   await vi.waitFor(() => expect(worker.last.mode).toBe("prime"));
   worker.send({
     type: "primed",
@@ -304,11 +302,8 @@ it("deduplicates next-section preparation and keeps a warmed worker out of the q
   expect(first).toBe(duplicate);
   await vi.waitFor(() => expect(TestWorker.all).toHaveLength(1));
   const worker = TestWorker.all[0];
-  worker.send({ type: "ready", backend: "WASM" });
   await vi.waitFor(() => expect(worker.last.mode).toBe("prime"));
   const id = worker.id;
-  expect(await warmKokoro()).toBe(true);
-  expect(worker.id).toBe(id);
   worker.send({
     type: "primed",
     backend: "WASM",
@@ -316,7 +311,20 @@ it("deduplicates next-section preparation and keeps a warmed worker out of the q
   });
   expect(await first).toBe(true);
   expect(await duplicate).toBe(true);
+  expect(await warmKokoro()).toBe(true);
   expect(await primeKokoro("Next private section.")).toBe(true);
   expect(preparedKokoro("Next private section.")?.size).toBeGreaterThan(44);
   expect(worker.id).toBe(id);
+});
+
+it("an explicit playback lookahead can start a fresh download directly with the next section", async () => {
+  model.cached = false;
+  const { primeKokoro } = await import("@/lib/tts/kokoro-client");
+  expect(await primeKokoro("Next reflection.")).toBe(false);
+  expect(TestWorker.all).toHaveLength(0);
+  const next = primeKokoro("Next reflection.", true);
+  const worker = TestWorker.all[0];
+  expect(worker.last.mode).toBe("prime");
+  worker.send({ type: "primed", backend: "WASM", wav: new ArrayBuffer(44) });
+  expect(await next).toBe(true);
 });

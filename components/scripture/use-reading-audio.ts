@@ -52,7 +52,7 @@ export function useReadingAudio(payload: ReadingPayload) {
       URL.revokeObjectURL(next.url);
     }
   }
-  async function prepareNext(next: ReadingPayload) {
+  async function prepareNext(next: ReadingPayload, allowDownload = false) {
     // Lookahead is strictly local; it never requests Edge or another cloud voice.
     if (engineForKind(next.kind, state.speechEngine, online) !== "kokoro")
       return false;
@@ -61,7 +61,7 @@ export function useReadingAudio(payload: ReadingPayload) {
     clearPrepared();
     const epoch = preparationEpoch.current;
     if (
-      !(await primeKokoro(text).catch(() => false)) ||
+      !(await primeKokoro(text, allowDownload && online).catch(() => false)) ||
       epoch !== preparationEpoch.current
     )
       return false;

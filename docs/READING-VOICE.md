@@ -117,8 +117,29 @@ a compiled worker skips redundant warm-up jobs.
 Prepared audio is loaded into an HTML audio player before the handoff. Playback
 reuses that player and skips model-cache checks; scrolling and the next reading
 start together, without the previous fixed 750 ms delay. Preloaded media is
-released on day changes, navigation, engine changes, and PIN unmount. Preparation
-is local only and never downloads an uncached model automatically or sends
-personal text to Edge. A cold model or synthesis slower than the current reading
+released on day changes, navigation, engine changes, and PIN unmount. Preparation is local only and sends no personal text to Edge. Uncached
+assets may download after Play with autoplay enabled, as described below. A cold model or synthesis slower than the current reading
 can still require waiting; this is near-continuous playback when ready, not a
 sample-accurate gapless guarantee across browser audio engines.
+
+### First-use download overlap
+
+With autoplay enabled, tapping Play on Today starts preparing the next Bella
+section while Scripture plays. This also works before a Settings download:
+only model/voice assets are fetched; devotional text stays in the worker.
+Simply opening Today still does not download an uncached model. Offline and
+Device voice choices do not trigger an automatic download.
+
+Preparation now compiles using the actual next reflection instead of an extra
+throwaway “Ready.” inference. Cold lookahead uses the larger sentence-sized
+batches because it buffers the whole section, avoiding tiny startup inferences. Settings preparation still uses “Ready.” to verify
+the standalone download. Bella’s voice asset is prefetched in parallel with the
+q8 model/tokenizer and reused through kokoro-js’s voice cache. A failed prefetch
+is not cached, and normal voice loading remains available. The existing q8 model
+and af_bella voice are unchanged; no quality tradeoff or extra model is introduced.
+
+The initial model transfer is still roughly 90 MB plus runtime/voice assets.
+On a slow connection or device, it may exceed the length of Scripture. The UI
+shows preparation, and full-section buffering prevents interruptions once Bella
+starts; truly gapless first-ever playback cannot be guaranteed before download
+and synthesis finish. Previously downloaded assets and prepared audio are reused.

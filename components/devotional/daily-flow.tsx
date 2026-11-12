@@ -10,7 +10,7 @@ import { usePassage } from "@/components/scripture/use-passage";
 import { type ReadingPayload } from "@/lib/tts/reading";
 import { verseSpeech } from "@/lib/tts/shared";
 import { offlineModelStored } from "@/lib/tts/model-cache";
-import { warmKokoro, clearKokoroPreviews } from "@/lib/tts/kokoro-client";
+import { clearKokoroPreviews } from "@/lib/tts/kokoro-client";
 import type { PassageType, DayType, PlanType } from "@/lib/schemas";
 import { PracticeWriter } from "./practice-writer";
 import { PrayerWriter } from "./prayer-writer";
@@ -162,7 +162,6 @@ export function DailyFlow({
       const stored = await offlineModelStored().catch(() => false);
       if (!alive) return;
       setNeedsBellaDownload(!stored);
-      if (!stored || !(await warmKokoro()) || !alive) return;
     }, 250);
     return () => {
       alive = false;
@@ -181,7 +180,12 @@ export function DailyFlow({
     let alive = true;
     setBellaReady(false);
     void latestReader.current
-      ?.prepareNext(payloads[active + 1])
+      ?.prepareNext(
+        payloads[active + 1],
+        autoplay &&
+          online &&
+          (reader.status === "loading" || reader.status === "playing"),
+      )
       .then((ready) => {
         if (alive) setBellaReady(ready);
       });
@@ -372,6 +376,15 @@ export function DailyFlow({
         )}
       </section>
       <div className="today-player" data-bella-ready={bellaReady}>
+        {autoplay &&
+          needsBellaDownload &&
+          !bellaReady &&
+          reader.status !== "idle" && (
+            <p className="reading-context" role="status">
+              Preparing Bella for the next section. First use downloads the
+              voice model; your reading stays on-device.
+            </p>
+          )}
         <ReadingControls
           minimal
           autoplay={autoplay}

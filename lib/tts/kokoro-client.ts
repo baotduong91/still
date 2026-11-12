@@ -247,19 +247,32 @@ export function warmKokoro() {
   warming = task;
   return task;
 }
-export function primeKokoro(text: string): Promise<boolean> {
+export function primeKokoro(
+  text: string,
+  allowDownload = false,
+): Promise<boolean> {
   if (previews.has(text)) return Promise.resolve(true);
+  const epoch = previewEpoch;
   const existing = preparing.get(text);
-  if (existing) return existing;
-  const task = prepare(text).finally(() => {
+  if (existing)
+    return allowDownload
+      ? existing.then(
+          (ready) =>
+            ready || (epoch === previewEpoch ? primeKokoro(text, true) : false),
+        )
+      : existing;
+  const task = prepare(text, allowDownload).finally(() => {
     if (preparing.get(text) === task) preparing.delete(text);
   });
   preparing.set(text, task);
   return task;
 }
-async function prepare(text: string) {
+async function prepare(text: string, allowDownload: boolean) {
   const epoch = previewEpoch;
-  if (!(await warmKokoro()) || epoch !== previewEpoch) return false;
+  // Compile using the actual next section: no throwaway Ready inference first.
+  if (!allowDownload && !modelWarmed && !(await offlineModelStored()))
+    return false;
+  if (epoch !== previewEpoch) return false;
   const result = await kokoroAudio(
     text,
     () => {},
