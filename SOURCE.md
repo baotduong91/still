@@ -201,7 +201,7 @@ Open http://127.0.0.1:3000. See [Setup](docs/SETUP.md), [AWP contracts](docs/AWP
 - Sample plans in `data/sample-plans/` demonstrate anxiety at work, grief, and forgiveness with different passages, progressions, and actions.
 - No accounts, ads, analytics SDKs, or automatic cloud transmission. Browser and local server storage are unencrypted.
 
-This source is independently designed around the requested product flows and does not use Bible Chat branding or assets. No public deployment has been created. Read the setup document’s deployment and licensing limitations before hosting it for others.
+This source is independently designed around the requested product flows and does not use Bible Chat branding or assets. A personal production build is hosted at https://still-ten.vercel.app (operator-managed, not a multi-tenant service). Read the setup document’s deployment and licensing limitations before hosting it for others.
 
 ````
 

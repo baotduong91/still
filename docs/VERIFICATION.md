@@ -40,7 +40,7 @@ Turbopack’s CSS subprocess could not bind its internal port in this host sandb
 
 - Cloud and Ollama integrations were tested with mocks and failure paths, not paid or user-owned live models. Configure and quality-check a chosen model before use.
 - CSB, NLT, NIV, and ESV were not imported or tested with copyrighted text. Only WEB is bundled. Their loader, preference, and fallback interfaces are present.
-- The app has not been publicly deployed or load-tested. It is designed for a personal instance, not a hardened multi-tenant SaaS.
+- Production is a personal Vercel deployment (https://still-ten.vercel.app), not load-tested or hardened as multi-tenant SaaS. Hosted Ollama requires a completed Cloudflare Tunnel; see [OLLAMA-TUNNEL.md](OLLAMA-TUNNEL.md).
 - Automated accessibility checks do not certify accessibility. Manual screen-reader, iOS Safari installation, browser storage eviction, and native speech voice behavior were not exhaustively tested.
 - Offline-created plans/adaptations remain local; cross-device synchronization and account recovery are not implemented.
 - A PWA supports home-screen installation/shortcuts and exported wallpaper, not native lock-screen widgets.
@@ -67,3 +67,37 @@ The richer-answer mode update passed strict TypeScript, the production build, 58
 The latest local verification passed strict TypeScript, the production build, 71 unit/contract tests, and all 17 Chrome browser scenarios. New scenarios exercise a 390px Practice response, edited text saved during completion, reload persistence, PIN setup, personal-screen gating after reload, wrong-PIN rejection, successful unlock, and public WEB reading without revealing journal text. Automated light/dark accessibility checks passed. Existing AWP contract, offline, citation, mode-routing, and prayer scenarios remain passing.
 
 The PIN is explicitly a browser display gate, not encryption or API/server authentication. Its documented limits are part of the delivered feature. Physical iOS keyboard behavior and biometric authentication were not tested; viewport-aware chat positioning and larger mobile controls are implemented. Live model/translation quality still depends on configured services and credentials.
+
+## Verification — 2026-11-11
+
+Re-checked on macOS after per-device onboarding and the focused regression suite. Commands (no live model, API.Bible, or paid cloud keys required for default runs):
+
+```sh
+npm run typecheck
+npm test
+npm run build
+npm run test:sanity   # production server on 127.0.0.1:3100, mocked TTS/models
+npm run test:e2e      # full Playwright suite when changing flows
+```
+
+| Check | Observed result |
+|---|---|
+| Strict TypeScript | `npm run typecheck` passed. |
+| Unit / service contracts | `npm test`: **116 passed** across **17** files (includes onboarding starters, `deviceProfile` migration, Kokoro/tts/chunks, verse images, Ollama Access). |
+| Production build | `npm run build` passed. |
+| Focused regression (`test:sanity`) | **7** Playwright scenarios: returning-user mobile journey (offline, layout/snapshot, Scripture/TTS fidelity, voice routing, cloud/Ollama modes, PIN) plus AWP discovery and advertised error contracts. See [TESTING.md](TESTING.md). |
+| Full browser end-to-end | **51** Playwright tests across **8** specs, including **5** clean-device onboarding cases (`onboarding.spec.ts`). |
+| Device welcome | No `/api/` traffic on first-run starters; offline reference journey; Start fresh retains journal/PIN; Customize dismisses without creating a plan. |
+
+### Covered since 2026-11-10
+
+- Per-device welcome and local WEB starter journeys (5d mobile/tablet, 7d desktop).
+- IndexedDB + write-ahead recovery for `deviceProfile` and `journeyOnboarding`.
+- Focused whole-app checks with frozen clock, returning-user fixture, and macOS Chrome dark Today baseline (`tests/e2e/journey-sanity.spec.ts-snapshots/`).
+- Single-shot AWP HTTP error envelope verification for every declared action (`awp-sanity.spec.ts`).
+
+### Still operator-dependent
+
+- Live Ollama on Vercel after tunnel + Access env vars (tunnel steps in [OLLAMA-TUNNEL.md](OLLAMA-TUNNEL.md) remain incomplete on the operator machine).
+- `TEST_REAL_TTS=1` optional Kokoro cold-start run (`audio-runtime.spec.ts`).
+- Linux/Windows CI must review its own screenshot baseline; see [TESTING.md](TESTING.md).
