@@ -364,13 +364,22 @@ describe("Groq grounded sentence streaming", () => {
   it.each([
     ["He said “", "an invented verse”."],
     ["Consider John 3", ":16 as a promise."],
-  ])("withholds unsafe or split quotations/references", async (a, b) => {
+  ])("falls back to guided study when quotations or references appear mid-stream", async (a, b) => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(sse([a, b]));
     const iterator = streamGroqChat(question);
     expect((await iterator.next()).value?.type).toBe("citations");
-    await expect(iterator.next()).rejects.toMatchObject({
-      code: "PLAN_GENERATION_FAILED",
+    expect((await iterator.next()).value).toMatchObject({
+      type: "status",
+      fallback: true,
     });
+    expect((await iterator.next()).value).toMatchObject({
+      type: "result",
+      response: {
+        provider: "curated",
+        citations: [{ verses: [{ text: exact }] }],
+      },
+    });
+    expect((await iterator.next()).done).toBe(true);
   });
   it("streams a quiet guided fallback event on rate limits with exact WEB text", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(

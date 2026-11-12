@@ -21,7 +21,7 @@ export function CloudFallbackNotice() {
     <p className="notice" role="status">
       {notice.status === "rate-limited"
         ? "Groq is rate limited."
-        : "Groq is temporarily unavailable."}{" "}
+        : "Groq could not produce a verified answer."}{" "}
       Using guided study with exact retrieved Scripture. Your saved days remain
       available.
     </p>

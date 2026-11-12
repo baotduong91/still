@@ -55,7 +55,7 @@ export function createGroqProvider(
           model: model(),
           system:
             system +
-            " Keep every field concise. Reflections must be at least 60 characters. Use short passages of at most 8 verses. No extra prose.",
+            " Keep every field concise. Reflections must be at least 60 characters. Use short passages of at most 8 verses. No extra prose. Never use quotation-mark characters in commentary strings. Put canonical references only in the outline reference field, never in reflection, prayer, or context text.",
           prompt,
           output: Output.object({ schema }),
           maxOutputTokens:

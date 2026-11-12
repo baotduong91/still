@@ -10,6 +10,7 @@ import {
   prepareChat,
 } from "./server";
 import type { ModelRunOptions } from "./cloud-status";
+import { cloudVendor } from "./modes";
 import type { ChatStreamEvent } from "./chat-stream-contract";
 import { z } from "zod";
 
@@ -85,11 +86,25 @@ export async function* streamGroqChat(
     };
   } catch (error) {
     if (options.signal?.aborted) return;
-    if (!(error instanceof GroqUnavailable)) throw error;
-    yield { type: "status", status: error.status, fallback: true };
+    const groqCloud =
+      input.provider === "cloud" && cloudVendor() === "groq";
+    const recoverable =
+      groqCloud &&
+      (error instanceof GroqUnavailable ||
+        (error instanceof AppError && error.code === "PLAN_GENERATION_FAILED"));
+    if (!recoverable) throw error;
+    const status =
+      error instanceof GroqUnavailable ? error.status : "unavailable";
+    yield { type: "status", status, fallback: true };
     yield {
       type: "result",
-      response: await guidedChatFallback(input, error, options),
+      response: await guidedChatFallback(
+        input,
+        error instanceof GroqUnavailable
+          ? error
+          : new GroqUnavailable("unavailable"),
+        options,
+      ),
     };
   }
 }
