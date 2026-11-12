@@ -4,7 +4,7 @@ import { z } from "zod";
 import { AppError } from "@/lib/awp/errors";
 import { GenerateInput, ChatInput } from "@/lib/schemas";
 import { getBible } from "@/lib/bible/server";
-import { buildPlan, extractGoals, validatePlan } from "./orchestrator";
+import { buildPlan, validatePlan } from "./orchestrator";
 import { answerQuestion } from "./chat";
 import { getProvider, validateCommentary } from "./providers";
 import { themes } from "./themes";
@@ -12,13 +12,7 @@ import { GroqUnavailable } from "./providers/groq";
 import type { ModelRunOptions, CloudStatus } from "./cloud-status";
 import { cloudVendor } from "./modes";
 import { groqGuidedPlan } from "./groq-guided";
-
-const groqOutlineInstruction =
-  "Design a coherent progressive journey from this exact goal. Choose real canonical passages for the reference field only. In title, objective, context, and bridge, write plain paraphrase without quotation marks and without Book Chapter:Verse patterns.";
-const groqDevotionalInstruction =
-  "Write reflection, connection, questions, prayer, action, and interpretation as plain pastoral prose. No quotation marks. No Bible reference patterns; exact verses are already attached per day.";
-const groqDevotionalRepair =
-  "Previous draft was rejected for quotation marks or Bible references in commentary fields. Rewrite every string field as plain paraphrase without quote characters and without Book 1:1 patterns.";
+import { generateGroqPlan } from "./groq-plan";
 
 function shouldGroqCloudFallback(
   error: unknown,
@@ -28,9 +22,7 @@ function shouldGroqCloudFallback(
   if (signal?.aborted) return false;
   if (provider !== "cloud" || cloudVendor() !== "groq") return false;
   if (error instanceof GroqUnavailable) return true;
-  return (
-    error instanceof AppError && error.code === "PLAN_GENERATION_FAILED"
-  );
+  return error instanceof AppError && error.code === "PLAN_GENERATION_FAILED";
 }
 
 function groqFallbackStatus(error: unknown): CloudStatus {
@@ -44,6 +36,8 @@ async function modelPlan(raw: unknown, options: ModelRunOptions) {
   const bible = await getBible("WEB");
   if (input.provider === "curated") return buildGuidedPlan(input, bible);
   const provider = await getProvider(input.provider, options);
+  if (provider.name === "groq")
+    return generateGroqPlan(input, bible, provider, system);
   const profileSchema = z.object({
     themes: z
       .array(z.enum(Object.keys(themes) as [string, ...string[]]))
@@ -51,33 +45,18 @@ async function modelPlan(raw: unknown, options: ModelRunOptions) {
       .max(3),
     pace: z.enum(["gentle", "standard"]),
   });
-  const groq = provider.name === "groq";
-  let extracted: z.infer<typeof profileSchema>;
-  try {
-    extracted = profileSchema.parse(
-      await provider.generate(
-        profileSchema,
-        system,
-        JSON.stringify({
-          stage: "goals",
-          goal: input.prompt,
-          instruction:
-            "Identify only explicitly supported themes and a reasonable pace. Do not infer personal details.",
-        }),
-      ),
-    );
-  } catch (error) {
-    if (!groq) throw error;
-    try {
-      const profile = extractGoals(input.prompt);
-      extracted = {
-        themes: profile.themes.slice(0, 3),
-        pace: profile.pace,
-      };
-    } catch {
-      extracted = { themes: ["grief"], pace: "gentle" };
-    }
-  }
+  const extracted = profileSchema.parse(
+    await provider.generate(
+      profileSchema,
+      system,
+      JSON.stringify({
+        stage: "goals",
+        goal: input.prompt,
+        instruction:
+          "Identify only explicitly supported themes and a reasonable pace. Do not infer personal details.",
+      }),
+    ),
+  );
   const plan = buildPlan(input, bible, {
     ...extracted,
     prompt: input.prompt,
@@ -97,58 +76,43 @@ async function modelPlan(raw: unknown, options: ModelRunOptions) {
       )
       .length(input.days),
   });
-  const outlineAttempts = groq ? 2 : 1;
-  let outline!: z.infer<typeof outlineSchema>;
-  for (let attempt = 0; attempt < outlineAttempts; attempt++) {
-    outline = outlineSchema.parse(
-      await provider.generate(
-        outlineSchema,
-        system,
-        JSON.stringify({
-          stage: "outline",
-          goal: input.prompt,
-          themes: extracted.themes,
-          count: input.days,
-          instruction:
-            attempt === 0 && groq
-              ? groqOutlineInstruction
-              : attempt === 1
-                ? `${groqOutlineInstruction} Previous outline used quotes or references in commentary fields. Rewrite title, objective, context, and bridge in plain language. Keep reference fields exact.`
-                : "Design a coherent progressive journey from this exact goal. Choose real canonical passages. Context and bridge are interpretations. Day numbers must be consecutive; objectives and passages must meaningfully fit this goal.",
-        }),
-      ),
-    );
-    try {
-      for (const [i, day] of outline.days.entries()) {
-        if (day.number !== i + 1)
-          throw new AppError(
-            "PLAN_GENERATION_FAILED",
-            "Invalid model day sequence.",
-          );
-        validateCommentary(day.title, groq);
-        validateCommentary(day.objective, groq);
-        validateCommentary(day.context, groq);
-        validateCommentary(day.bridge, groq);
-        const passage = bible.lookup(day.reference, input.translation);
-        if (passage.verses.length > (groq ? 8 : 40))
-          throw new AppError(
-            "PLAN_GENERATION_FAILED",
-            "Choose a shorter daily passage.",
-          );
-        Object.assign(plan.days[i], {
-          number: day.number,
-          title: validateCommentary(day.title, groq),
-          objective: validateCommentary(day.objective, groq),
-          context: validateCommentary(day.context, groq),
-          bridge: validateCommentary(day.bridge, groq),
-          explanation: validateCommentary(day.context, groq),
-          passage,
-        });
-      }
-      break;
-    } catch (error) {
-      if (attempt + 1 >= outlineAttempts) throw error;
-    }
+  const outline = outlineSchema.parse(
+    await provider.generate(
+      outlineSchema,
+      system,
+      JSON.stringify({
+        stage: "outline",
+        goal: input.prompt,
+        themes: extracted.themes,
+        count: input.days,
+        instruction:
+          "Design a coherent progressive journey from this exact goal. Choose real canonical passages. Context and bridge are interpretations. Day numbers must be consecutive; objectives and passages must meaningfully fit this goal.",
+      }),
+    ),
+  );
+  for (const [i, day] of outline.days.entries()) {
+    if (day.number !== i + 1)
+      throw new AppError(
+        "PLAN_GENERATION_FAILED",
+        "Invalid model day sequence.",
+      );
+    for (const text of [day.title, day.objective, day.context, day.bridge])
+      validateCommentary(text);
+    const passage = bible.lookup(day.reference, input.translation);
+    if (passage.verses.length > 40)
+      throw new AppError(
+        "PLAN_GENERATION_FAILED",
+        "Choose a shorter daily passage.",
+      );
+    Object.assign(plan.days[i], {
+      number: day.number,
+      title: day.title,
+      objective: day.objective,
+      context: day.context,
+      bridge: day.bridge,
+      explanation: day.context,
+      passage,
+    });
   }
   if (
     new Set(outline.days.map((d) => d.reference)).size < Math.min(3, input.days)
@@ -173,56 +137,33 @@ async function modelPlan(raw: unknown, options: ModelRunOptions) {
       )
       .length(plan.days.length),
   });
-  const devotionalPayload = {
-    stage: "devotional",
-    goal: plan.profile,
-    days: plan.days.map((d) => ({
-      number: d.number,
-      objective: d.objective,
-      context: d.context,
-      passage: d.passage,
-    })),
-  };
-  const devotionalAttempts = groq ? 3 : 1;
-  let lastError: unknown;
-  for (let attempt = 0; attempt < devotionalAttempts; attempt++) {
-    const response = await provider.generate(
-      schema,
-      system,
-      JSON.stringify({
-        ...devotionalPayload,
-        instruction:
-          attempt === 0
-            ? groq
-              ? groqDevotionalInstruction
-              : "Write pastoral devotional copy that fits each objective."
-            : groqDevotionalRepair,
-      }),
-    );
-    try {
-      for (const day of plan.days) {
-        const content = response.days.find((d) => d.number === day.number);
-        if (!content)
-          throw new AppError("PLAN_GENERATION_FAILED", "Missing model day");
-        Object.assign(day, {
-          ...content,
-          reflection: validateCommentary(content.reflection, groq),
-          connection: validateCommentary(content.connection, groq),
-          prayer: validateCommentary(content.prayer, groq),
-          action: validateCommentary(content.action, groq),
-          interpretation: validateCommentary(content.interpretation, groq),
-          questions: content.questions.map((q) => validateCommentary(q, groq)),
-        });
-      }
-      plan.provider = provider.name;
-      return validatePlan(plan, bible);
-    } catch (error) {
-      lastError = error;
-      if (groq && attempt + 1 < devotionalAttempts) continue;
-      throw error;
+  const response = await provider.generate(
+    schema,
+    system,
+    JSON.stringify({
+      stage: "devotional",
+      goal: plan.profile,
+      days: plan.days.map((d) => ({
+        number: d.number,
+        objective: d.objective,
+        context: d.context,
+        passage: d.passage,
+      })),
+    }),
+  );
+  for (const day of plan.days) {
+    const content = response.days.find((d) => d.number === day.number);
+    if (!content)
+      throw new AppError("PLAN_GENERATION_FAILED", "Missing model day");
+    for (const value of Object.values(content)) {
+      if (typeof value === "string") validateCommentary(value);
+      if (Array.isArray(value))
+        value.forEach((text) => validateCommentary(text));
     }
+    Object.assign(day, content);
   }
-  throw lastError;
+  plan.provider = provider.name;
+  return validatePlan(plan, bible);
 }
 export async function prepareChat(
   input: z.infer<typeof ChatInput>,
@@ -315,12 +256,10 @@ export function compactHistory(
   provider: string,
 ) {
   return provider === "groq"
-    ? history
-        .slice(-3)
-        .map((turn) => ({
-          question: turn.question.slice(0, 500),
-          answer: turn.answer.slice(0, 1200),
-        }))
+    ? history.slice(-3).map((turn) => ({
+        question: turn.question.slice(0, 500),
+        answer: turn.answer.slice(0, 1200),
+      }))
     : history;
 }
 export async function generatePlan(

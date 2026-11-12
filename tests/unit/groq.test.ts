@@ -256,7 +256,7 @@ describe("Groq direct provider integration and consent", () => {
     expect(status).toHaveBeenLastCalledWith("unavailable", true);
     expect(f.mock.calls.length).toBeGreaterThanOrEqual(1);
   });
-  it("runs the real three-stage plan pipeline, retrieving all Scripture independently", async () => {
+  it("runs outline and batched composition, retrieving all Scripture independently", async () => {
     const bible = await getBible("WEB");
     const guide = buildGuidedPlan(
       { prompt: "Grow through prayer", days: 3 },
@@ -271,6 +271,9 @@ describe("Groq direct provider integration and consent", () => {
           return completion({ themes: ["prayer"], pace: "gentle" });
         if (input.stage === "outline")
           return completion({
+            title: "A quiet journey through prayer",
+            themes: ["prayer"],
+            pace: "gentle",
             days: guide.days.map((d) => ({
               number: d.number,
               title: d.title,
@@ -303,7 +306,7 @@ describe("Groq direct provider integration and consent", () => {
     });
     expect(plan.provider).toBe("groq");
     expect(plan.days.every((d) => bible.validate(d.passage))).toBe(true);
-    expect(f).toHaveBeenCalledTimes(3);
+    expect(f).toHaveBeenCalledTimes(2);
   });
   it("rejects invented model references before commentary or citation rendering", async () => {
     const f = vi
@@ -364,19 +367,26 @@ describe("Groq grounded sentence streaming", () => {
   it.each([
     ["He said “", "an invented verse”."],
     ["Consider John 3", ":16 as a promise."],
-  ])("sanitizes quotation-shaped stream tokens and still returns a Groq answer", async (a, b) => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(sse([a, b]));
-    const iterator = streamGroqChat(question);
-    expect((await iterator.next()).value?.type).toBe("citations");
-    const events = [];
-    for (let step = await iterator.next(); !step.done; step = await iterator.next())
-      events.push(step.value);
-    expect(events.some((e) => e.type === "text")).toBe(true);
-    expect(events.at(-1)).toMatchObject({
-      type: "result",
-      response: { provider: "groq" },
-    });
-  });
+  ])(
+    "sanitizes quotation-shaped stream tokens and still returns a Groq answer",
+    async (a, b) => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(sse([a, b]));
+      const iterator = streamGroqChat(question);
+      expect((await iterator.next()).value?.type).toBe("citations");
+      const events = [];
+      for (
+        let step = await iterator.next();
+        !step.done;
+        step = await iterator.next()
+      )
+        events.push(step.value);
+      expect(events.some((e) => e.type === "text")).toBe(true);
+      expect(events.at(-1)).toMatchObject({
+        type: "result",
+        response: { provider: "groq" },
+      });
+    },
+  );
   it("streams a quiet guided fallback event on rate limits with exact WEB text", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       Response.json(

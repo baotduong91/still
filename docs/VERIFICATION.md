@@ -101,3 +101,15 @@ npm run test:e2e      # full Playwright suite when changing flows
 - Live Ollama on Vercel after tunnel + Access env vars (tunnel steps in [OLLAMA-TUNNEL.md](OLLAMA-TUNNEL.md) remain incomplete on the operator machine).
 - `TEST_REAL_TTS=1` optional Kokoro cold-start run (`audio-runtime.spec.ts`).
 - Linux/Windows CI must review its own screenshot baseline; see [TESTING.md](TESTING.md).
+
+## Seven-day Groq reliability — 2026-11-12
+
+The previous production release reproduced the reported guided fallback for a synthetic seven-day lament; a three-day comparison succeeded. The revised generator uses one complete outline followed by sequential batches of at most three days, compact exact WEB context, and bounded repair/retry handling. It does not validate a curated seed before generating a custom journey.
+
+- Local typecheck and production build passed; **145 unit/contract tests** passed across **20 files**.
+- **10 focused Playwright scenarios** passed: the three Groq mobile flows, six continuous-journey scenarios, and the AWP contract scenario. Groq tests now match the current Custom/Guided selector. The new seven-day flow verifies clearing an earlier fallback, saving all seven days, day-seven navigation, and exact focal verse display after reload.
+- A separate staged production build was tested at [still-hf0ofoqbq-baotduong91.vercel.app](https://still-hf0ofoqbq-baotduong91.vercel.app), deployment `dpl_2T1SbS6ULxRbMNmGeZX8YL2RQ5NK`, using the existing server-side Groq configuration. This build came from the working tree; it was not promoted to the main domain during verification.
+- Two real seven-day requests succeeded: a synthetic lament journey and a synthetic family/work/patience journey. Both returned `provider: groq`, seven consecutively numbered days, seven distinct practices, exact local-WEB passage/verse records, `X-Still-Cloud-Status: connected`, and no `X-Still-Fallback` header. The second request completed in about **10 seconds**. The first included initial protected-deployment client setup and took about 73 seconds end to end; server logs showed all four model calls completing without repair or rate-limit retries.
+- Deterministic regression tests additionally exercise truncated JSON, Groq's JSON-validation HTTP error, short reflections, quoted model Scripture, wrong day numbers, duplicate practices, invented references, short token-window waits, daily quota limits, and cancellation. Truncated repairs receive extra completion headroom and retain already verified batches.
+
+These successful samples verify the repaired path against real Groq; they do not guarantee every future prompt or eliminate upstream quotas. Exhausted repairs and long quota waits retain an honestly labelled guided fallback. No user journals, prayers, Practice responses, or saved personal plans were used in live verification.
