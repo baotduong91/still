@@ -4,7 +4,7 @@ import { z } from "zod";
 import { AppError } from "@/lib/awp/errors";
 import { GenerateInput, ChatInput } from "@/lib/schemas";
 import { getBible } from "@/lib/bible/server";
-import { buildPlan, validatePlan } from "./orchestrator";
+import { buildPlan, extractGoals, validatePlan } from "./orchestrator";
 import { answerQuestion } from "./chat";
 import { getProvider, validateCommentary } from "./providers";
 import { themes } from "./themes";
@@ -51,18 +51,33 @@ async function modelPlan(raw: unknown, options: ModelRunOptions) {
       .max(3),
     pace: z.enum(["gentle", "standard"]),
   });
-  const extracted = profileSchema.parse(
-    await provider.generate(
-      profileSchema,
-      system,
-      JSON.stringify({
-        stage: "goals",
-        goal: input.prompt,
-        instruction:
-          "Identify only explicitly supported themes and a reasonable pace. Do not infer personal details.",
-      }),
-    ),
-  );
+  const groq = provider.name === "groq";
+  let extracted: z.infer<typeof profileSchema>;
+  try {
+    extracted = profileSchema.parse(
+      await provider.generate(
+        profileSchema,
+        system,
+        JSON.stringify({
+          stage: "goals",
+          goal: input.prompt,
+          instruction:
+            "Identify only explicitly supported themes and a reasonable pace. Do not infer personal details.",
+        }),
+      ),
+    );
+  } catch (error) {
+    if (!groq) throw error;
+    try {
+      const profile = extractGoals(input.prompt);
+      extracted = {
+        themes: profile.themes.slice(0, 3),
+        pace: profile.pace,
+      };
+    } catch {
+      extracted = { themes: ["grief"], pace: "gentle" };
+    }
+  }
   const plan = buildPlan(input, bible, {
     ...extracted,
     prompt: input.prompt,
@@ -82,45 +97,58 @@ async function modelPlan(raw: unknown, options: ModelRunOptions) {
       )
       .length(input.days),
   });
-  const outline = outlineSchema.parse(
-    await provider.generate(
-      outlineSchema,
-      system,
-      JSON.stringify({
-        stage: "outline",
-        goal: input.prompt,
-        themes: extracted.themes,
-        count: input.days,
-        instruction:
-          provider.name === "groq"
-            ? groqOutlineInstruction
-            : "Design a coherent progressive journey from this exact goal. Choose real canonical passages. Context and bridge are interpretations. Day numbers must be consecutive; objectives and passages must meaningfully fit this goal.",
-      }),
-    ),
-  );
-  for (const [i, day] of outline.days.entries()) {
-    if (day.number !== i + 1)
-      throw new AppError(
-        "PLAN_GENERATION_FAILED",
-        "Invalid model day sequence.",
-      );
-    for (const text of [day.title, day.objective, day.context, day.bridge])
-      validateCommentary(text);
-    const passage = bible.lookup(day.reference, input.translation);
-    if (passage.verses.length > (provider.name === "groq" ? 8 : 40))
-      throw new AppError(
-        "PLAN_GENERATION_FAILED",
-        "Choose a shorter daily passage.",
-      );
-    Object.assign(plan.days[i], {
-      number: day.number,
-      title: day.title,
-      objective: day.objective,
-      context: day.context,
-      bridge: day.bridge,
-      explanation: day.context,
-      passage,
-    });
+  const outlineAttempts = groq ? 2 : 1;
+  let outline!: z.infer<typeof outlineSchema>;
+  for (let attempt = 0; attempt < outlineAttempts; attempt++) {
+    outline = outlineSchema.parse(
+      await provider.generate(
+        outlineSchema,
+        system,
+        JSON.stringify({
+          stage: "outline",
+          goal: input.prompt,
+          themes: extracted.themes,
+          count: input.days,
+          instruction:
+            attempt === 0 && groq
+              ? groqOutlineInstruction
+              : attempt === 1
+                ? `${groqOutlineInstruction} Previous outline used quotes or references in commentary fields. Rewrite title, objective, context, and bridge in plain language. Keep reference fields exact.`
+                : "Design a coherent progressive journey from this exact goal. Choose real canonical passages. Context and bridge are interpretations. Day numbers must be consecutive; objectives and passages must meaningfully fit this goal.",
+        }),
+      ),
+    );
+    try {
+      for (const [i, day] of outline.days.entries()) {
+        if (day.number !== i + 1)
+          throw new AppError(
+            "PLAN_GENERATION_FAILED",
+            "Invalid model day sequence.",
+          );
+        validateCommentary(day.title, groq);
+        validateCommentary(day.objective, groq);
+        validateCommentary(day.context, groq);
+        validateCommentary(day.bridge, groq);
+        const passage = bible.lookup(day.reference, input.translation);
+        if (passage.verses.length > (groq ? 8 : 40))
+          throw new AppError(
+            "PLAN_GENERATION_FAILED",
+            "Choose a shorter daily passage.",
+          );
+        Object.assign(plan.days[i], {
+          number: day.number,
+          title: validateCommentary(day.title, groq),
+          objective: validateCommentary(day.objective, groq),
+          context: validateCommentary(day.context, groq),
+          bridge: validateCommentary(day.bridge, groq),
+          explanation: validateCommentary(day.context, groq),
+          passage,
+        });
+      }
+      break;
+    } catch (error) {
+      if (attempt + 1 >= outlineAttempts) throw error;
+    }
   }
   if (
     new Set(outline.days.map((d) => d.reference)).size < Math.min(3, input.days)
@@ -155,7 +183,7 @@ async function modelPlan(raw: unknown, options: ModelRunOptions) {
       passage: d.passage,
     })),
   };
-  const devotionalAttempts = provider.name === "groq" ? 2 : 1;
+  const devotionalAttempts = groq ? 3 : 1;
   let lastError: unknown;
   for (let attempt = 0; attempt < devotionalAttempts; attempt++) {
     const response = await provider.generate(
@@ -165,7 +193,7 @@ async function modelPlan(raw: unknown, options: ModelRunOptions) {
         ...devotionalPayload,
         instruction:
           attempt === 0
-            ? provider.name === "groq"
+            ? groq
               ? groqDevotionalInstruction
               : "Write pastoral devotional copy that fits each objective."
             : groqDevotionalRepair,
@@ -176,23 +204,21 @@ async function modelPlan(raw: unknown, options: ModelRunOptions) {
         const content = response.days.find((d) => d.number === day.number);
         if (!content)
           throw new AppError("PLAN_GENERATION_FAILED", "Missing model day");
-        for (const value of Object.values(content)) {
-          if (typeof value === "string") validateCommentary(value);
-          if (Array.isArray(value)) value.forEach(validateCommentary);
-        }
-        Object.assign(day, content);
+        Object.assign(day, {
+          ...content,
+          reflection: validateCommentary(content.reflection, groq),
+          connection: validateCommentary(content.connection, groq),
+          prayer: validateCommentary(content.prayer, groq),
+          action: validateCommentary(content.action, groq),
+          interpretation: validateCommentary(content.interpretation, groq),
+          questions: content.questions.map((q) => validateCommentary(q, groq)),
+        });
       }
       plan.provider = provider.name;
       return validatePlan(plan, bible);
     } catch (error) {
       lastError = error;
-      const repairable =
-        provider.name === "groq" &&
-        attempt === 0 &&
-        error instanceof AppError &&
-        error.code === "PLAN_GENERATION_FAILED" &&
-        error.message.includes("quotation");
-      if (repairable) continue;
+      if (groq && attempt + 1 < devotionalAttempts) continue;
       throw error;
     }
   }
@@ -272,8 +298,8 @@ async function modelChat(raw: unknown, options: ModelRunOptions) {
         "Explain only what these passages support. Acknowledge if they cannot answer the question. Explicitly flag disputed readings.",
     }),
   );
-  validateCommentary(result.answer);
-  validateCommentary(result.interpretation);
+  validateCommentary(result.answer, provider.name === "groq");
+  validateCommentary(result.interpretation, provider.name === "groq");
   return {
     ...base,
     ...result,

@@ -24,9 +24,11 @@ export function createGroqProvider(
     if (!key) throw new GroqUnavailable("unavailable");
     return createGroq({ apiKey: key, baseURL: GROQ_BASE_URL })(GROQ_MODEL);
   };
-  const signal = () =>
+  const signal = (stage?: string) =>
     AbortSignal.any([
-      AbortSignal.timeout(30000),
+      AbortSignal.timeout(
+        stage === "outline" || stage === "devotional" ? 90_000 : 45_000,
+      ),
       ...(options.signal ? [options.signal] : []),
     ]);
   const failed = (error: unknown): never => {
@@ -67,7 +69,7 @@ export function createGroqProvider(
                   ? Math.max(1800, Math.min(8000, request.days.length * 500))
                   : 1600,
           maxRetries: 0,
-          abortSignal: signal(),
+          abortSignal: signal(stage),
           providerOptions: {
             // GPT-OSS rejects reasoning_format. The SDK keeps reasoning
             // separate; only validated final-answer text is ever displayed.
@@ -89,7 +91,7 @@ export function createGroqProvider(
           prompt,
           maxOutputTokens: 1600,
           maxRetries: 0,
-          abortSignal: signal(),
+          abortSignal: signal("chat"),
           providerOptions: {
             groq: { reasoningEffort: "low" },
           },

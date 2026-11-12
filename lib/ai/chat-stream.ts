@@ -60,14 +60,14 @@ export async function* streamGroqChat(
       while ((match = /[.!?](?:\s+|$)|\n{2,}/.exec(pending))) {
         const end = match.index + match[0].length;
         const sentence = pending.slice(0, end);
-        validateCommentary(answer + sentence);
+        validateCommentary(answer + sentence, true);
         answer += sentence;
         pending = pending.slice(end);
         yield { type: "text", text: sentence };
       }
     }
     if (pending) {
-      validateCommentary(answer + pending);
+      validateCommentary(answer + pending, true);
       answer += pending;
       yield { type: "text", text: pending };
     }

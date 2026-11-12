@@ -155,6 +155,12 @@ describe("Multi-stage personalization", () => {
   it("rejects invented quotes and references in model commentary", () => {
     expect(() => validateCommentary("God said “you will succeed”")).toThrow();
     expect(() => validateCommentary("As Isaiah 99:8 says")).toThrow();
+    expect(validateCommentary('God said “you will succeed”', true)).toBe(
+      "God said you will succeed",
+    );
+    expect(validateCommentary("As John 3:16 teaches us", true)).toBe(
+      "As today's assigned passage teaches us",
+    );
   });
   it("does not silently call cloud after an Ollama failure", async () => {
     const fetcher = vi

@@ -95,6 +95,7 @@ function Create() {
             input,
             { cloudConsent: state.cloudConsent },
           );
+          if (plan.provider === "groq") recordCloudStatus("connected", false);
           await savePlan(plan, true);
         } catch (error) {
           if (

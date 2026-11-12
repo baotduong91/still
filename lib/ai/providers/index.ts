@@ -24,13 +24,24 @@ export async function getProvider(
     return (await import("./groq")).createGroqProvider(options);
   return (await import("./cloud")).cloudProvider;
 }
-export function validateCommentary(text: string) {
+export function sanitizeGroqCommentary(text: string) {
+  return text
+    .replace(/[“”«»"]/g, "")
+    .replace(
+      /\b(?:[1-3]\s+)?[A-Z][a-z]+(?:\s+of\s+[A-Z][a-z]+)?\s+\d+:\d+(?:\s*[-–]\s*(?:\d+:)?\d+)?/gu,
+      "today's assigned passage",
+    )
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+export function validateCommentary(text: string, groq = false) {
+  const value = groq ? sanitizeGroqCommentary(text) : text;
   // Quotation marks and reference-shaped text are disallowed in model commentary.
   // References and quotations belong exclusively to the independently retrieved passage fields.
-  if (/[“”"«»]|\b(?:[1-3]\s+)?[A-Z][a-z]+\s+\d+:\d+/u.test(text))
+  if (/[“”"«»]|\b(?:[1-3]\s+)?[A-Z][a-z]+\s+\d+:\d+/u.test(value))
     throw new AppError(
       "PLAN_GENERATION_FAILED",
       "Model commentary contained a quotation or an unapproved reference.",
     );
-  return text;
+  return value;
 }
