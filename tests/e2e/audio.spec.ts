@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => {
@@ -39,10 +39,58 @@ test.beforeEach(async ({ page }) => {
       constructor() {
         super();
       }
-      postMessage(data: { id: number; text?: string }) {
+      postMessage(data: { id: number; text?: string; mode?: string }) {
+        if (["cancel", "clear"].includes(data.mode ?? "")) return;
         (
           window as unknown as { localReading: string | undefined }
         ).localReading = data.text;
+        const state = window as unknown as {
+          slowFirst?: boolean;
+          readingDelay?: number;
+          workerJobs?: number;
+          hardErrors?: number;
+        };
+        if (state.slowFirst || state.hardErrors) {
+          state.workerJobs = (state.workerJobs ?? 0) + 1;
+          if (state.hardErrors) {
+            state.hardErrors--;
+            queueMicrotask(() =>
+              this.dispatchEvent(
+                new MessageEvent("message", {
+                  data: { id: data.id, type: "error", message: "Model failed" },
+                }),
+              ),
+            );
+            return;
+          }
+          this.dispatchEvent(
+            new MessageEvent("message", {
+              data: {
+                id: data.id,
+                type: "progress",
+                phase: "first_inference",
+                step: 1,
+                message:
+                  "First Bella synthesis can take 1–3 minutes on desktop…",
+              },
+            }),
+          );
+          setTimeout(
+            () =>
+              this.dispatchEvent(
+                new MessageEvent("message", {
+                  data: {
+                    id: data.id,
+                    type: "audio",
+                    backend: "WASM",
+                    wav: new ArrayBuffer(100),
+                  },
+                }),
+              ),
+            state.readingDelay ?? 45000,
+          );
+          return;
+        }
         if ((window as unknown as { readingStream?: boolean }).readingStream) {
           setTimeout(
             () =>
@@ -99,6 +147,157 @@ test.beforeEach(async ({ page }) => {
     }
     Object.defineProperty(window, "Worker", { value: LocalWorker });
   });
+});
+
+async function deviceSpy(page: Page) {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "SpeechSynthesisUtterance", {
+      value: class {
+        constructor(public text: string) {}
+      },
+    });
+    Object.defineProperty(window, "speechSynthesis", {
+      value: {
+        getVoices: () => [
+          { name: "Microsoft Zira", lang: "en-US", localService: true },
+        ],
+        speak: () => {
+          (window as unknown as { deviceCalls: number }).deviceCalls++;
+        },
+        cancel() {},
+        pause() {},
+        resume() {},
+      },
+    });
+    (window as unknown as { deviceCalls: number }).deviceCalls = 0;
+  });
+}
+
+test("desktop cold Bella may take 45 seconds without switching to Zira", async ({
+  page,
+}) => {
+  await deviceSpy(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/today");
+  await page.getByRole("link", { name: "02 Reflection" }).click();
+  await expect(
+    page.getByRole("button", { name: "Read reflection aloud" }),
+  ).toBeVisible();
+  await page.clock.install();
+  await page.evaluate(() =>
+    Object.assign(window, { slowFirst: true, readingDelay: 45000 }),
+  );
+  await page.getByRole("button", { name: "Read reflection aloud" }).click();
+  await expect(page.getByRole("status")).toContainText("First Bella synthesis");
+  await page.clock.fastForward(45001);
+  await expect(
+    page.getByRole("button", { name: "Pause reflection" }),
+  ).toBeVisible();
+  await expect(page.locator(".audio-engine")).toContainText("Kokoro · Bella");
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { deviceCalls: number }).deviceCalls,
+    ),
+  ).toBe(0);
+});
+
+test("after 180 seconds Keep waiting extends the same Bella job without automatic Zira", async ({
+  page,
+}) => {
+  await deviceSpy(page);
+  let edge = 0;
+  await page.route("**/api/tts", (r) => {
+    if (r.request().method() === "POST") edge++;
+    return r.fulfill({ status: 204 });
+  });
+  await page.goto("/today");
+  await page.getByRole("link", { name: "02 Reflection" }).click();
+  await page.clock.install();
+  await page.evaluate(() =>
+    Object.assign(window, { slowFirst: true, readingDelay: 240000 }),
+  );
+  await page.getByRole("button", { name: "Read reflection aloud" }).click();
+  await expect(page.getByRole("status")).toContainText("First Bella synthesis");
+  await page.clock.fastForward(180001);
+  await expect(page.getByRole("status")).toContainText("Bella needs more time");
+  await expect(
+    page.getByRole("button", { name: "Keep waiting", exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { deviceCalls: number }).deviceCalls,
+    ),
+  ).toBe(0);
+  await page.getByRole("button", { name: "Keep waiting", exact: true }).click();
+  await page.clock.fastForward(60001);
+  await expect(
+    page.getByRole("button", { name: "Pause reflection" }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { workerJobs: number }).workerJobs,
+    ),
+  ).toBe(1);
+  expect(edge).toBe(0);
+});
+
+test("slow Bella switches to Zira only on an explicit device-voice tap and ignores late audio", async ({
+  page,
+}) => {
+  await deviceSpy(page);
+  await page.goto("/today");
+  await page.getByRole("link", { name: "02 Reflection" }).click();
+  await page.clock.install();
+  await page.evaluate(() =>
+    Object.assign(window, { slowFirst: true, readingDelay: 240000 }),
+  );
+  await page.getByRole("button", { name: "Read reflection aloud" }).click();
+  await expect(page.getByRole("status")).toContainText("First Bella synthesis");
+  await page.clock.fastForward(180001);
+  await page
+    .getByRole("button", { name: "Use device voice · no download" })
+    .click();
+  await page.clock.fastForward(60001);
+  await expect(page.locator(".audio-engine")).toHaveText(
+    "Device voice · Microsoft Zira",
+  );
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { deviceCalls: number }).deviceCalls,
+    ),
+  ).toBe(1);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { activeReaders: number }).activeReaders,
+    ),
+  ).toBe(0);
+});
+
+test("two hard Bella errors offer a device choice without automatically speaking", async ({
+  page,
+}) => {
+  await deviceSpy(page);
+  await page.goto("/today");
+  await page.getByRole("link", { name: "02 Reflection" }).click();
+  await page.evaluate(() => Object.assign(window, { hardErrors: 2 }));
+  await page.getByRole("button", { name: "Read reflection aloud" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Bella could not load after a retry",
+  );
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { workerJobs: number }).workerJobs,
+    ),
+  ).toBe(2);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { deviceCalls: number }).deviceCalls,
+    ),
+  ).toBe(0);
+  await expect(
+    page.getByRole("button", { name: "Use device voice · no download" }),
+  ).toBeVisible();
 });
 test("only Play sends exact Scripture to Edge; controls and navigation stop audio", async ({
   page,

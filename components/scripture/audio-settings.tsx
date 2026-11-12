@@ -9,8 +9,10 @@ import { offlineModelStored } from "@/lib/tts/model-cache";
 export function AudioSettings() {
   const { state, update, online } = useApp();
   const [message, setMessage] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [canKeepWaiting, setCanKeepWaiting] = useState(false);
   const abort = useRef<AbortController | null>(null);
+  const extendWait = useRef<(() => void) | null>(null);
   useEffect(() => () => abort.current?.abort(), []);
   return (
     <section className="settings-card" id="reading-voice">
@@ -35,11 +37,11 @@ export function AudioSettings() {
       </select>
       <p className="field-hint">
         Auto and Edge send only the displayed Scripture and its reference to
-        Microsoft when you tap Play. If unavailable, they try Kokoro, then an
-        installed on-device voice. Kokoro never sends your text to a server.
-        Reflections, plan prayers, actions, and chat interpretation are read
-        only on-device with Kokoro or an installed local voice. Personal
-        prayers, journal entries, and notes are excluded.
+        Microsoft when you tap Play. If unavailable, they try Kokoro. An
+        installed device voice is used only when you choose it. Kokoro never
+        sends your text to a server. Reflections, plan prayers, actions, and
+        chat interpretation are read only on-device with Kokoro or an installed
+        local voice. Personal prayers, journal entries, and notes are excluded.
       </p>
       <p className="field-hint">
         Bella now uses the smaller, roughly 90 MB model on every device,
@@ -47,7 +49,9 @@ export function AudioSettings() {
         in short segments. For immediate reading without a download, choose an
         installed device voice; quality depends on your installed voices. Both
         choices keep reading text on-device. Keep this screen open until Bella
-        is ready; browsers may remove downloads when storage is low.
+        is ready; browsers may remove downloads when storage is low. First
+        synthesis can take 1–3 minutes on desktop, even after the download
+        finishes.
       </p>
       <Button
         variant="outline"
@@ -59,6 +63,8 @@ export function AudioSettings() {
           const controller = new AbortController();
           abort.current = controller;
           setBusy(true);
+          setCanKeepWaiting(false);
+          extendWait.current = null;
           setMessage(
             "Preparing Bella. Downloading model files only; no personal text is sent…",
           );
@@ -67,6 +73,17 @@ export function AudioSettings() {
               null,
               setMessage,
               controller.signal,
+              undefined,
+              {
+                onTimeout: (extend) => {
+                  if (controller.signal.aborted) return;
+                  extendWait.current = extend;
+                  setCanKeepWaiting(true);
+                  setMessage(
+                    "Bella needs more time on first use (up to 3 minutes). Keep waiting, or cancel and try again later.",
+                  );
+                },
+              },
             );
             if (!controller.signal.aborted) {
               if (!(await offlineModelStored())) {
@@ -86,17 +103,34 @@ export function AudioSettings() {
                 "The on-device download did not finish. Check your connection and free space, then try again.",
               );
           } finally {
+            extendWait.current = null;
+            setCanKeepWaiting(false);
             if (!controller.signal.aborted) setBusy(false);
           }
         }}
       >
         {busy ? "Preparing on-device voice…" : "Download on-device voice"}
       </Button>
+      {busy && canKeepWaiting && (
+        <Button
+          variant="outline"
+          onClick={() => {
+            extendWait.current?.();
+            extendWait.current = null;
+            setCanKeepWaiting(false);
+            setMessage("Still preparing Bella’s first synthesis on-device…");
+          }}
+        >
+          Keep waiting
+        </Button>
+      )}
       {busy && (
         <Button
           variant="ghost"
           onClick={() => {
             abort.current?.abort();
+            extendWait.current = null;
+            setCanKeepWaiting(false);
             setBusy(false);
             setMessage(
               "Download stopped. Saved files remain; you can try again whenever you’re ready.",

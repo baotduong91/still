@@ -9,6 +9,7 @@ import { useReadingAudio } from "@/components/scripture/use-reading-audio";
 import { usePassage } from "@/components/scripture/use-passage";
 import { buildSpokenText, type ReadingPayload } from "@/lib/tts/reading";
 import { verseSpeech } from "@/lib/tts/shared";
+import { offlineModelStored } from "@/lib/tts/model-cache";
 import {
   warmKokoro,
   primeKokoro,
@@ -42,6 +43,7 @@ export function DailyFlow({
   const passage = usePassage(localPassage);
   const [active, setActive] = useState(0);
   const [bellaReady, setBellaReady] = useState(false);
+  const [needsBellaDownload, setNeedsBellaDownload] = useState(false);
   const refs = useRef<(HTMLElement | null)[]>([]),
     lockScroll = useRef(0),
     consumed = useRef(0);
@@ -123,6 +125,7 @@ export function DailyFlow({
   useEffect(() => {
     let alive = true;
     setBellaReady(false);
+    setNeedsBellaDownload(false);
     const timer = setTimeout(async () => {
       if (state.speechEngine === "device") return;
       // Warm the server runtime without sending any verse or personal text.
@@ -130,7 +133,10 @@ export function DailyFlow({
         void fetch("/api/tts", { method: "HEAD", cache: "no-store" }).catch(
           () => {},
         );
-      if (!(await warmKokoro()) || !alive) return;
+      const stored = await offlineModelStored().catch(() => false);
+      if (!alive) return;
+      setNeedsBellaDownload(!stored);
+      if (!stored || !(await warmKokoro()) || !alive) return;
       let ready = true;
       for (const payload of payloads.slice(1)) {
         if (!alive) return;
@@ -248,6 +254,13 @@ export function DailyFlow({
             ))}
           </div>
           <p className="fine-print">{day.interpretation}</p>
+          {needsBellaDownload && (
+            <p className="fine-print">
+              <Link href="/settings#reading-voice">
+                Download Bella in Settings for faster private reading.
+              </Link>
+            </p>
+          )}
         </div>
         {next(2)}
       </section>

@@ -54,6 +54,8 @@ export function ReadingControls({
     empty,
     changeSpeed,
     playDevice,
+    canKeepWaiting,
+    keepWaiting,
   } = reader;
   const label = labels[payload.kind];
   return (
@@ -124,9 +126,15 @@ export function ReadingControls({
                 : "Edge · online")}
         </span>
       </div>
+      {canKeepWaiting && (
+        <Button variant="outline" onClick={keepWaiting}>
+          Keep waiting
+        </Button>
+      )}
       {preferredEngine !== "device" &&
         ((!minimal && preferredEngine === "kokoro") ||
-          status === "loading") && (
+          status === "loading" ||
+          !!message) && (
           <Button
             className="audio-device-choice"
             variant="ghost"

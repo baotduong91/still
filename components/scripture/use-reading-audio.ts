@@ -9,7 +9,7 @@ import {
   type ReadingPayload,
 } from "@/lib/tts/reading";
 import { supportsMp3Stream, streamMp3 } from "@/lib/tts/edge-stream";
-import { kokoroAudio } from "@/lib/tts/kokoro-client";
+import { kokoroAudio, KokoroTimeoutError } from "@/lib/tts/kokoro-client";
 type Status = "idle" | "loading" | "playing" | "paused";
 export function useReadingAudio(payload: ReadingPayload) {
   const { state, online } = useApp(),
@@ -19,7 +19,9 @@ export function useReadingAudio(payload: ReadingPayload) {
     [engine, setEngine] = useState(""),
     [message, setMessage] = useState(""),
     [speed, setSpeed] = useState(1),
-    [completed, setCompleted] = useState(0);
+    [completed, setCompleted] = useState(0),
+    [canKeepWaiting, setCanKeepWaiting] = useState(false);
+  const extendWait = useRef<(() => void) | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null),
     url = useRef<string | null>(null),
     abort = useRef<AbortController | null>(null),
@@ -42,6 +44,8 @@ export function useReadingAudio(payload: ReadingPayload) {
   const signature = JSON.stringify([payload, state.speechEngine, path]);
   function stop() {
     generation.current++;
+    extendWait.current = null;
+    setCanKeepWaiting(false);
     abort.current?.abort();
     abort.current = null;
     paused.current = false;
@@ -348,62 +352,100 @@ export function useReadingAudio(payload: ReadingPayload) {
       let playback = Promise.resolve(),
         playbackError: unknown,
         streamed = false;
-      try {
-        const result = await kokoroAudio(
-          spoken,
-          (s) => {
-            if (alive() && !started.current) setMessage(s);
-          },
-          controller.signal,
-          (blob, backend) => {
-            if (!alive()) return;
-            streamed = true;
-            setEngine(`Kokoro · Bella · ${backend}`);
-            playback = playback
-              .then(async () => {
-                if (alive() && !playbackError) {
-                  setMessage("");
-                  await playBlob(blob, true);
-                }
-              })
-              .catch((error) => {
-                playbackError = error;
-                if (alive()) {
+      // Retry one genuine worker/model error before offering an explicit choice.
+      // Timeouts never trigger a new job or switch the reader to a device voice.
+      for (let attempt = 0; attempt < 2; attempt++)
+        try {
+          const result = await kokoroAudio(
+            spoken,
+            (s) => {
+              if (alive() && !started.current) setMessage(s);
+            },
+            controller.signal,
+            (blob, backend) => {
+              if (!alive()) return;
+              extendWait.current = null;
+              setCanKeepWaiting(false);
+              streamed = true;
+              setEngine(`Kokoro · Bella · ${backend}`);
+              playback = playback
+                .then(async () => {
+                  if (alive() && !playbackError) {
+                    setMessage("");
+                    await playBlob(blob, true);
+                  }
+                })
+                .catch((error) => {
+                  playbackError = error;
+                  if (alive()) {
+                    stop();
+                    setMessage(
+                      "This audio could not play. Use the installed device voice to restart the reading.",
+                    );
+                  }
+                });
+            },
+            {
+              onTimeout: (extend) => {
+                if (!alive()) return;
+                if (started.current) {
                   stop();
                   setMessage(
-                    "This audio could not play. Use the installed device voice to restart the reading.",
+                    "Bella could not finish this reading. Use device voice to restart immediately, or tap Play to try again.",
                   );
+                  return;
                 }
-              });
-          },
-        );
-        if (result.blob && alive()) {
-          setEngine(`Kokoro · Bella · ${result.backend}`);
-          setMessage("");
-          await playBlob(result.blob);
+                extendWait.current = extend;
+                setCanKeepWaiting(true);
+                setMessage(
+                  "Bella needs more time on first use (up to 3 minutes). Keep waiting, or choose a device voice.",
+                );
+              },
+            },
+          );
+          if (result.blob && alive()) {
+            extendWait.current = null;
+            setCanKeepWaiting(false);
+            setEngine(`Kokoro · Bella · ${result.backend}`);
+            setMessage("");
+            await playBlob(result.blob);
+            return;
+          }
+          if (!streamed) throw new Error("No audio was generated");
+          await playback;
+          if (playbackError) throw playbackError;
+          if (alive() && streamed) {
+            setStatus("idle");
+            setCompleted((n) => n + 1);
+            setMessage("");
+          }
+          return;
+        } catch (error) {
+          if (!alive()) return;
+          const hadSound = started.current || streamed;
+          if (
+            !hadSound &&
+            !(error instanceof KokoroTimeoutError) &&
+            attempt === 0
+          ) {
+            setMessage(
+              "Bella couldn’t prepare this attempt. Retrying once on-device…",
+            );
+            continue;
+          }
+          stop();
+          if (hadSound)
+            setMessage(
+              "Bella could not finish this reading. Use device voice to restart immediately, or tap Play to try again.",
+            );
+          else
+            setMessage(
+              error instanceof KokoroTimeoutError
+                ? "Bella still needs more time. Tap Play to try Bella again, or choose Use device voice. Your text stays on-device."
+                : "Bella could not load after a retry. Tap Play to try Bella again, or choose Use device voice. Your text stays on-device.",
+            );
           return;
         }
-        if (!streamed) throw new Error("No audio was generated");
-        await playback;
-        if (playbackError) throw playbackError;
-        if (alive() && streamed) {
-          setStatus("idle");
-          setCompleted((n) => n + 1);
-          setMessage("");
-        }
-      } catch {
-        if (!alive()) return;
-        const hadSound = started.current;
-        stop();
-        if (hadSound)
-          setMessage(
-            "Bella could not finish this reading. Use device voice to restart immediately, or tap Play to try again.",
-          );
-        else
-          startDevice(
-            "Bella took too long or could not load. Using an installed voice; your text stays on-device.",
-          );
-      }
     } catch {
       if (alive()) {
         stop();
@@ -422,6 +464,17 @@ export function useReadingAudio(payload: ReadingPayload) {
     play,
     stop,
     playDevice,
+    canKeepWaiting,
+    keepWaiting() {
+      const extend = extendWait.current;
+      if (!extend) return;
+      extendWait.current = null;
+      setCanKeepWaiting(false);
+      setMessage(
+        "Still preparing Bella on-device. Allowing more time for this first reading…",
+      );
+      extend();
+    },
     preferredEngine,
     empty: !spoken.trim(),
     changeSpeed(rate: number) {

@@ -1,5 +1,17 @@
 import { test, expect } from "@playwright/test";
 test.use({ launchOptions: { args: ["--mute-audio"] } });
+test("production build serves the same-origin Bella WASM runtime and loader", async ({
+  request,
+}) => {
+  const loader = await request.get("/tts/ort-wasm-simd-threaded.jsep.mjs");
+  expect(loader.status()).toBe(200);
+  expect(loader.headers()["content-type"]).not.toContain("text/html");
+  const wasm = await request.get("/tts/ort-wasm-simd-threaded.jsep.wasm", {
+    headers: { Range: "bytes=0-7" },
+  });
+  expect([200, 206]).toContain(wasm.status());
+  expect([...(await wasm.body()).subarray(0, 4)]).toEqual([0, 97, 115, 109]);
+});
 test("real Kokoro WASM model loads, reads and works after offline reload", async ({
   page,
   context,

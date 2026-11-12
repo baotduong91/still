@@ -1,0 +1,123 @@
+import { beforeEach, afterEach, expect, it, vi } from "vitest";
+const fixture = vi.hoisted(() => ({
+  generate: vi.fn(),
+  load: vi.fn(),
+  env: { backends: { onnx: { wasm: {} as Record<string, unknown> } } },
+}));
+vi.mock("kokoro-js", () => ({ KokoroTTS: { from_pretrained: fixture.load } }));
+vi.mock("@huggingface/transformers", () => ({ env: fixture.env }));
+vi.mock("@/lib/tts/model-cache", () => ({
+  modelCache: {},
+  optimizedModelStored: async () => true,
+}));
+let scope: {
+  location: { origin: string };
+  navigator: { hardwareConcurrency: number };
+  crossOriginIsolated: boolean;
+  postMessage: ReturnType<typeof vi.fn>;
+  onmessage: (e: { data: object }) => void;
+};
+beforeEach(async () => {
+  vi.resetModules();
+  vi.useFakeTimers();
+  fixture.generate
+    .mockReset()
+    .mockResolvedValue({ audio: new Float32Array(16) });
+  fixture.load.mockReset().mockResolvedValue({ generate: fixture.generate });
+  scope = {
+    location: { origin: "https://still.example" },
+    navigator: { hardwareConcurrency: 8 },
+    crossOriginIsolated: false,
+    postMessage: vi.fn(),
+    onmessage: () => {},
+  };
+  vi.stubGlobal("self", scope);
+  await import("@/lib/tts/kokoro.worker");
+});
+afterEach(() => {
+  vi.clearAllTimers();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+const messages = () => scope.postMessage.mock.calls.map(([data]) => data);
+
+it("warms once with Ready, emits five-second cold heartbeats, and reuses compilation after cancel", async () => {
+  let release!: (value: { audio: Float32Array }) => void;
+  fixture.generate.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  scope.onmessage({ data: { id: 1, prepare: true, mode: "warm" } });
+  await vi.waitFor(() => expect(fixture.generate).toHaveBeenCalledOnce());
+  expect(fixture.generate.mock.calls[0][0]).toBe("Ready.");
+  await vi.advanceTimersByTimeAsync(45000);
+  expect(
+    messages().filter((m) => m.heartbeat && m.phase === "first_inference"),
+  ).toHaveLength(9);
+  scope.onmessage({ data: { id: 1, mode: "cancel" } });
+  scope.onmessage({ data: { id: 2, prepare: true, mode: "warm" } });
+  scope.onmessage({ data: { id: 2, prepare: true, mode: "warm" } });
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(fixture.generate).toHaveBeenCalledOnce();
+  release({ audio: new Float32Array(16) });
+  await vi.waitFor(() =>
+    expect(
+      messages().filter((m) => m.id === 2 && m.type === "ready"),
+    ).toHaveLength(1),
+  );
+  expect(fixture.generate).toHaveBeenCalledOnce();
+  expect(messages().some((m) => m.id === 1 && m.type === "ready")).toBe(false);
+  expect(fixture.env.backends.onnx.wasm.wasmPaths).toBe(
+    "https://still.example/tts/",
+  );
+  expect(fixture.env.backends.onnx.wasm.numThreads).toBe(1);
+});
+
+it("serializes reads, discards cancelled audio, and switches later generation to warm budgets", async () => {
+  let release!: (value: { audio: Float32Array }) => void;
+  fixture.generate.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  scope.onmessage({ data: { id: 1, text: "A cancelled reading." } });
+  await vi.waitFor(() => expect(fixture.generate).toHaveBeenCalledOnce());
+  scope.onmessage({ data: { id: 1, mode: "cancel" } });
+  scope.onmessage({ data: { id: 2, text: "A different reading." } });
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(fixture.generate).toHaveBeenCalledOnce();
+  release({ audio: new Float32Array(16) });
+  await vi.waitFor(() =>
+    expect(messages().some((m) => m.id === 2 && m.type === "done")).toBe(true),
+  );
+  expect(messages().some((m) => m.id === 1 && m.type === "chunk")).toBe(false);
+  expect(
+    messages().some((m) => m.id === 2 && m.phase === "warm_inference"),
+  ).toBe(true);
+  expect(fixture.generate).toHaveBeenCalledTimes(2);
+});
+
+it("clear cancels an in-flight prime before its result can repopulate previews", async () => {
+  let release!: (value: { audio: Float32Array }) => void;
+  fixture.generate.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  scope.onmessage({
+    data: { id: 1, text: "Private plan copy.", mode: "prime" },
+  });
+  await vi.waitFor(() => expect(fixture.generate).toHaveBeenCalledOnce());
+  scope.onmessage({ data: { id: 3, mode: "clear" } });
+  release({ audio: new Float32Array(16) });
+  scope.onmessage({ data: { id: 2, text: "Private plan copy." } });
+  await vi.waitFor(() =>
+    expect(messages().some((m) => m.id === 2 && m.type === "done")).toBe(true),
+  );
+  expect(messages().some((m) => m.id === 1 && m.type === "primed")).toBe(false);
+  expect(fixture.generate).toHaveBeenCalledTimes(2);
+});
