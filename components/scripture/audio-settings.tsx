@@ -29,6 +29,9 @@ export function AudioSettings() {
         <option value="auto">Auto · Edge online, Kokoro offline</option>
         <option value="edge">Edge · Jenny · online preferred</option>
         <option value="kokoro">Kokoro · Bella · private, on-device</option>
+        <option value="device">
+          Device voice · instant · no model download
+        </option>
       </select>
       <p className="field-hint">
         Auto and Edge send only the displayed Scripture and its reference to
@@ -39,10 +42,12 @@ export function AudioSettings() {
         prayers, journal entries, and notes are excluded.
       </p>
       <p className="field-hint">
-        Download Bella once while online for offline reading. First use may
-        download roughly 90 MB (WASM) or 330 MB (WebGPU), plus runtime files.
-        Keep this screen open until ready. Your browser may remove downloads
-        when storage is low.
+        Bella now uses the smaller, roughly 90 MB model on every device,
+        avoiding the large GPU download and GPU compilation stalls. Audio starts
+        in short segments. For immediate reading without a download, choose an
+        installed device voice; quality depends on your installed voices. Both
+        choices keep reading text on-device. Keep this screen open until Bella
+        is ready; browsers may remove downloads when storage is low.
       </p>
       <Button
         variant="outline"

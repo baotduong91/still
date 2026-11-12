@@ -1,7 +1,7 @@
 import { openDB } from "idb";
 import type { PlanType, JournalType, TranslationId } from "@/lib/schemas";
 export type SavedState = {
-  speechEngine: "auto" | "edge" | "kokoro";
+  speechEngine: "auto" | "edge" | "kokoro" | "device";
   pinLock: { salt: string; hash: string; iterations: number } | null;
   setupSeen: boolean;
   plans: PlanType[];

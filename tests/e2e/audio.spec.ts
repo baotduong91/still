@@ -3,6 +3,10 @@ test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => {
     class TestAudio {
+      constructor() {
+        const state = window as unknown as { testPlayers: TestAudio[] };
+        (state.testPlayers ??= []).push(this);
+      }
       active = false;
       playbackRate = 1;
       onended: (() => void) | null = null;
@@ -39,6 +43,41 @@ test.beforeEach(async ({ page }) => {
         (
           window as unknown as { localReading: string | undefined }
         ).localReading = data.text;
+        if ((window as unknown as { readingStream?: boolean }).readingStream) {
+          setTimeout(
+            () =>
+              this.dispatchEvent(
+                new MessageEvent("message", {
+                  data: {
+                    id: data.id,
+                    type: "chunk",
+                    backend: "WASM",
+                    wav: new ArrayBuffer(100),
+                  },
+                }),
+              ),
+            20,
+          );
+          (window as unknown as { releaseStream: () => void }).releaseStream =
+            () => {
+              this.dispatchEvent(
+                new MessageEvent("message", {
+                  data: {
+                    id: data.id,
+                    type: "chunk",
+                    backend: "WASM",
+                    wav: new ArrayBuffer(100),
+                  },
+                }),
+              );
+              this.dispatchEvent(
+                new MessageEvent("message", {
+                  data: { id: data.id, type: "done", backend: "WASM" },
+                }),
+              );
+            };
+          return;
+        }
         setTimeout(
           () => {
             (window as unknown as { workerReplies: number }).workerReplies++;
@@ -66,6 +105,8 @@ test("only Play sends exact Scripture to Edge; controls and navigation stop audi
 }) => {
   let sent: { text: string; reference: string } | null = null;
   await page.route("**/api/tts", (route) => {
+    if (route.request().method() === "HEAD")
+      return route.fulfill({ status: 204 });
     sent = route.request().postDataJSON();
     return route.fulfill({
       contentType: "audio/mpeg",
@@ -109,6 +150,7 @@ test("private Kokoro choice does not call Edge and survives reload", async ({
 }) => {
   let edgeCalls = 0;
   await page.route("**/api/tts", (r) => {
+    if (r.request().method() === "HEAD") return r.fulfill({ status: 204 });
     edgeCalls++;
     return r.abort();
   });
@@ -136,11 +178,13 @@ test("Edge failure falls back to local Kokoro with no cloud model request", asyn
 }) => {
   let cloudCalls = 0;
   await page.route("**/api/tts", (r) =>
-    r.fulfill({
-      status: 503,
-      contentType: "application/json",
-      body: '{"error":"Unavailable"}',
-    }),
+    r.request().method() === "HEAD"
+      ? r.fulfill({ status: 204 })
+      : r.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: '{"error":"Unavailable"}',
+        }),
   );
   await page.route("**/api/ai", (r) => {
     cloudCalls++;
@@ -160,13 +204,17 @@ test("Today curated steps stay local with Auto online and never read personal fi
 }) => {
   let edgeCalls = 0;
   await page.route("**/api/tts", (route) => {
+    if (route.request().method() === "HEAD")
+      return route.fulfill({ status: 204 });
     edgeCalls++;
     return route.abort();
   });
   await page.goto("/today");
-  await page.getByRole("tab", { name: "02 Reflection" }).click();
+  await page.getByRole("link", { name: "02 Reflection" }).click();
   const reflection = (await page
-    .locator(".devotional-prose > p:not(.eyebrow):not(.fine-print)")
+    .locator(
+      "#today-reflection .devotional-prose > p:not(.eyebrow):not(.fine-print)",
+    )
     .first()
     .textContent())!.trim();
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
@@ -180,7 +228,7 @@ test("Today curated steps stay local with Auto online and never read personal fi
   ).toBe(reflection);
   await page.getByRole("button", { name: "Pause reflection" }).click();
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
-  await page.getByRole("tab", { name: "03 Prayer" }).click();
+  await page.getByRole("link", { name: "03 Prayer" }).click();
   await expect(
     page.getByRole("button", { name: "Read prayer aloud" }),
   ).toBeVisible();
@@ -190,6 +238,7 @@ test("Today curated steps stay local with Auto online and never read personal fi
     ),
   ).toBe(0);
   const prayer = (await page.locator(".prayer-text").textContent())!.trim();
+  await page.locator(".flow-personal-prayer > summary").click();
   await page
     .locator("#personal-prayer")
     .fill("Private personal prayer must never be spoken.");
@@ -210,7 +259,7 @@ test("Today curated steps stay local with Auto online and never read personal fi
   ).toBe(
     `A prayer inspired by today’s reading. This is not Scripture.\n\n${prayer}`,
   );
-  await page.getByRole("tab", { name: "04 Practice" }).click();
+  await page.getByRole("link", { name: "04 Practice" }).click();
   await expect(
     page.getByRole("button", { name: "Read action aloud" }),
   ).toBeVisible();
@@ -220,7 +269,7 @@ test("Today curated steps stay local with Auto online and never read personal fi
     ),
   ).toBe(0);
   const action = (await page
-    .locator(".devotional-prose > p:not(.eyebrow)")
+    .locator("#today-practice .devotional-prose > p:not(.eyebrow)")
     .first()
     .textContent())!.trim();
   await page
@@ -250,9 +299,9 @@ test("changing step cancels a pending local reader before its audio arrives", as
   await page.evaluate(
     () => ((window as unknown as { readingDelay: number }).readingDelay = 300),
   );
-  await page.getByRole("tab", { name: "02 Reflection" }).click();
+  await page.getByRole("link", { name: "02 Reflection" }).click();
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
-  await page.getByRole("tab", { name: "03 Prayer" }).click();
+  await page.getByRole("link", { name: "03 Prayer" }).click();
   await expect
     .poll(() =>
       page.evaluate(
@@ -275,6 +324,8 @@ test("chat interpretation is local and starting a Scripture citation stops it", 
 }) => {
   let edgeCalls = 0;
   await page.route("**/api/tts", (route) => {
+    if (route.request().method() === "HEAD")
+      return route.fulfill({ status: 204 });
     edgeCalls++;
     return route.fulfill({
       contentType: "audio/mpeg",
@@ -327,7 +378,7 @@ test("locking the PIN boundary stops a curated reader", async ({ page }) => {
     page.getByText("Your PIN screen lock is ready on this device."),
   ).toBeVisible();
   await page.getByRole("link", { name: "Today", exact: true }).click();
-  await page.getByRole("tab", { name: "02 Reflection" }).click();
+  await page.getByRole("link", { name: "02 Reflection" }).click();
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
   await expect(
     page.getByRole("button", { name: "Pause reflection" }),
@@ -341,4 +392,209 @@ test("locking the PIN boundary stops a curated reader", async ({ page }) => {
       () => (window as unknown as { activeReaders: number }).activeReaders,
     ),
   ).toBe(0);
+});
+
+test("Bella starts the first segment before synthesis finishes and queues later segments without overlap", async ({
+  page,
+}) => {
+  await page.goto("/today");
+  await page.getByRole("link", { name: "02 Reflection" }).click();
+  await page.evaluate(
+    () =>
+      ((window as unknown as { readingStream: boolean }).readingStream = true),
+  );
+  await page.getByRole("button", { name: "Read reflection aloud" }).click();
+  await expect(
+    page.getByRole("button", { name: "Pause reflection" }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { testPlayers: unknown[] }).testPlayers.length,
+    ),
+  ).toBe(1);
+  await page.getByRole("button", { name: "Pause reflection" }).click();
+  await page.evaluate(() =>
+    (window as unknown as { releaseStream: () => void }).releaseStream(),
+  );
+  await expect(
+    page.getByRole("button", { name: "Read reflection aloud" }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { activeReaders: number }).activeReaders,
+    ),
+  ).toBe(0);
+  await page.getByRole("button", { name: "Read reflection aloud" }).click();
+  await page.evaluate(() => {
+    const p = (
+      window as unknown as {
+        testPlayers: { pause: () => void; onended?: () => void }[];
+      }
+    ).testPlayers[0];
+    p.pause();
+    p.onended?.();
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as unknown as { testPlayers: unknown[] }).testPlayers.length,
+      ),
+    )
+    .toBe(2);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { activeReaders: number }).activeReaders,
+    ),
+  ).toBe(1);
+  await page.getByRole("button", { name: "Stop reflection" }).click();
+  await expect(
+    page.getByRole("button", { name: "Stop reflection" }),
+  ).toBeDisabled();
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { activeReaders: number }).activeReaders,
+    ),
+  ).toBe(0);
+});
+
+test("installed device voice is immediate and never invokes Edge or a model worker", async ({
+  page,
+}) => {
+  let edgeCalls = 0;
+  await page.route("**/api/tts", (r) => {
+    if (r.request().method() === "HEAD") return r.fulfill({ status: 204 });
+    edgeCalls++;
+    return r.abort();
+  });
+  await page.addInitScript(() => {
+    class Utterance {
+      voice: unknown;
+      rate = 1;
+      onend: unknown;
+      onerror: unknown;
+      constructor(public text: string) {}
+    }
+    Object.defineProperty(window, "SpeechSynthesisUtterance", {
+      value: Utterance,
+    });
+    Object.defineProperty(window, "speechSynthesis", {
+      value: {
+        getVoices: () => [
+          { name: "Samantha", lang: "en-US", localService: true },
+        ],
+        speak: (u: Utterance) => {
+          (window as unknown as { deviceReading: string }).deviceReading =
+            u.text;
+        },
+        cancel: () => {},
+        pause: () => {},
+        resume: () => {},
+      },
+    });
+  });
+  await page.goto("/settings#reading-voice");
+  await page.getByLabel("Reading voice engine").selectOption("device");
+  await page.reload();
+  await expect(page.getByLabel("Reading voice engine")).toHaveValue("device");
+  await page.goto("/today");
+  await page.getByRole("link", { name: "02 Reflection" }).click();
+  await page.getByRole("button", { name: "Read reflection aloud" }).click();
+  await expect(
+    page.getByRole("button", { name: "Pause reflection" }),
+  ).toBeVisible();
+  await expect(page.locator(".audio-engine")).toContainText(
+    "Device voice · Samantha",
+  );
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { deviceReading: string }).deviceReading,
+    ),
+  ).toBe(
+    (await page
+      .locator(
+        "#today-reflection .devotional-prose > p:not(.eyebrow):not(.fine-print)",
+      )
+      .first()
+      .textContent())!.trim(),
+  );
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { workerReplies: number }).workerReplies,
+    ),
+  ).toBe(0);
+  expect(edgeCalls).toBe(0);
+});
+
+test("Today is one vertical flow; finishing audio gently moves to reflection without autoplay", async ({
+  page,
+}) => {
+  await page.route("**/api/tts", (route) =>
+    route.request().method() === "HEAD"
+      ? route.fulfill({ status: 204 })
+      : route.fulfill({
+          contentType: "audio/mpeg",
+          body: Buffer.from([0xff, 0xfb, 0x90, 0x00]),
+        }),
+  );
+  await page.goto("/today");
+  await expect(page.getByRole("tab")).toHaveCount(0);
+  await expect(page.locator(".flow-section")).toHaveCount(4);
+  expect(
+    await page
+      .locator(".flow-section")
+      .evaluateAll((elements) => elements.map((el) => el.id)),
+  ).toEqual([
+    "today-scripture",
+    "today-reflection",
+    "today-prayer",
+    "today-practice",
+  ]);
+  await expect(page.locator(".today-player")).toHaveCount(1);
+  await page.getByRole("button", { name: "Play Scripture" }).click();
+  await expect(
+    page.getByRole("button", { name: "Pause Scripture" }),
+  ).toBeVisible();
+  await page.evaluate(() => {
+    const players = (
+      window as unknown as {
+        testPlayers: { pause: () => void; onended?: () => void }[];
+      }
+    ).testPlayers;
+    const player = players.at(-1)!;
+    player.pause();
+    player.onended?.();
+  });
+  await expect(
+    page.getByRole("button", { name: "Read reflection aloud" }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { activeReaders: number }).activeReaders,
+    ),
+  ).toBe(0);
+  await expect(page.locator("#today-reflection")).toBeInViewport();
+  // Ordinary one-handed scrolling, without a section-link click, also retargets the player.
+  await page
+    .locator("#today-prayer")
+    .evaluate((section) =>
+      section.scrollIntoView({ block: "start", behavior: "instant" }),
+    );
+  await expect(
+    page.getByRole("button", { name: "Read prayer aloud" }),
+  ).toBeVisible();
+  await expect(page.locator(".today-player .audio-engine")).toHaveText(
+    "Kokoro · on-device",
+  );
+  await page.getByRole("link", { name: "04 Practice" }).click();
+  await page
+    .getByLabel("My response for today")
+    .fill("A quiet step I want to keep while scrolling.");
+  await page.getByRole("link", { name: "02 Reflection" }).click();
+  await page.getByRole("link", { name: "04 Practice" }).click();
+  await expect(page.getByLabel("My response for today")).toHaveValue(
+    "A quiet step I want to keep while scrolling.",
+  );
+  expect(new URL(page.url()).pathname).toBe("/today");
 });

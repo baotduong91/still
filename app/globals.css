@@ -1767,6 +1767,373 @@ html[data-theme="dark"] .image-maker {
 .image-formats button[aria-pressed=true] small {color:var(--ink);}
 .scripture-audio{margin:18px 0;padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);color:var(--ink)}
 .reading-audio--compact{margin:16px 0;padding:10px 0;border-top:0}.reading-audio--compact .audio-status{margin-top:6px}.reading-audio--compact .scripture-audio-controls{gap:6px 10px}.reading-audio--compact .button,.reading-audio--compact select{min-height:44px}
+/* Continuous Today journey and its shared reader. */
+.today-page {
+  padding-bottom: 130px;
+}
+.daily-flow {
+  min-width: 0;
+}
+.flow-index {
+  display: flex;
+  gap: 18px;
+  margin: 0 0 18px;
+  flex-wrap: wrap;
+}
+.flow-index a {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.flow-index a span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.flow-index a[aria-current] {
+  color: var(--sage);
+  border-bottom: 1px solid var(--sage);
+}
+.flow-section {
+  scroll-margin-top: 24px;
+  min-height: 65svh;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: clamp(24px, 5vw, 60px);
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--paper);
+}
+.flow-section h2 {
+  font:
+    400 clamp(30px, 4vw, 44px)/1.15 Georgia,
+    serif;
+  margin: 0 0 28px;
+  color: var(--ink);
+}
+.flow-section h2:focus {
+  outline: none;
+}
+.flow-section h2:focus-visible {
+  outline: 2px solid var(--sage);
+  outline-offset: 6px;
+}
+.flow-section .devotional-prose > p {
+  font-size: 19px;
+  line-height: 1.9;
+}
+.flow-section .devotional-prose > .fine-print {
+  font:
+    12px/1.8 Arial,
+    sans-serif;
+  color: var(--muted);
+}
+.flow-section-label {
+  font-size: 10px;
+  letter-spacing: 1.7px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+.flow-section-label > span {
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  letter-spacing: 0;
+}
+.flow-continue {
+  align-self: flex-start;
+  margin-top: 26px;
+  min-height: 48px;
+  white-space: normal;
+}
+.flow-verse {
+  min-height: calc(100svh - 150px);
+  color: #f3f1e6;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(22, 38, 31, 0.72),
+      rgba(18, 34, 27, 0.72) 50%,
+      rgba(16, 30, 24, 0.93)
+    ),
+    url("/backgrounds/mountain-hush.jpg") center 65% / cover;
+  justify-content: space-between;
+  border-color: #405448;
+  position: relative;
+  overflow: hidden;
+}
+.flow-verse-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: #e0e4d5;
+}
+.flow-verse-copy {
+  padding: 60px 0;
+  max-width: 660px;
+}
+.flow-verse h2 {
+  font:
+    11px/1.6 Arial,
+    sans-serif;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #dbe3d1;
+  margin: 0 0 24px;
+}
+.flow-verse .eyebrow {
+  color: #e2e8da;
+  font-size: 11px;
+}
+.flow-verse blockquote {
+  font:
+    400 clamp(29px, 4vw, 43px)/1.5 Georgia,
+    serif;
+  margin: 0;
+  text-wrap: pretty;
+  color: #fffdf4;
+}
+.flow-verse sup {
+  font:
+    10px Arial,
+    sans-serif;
+  vertical-align: super;
+  color: #e2e8da;
+  margin-right: 8px;
+}
+.flow-verse-credit {
+  font-size: 10px;
+  line-height: 1.7;
+  color: #d1dacb;
+  margin: 24px 0 0;
+}
+.flow-translation-notice {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #f1eee2;
+}
+.flow-verse-bottom {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.flow-verse-bottom > a {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  font-size: 12px;
+  color: #e8edde;
+}
+.flow-verse-bottom .flow-continue {
+  color: #fffdf4;
+  margin: 0 0 0 auto;
+}
+.flow-prayer {
+  background: var(--sage-light);
+}
+.flow-personal-prayer {
+  margin: 12px 0 0;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.flow-personal-prayer summary {
+  cursor: pointer;
+  min-height: 44px;
+  font-size: 13px;
+  color: var(--sage);
+  padding: 10px 0;
+}
+.flow-personal-prayer .settings-card {
+  margin: 8px 0 0;
+}
+.flow-practice .practice-form {
+  margin-top: 12px;
+}
+.flow-complete {
+  min-height: 48px;
+  margin-top: 22px;
+  align-self: flex-start;
+}
+.today-player {
+  position: fixed;
+  z-index: 40;
+  bottom: 20px;
+  left: calc(236px + 40px);
+  right: 40px;
+  max-width: 1080px;
+  margin: 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: 0 8px 38px #122c2229;
+  padding: 12px 18px;
+}
+.today-player .scripture-audio {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.reading-context {
+  font:
+    11px/1.4 Arial,
+    sans-serif;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  margin: 0 0 7px;
+}
+.reading-audio--minimal .audio-status {
+  font-size: 11px;
+  margin: 6px 0 0;
+}
+.reading-audio--minimal .audio-device-choice {
+  min-height: 44px;
+  font-size: 12px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.reading-audio--minimal .scripture-audio-controls {
+  gap: 6px 14px;
+}
+.reading-audio--minimal .audio-engine {
+  margin-left: auto;
+}
+.today-page .today-aside {
+  align-self: start;
+  position: sticky;
+  top: 24px;
+}
+@media (max-width: 1000px) {
+  .today-page .today-aside {
+    position: static;
+  }
+  .today-player {
+    left: 24px;
+    right: 24px;
+  }
+}
+@media (max-width: 720px) {
+  .today-page {
+    padding-bottom: 160px;
+  }
+  .flow-index {
+    gap: 0;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .flow-index a {
+    font-size: 11px;
+    gap: 5px;
+  }
+  .flow-section {
+    padding: 28px 24px;
+    border-radius: 16px;
+    min-height: 74svh;
+    scroll-margin-top: 14px;
+    margin-bottom: 18px;
+  }
+  .flow-verse {
+    min-height: calc(100svh - 180px);
+    padding: 26px 24px;
+  }
+  .flow-verse-copy {
+    padding: 40px 0;
+  }
+  .flow-verse blockquote {
+    font-size: clamp(27px, 7.5vw, 35px);
+    line-height: 1.55;
+  }
+  .flow-verse-bottom {
+    gap: 8px 16px;
+  }
+  .flow-verse-bottom .flow-continue {
+    width: 100%;
+    margin: 12px 0 0;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-top: 1px solid #b2c0ad66;
+  }
+  .flow-section .devotional-prose > p {
+    font-size: 18px;
+    line-height: 1.85;
+  }
+  .flow-section .question-box {
+    padding: 18px;
+  }
+  .flow-section .question-box p {
+    font-size: 15px;
+  }
+  .flow-continue {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .flow-complete {
+    width: 100%;
+  }
+  .today-player {
+    left: 12px;
+    right: 12px;
+    bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+    padding: 10px 14px;
+    border-radius: 14px;
+  }
+  .reading-audio--minimal .audio-engine {
+    flex-basis: auto;
+    margin: 0 0 0 auto;
+    font-size: 10px;
+    max-width: 115px;
+  }
+  .reading-audio--minimal .scripture-audio-controls {
+    gap: 6px 10px;
+  }
+  .reading-audio--minimal .button {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .reading-audio--minimal .audio-speed select {
+    min-height: 44px;
+    padding: 6px;
+    font-size: 16px;
+  }
+  .reading-audio--minimal .audio-status {
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .reading-context {
+    font-size: 10px;
+  }
+  .flow-section .practice-form {
+    padding: 18px 0;
+    background: transparent;
+    border: 0;
+  }
+  .flow-section .practice-form textarea {
+    min-height: 160px;
+  }
+  .flow-prayer .settings-card {
+    padding: 18px;
+  }
+  .flow-personal-prayer summary {
+    padding-bottom: 14px;
+  }
+  html[data-keyboard="open"] .today-player {
+    bottom: calc(var(--keyboard-offset, 0px) + 10px);
+  }
+}
 .scripture-audio-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px}.scripture-audio-controls .button{min-height:44px;font-size:12px;gap:6px}.audio-speed{margin:0}.audio-speed select{width:auto;min-height:44px;padding:6px 22px 6px 10px;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:8px;font-size:14px}.audio-engine{font-size:11px;color:var(--sage)}.audio-status{font-size:11px;line-height:1.65;color:var(--muted);margin:10px 0 0}.audio-loading{animation:audio-spin 1.5s linear infinite}@keyframes audio-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.audio-loading{animation:none}}@media(max-width:720px){.scripture-audio-controls{gap:8px}.audio-engine{flex-basis:100%;margin-top:2px}.audio-speed select{font-size:16px}.image-controls>.scripture-audio{margin-top:0;padding-top:0;border-top:0;margin-bottom:24px;padding-bottom:20px}.verse-tools .scripture-audio{width:100%;min-width:0}.audio-status{font-size:12px}}
 .format-icon {height:27px; width:16px; border:1.5px solid currentColor; border-radius:2px; display:block; margin:4px 0;}
 .format-square {width:25px; height:25px;}

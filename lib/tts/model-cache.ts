@@ -15,6 +15,7 @@ export const modelCache = {
         ? new Response(blob, {
             headers: {
               "Content-Type": blob.type || "application/octet-stream",
+              "Content-Length": String(blob.size),
             },
           })
         : undefined;
@@ -32,18 +33,20 @@ export const modelCache = {
     }
   },
 };
-export async function offlineModelStored() {
+export async function optimizedModelStored() {
   const db = await database();
   try {
-    const model = (await db.getAllKeys("assets")).some((key) =>
-      String(key).endsWith(".onnx"),
+    return (await db.getAllKeys("assets")).some((key) =>
+      String(key).endsWith("/model_quantized.onnx"),
     );
-    const voiceCache = await caches.open("kokoro-voices");
-    const voice = (await voiceCache.keys()).some((key) =>
-      key.url.endsWith("/voices/af_bella.bin"),
-    );
-    return model && voice;
   } finally {
     db.close();
   }
+}
+export async function offlineModelStored() {
+  if (!(await optimizedModelStored())) return false;
+  const voiceCache = await caches.open("kokoro-voices");
+  return (await voiceCache.keys()).some((key) =>
+    key.url.endsWith("/voices/af_bella.bin"),
+  );
 }

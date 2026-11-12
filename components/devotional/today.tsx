@@ -1,8 +1,6 @@
 "use client";
-import { ReadingAudio } from "@/components/scripture/audio-player";
+import { DailyFlow } from "./daily-flow";
 import { FirstRun } from "@/components/first-run";
-import { PracticeWriter } from "./practice-writer";
-import { PrayerWriter } from "./prayer-writer";
 import { Participation } from "./participation";
 import { useState } from "react";
 import Link from "@/components/smart-link";
@@ -13,20 +11,17 @@ import {
   Check,
   Heart,
   Leaf,
-  Sun,
   PenLine,
 } from "lucide-react";
 import { useApp } from "@/components/provider";
 import { Button } from "@/components/ui/button";
-import { PassageCard } from "@/components/scripture/passage";
 import { api, recoverable } from "@/lib/client/store";
 import { adaptPlan } from "@/lib/ai/orchestrator";
 import { localDate } from "@/lib/utils";
 import type { PlanType } from "@/lib/schemas";
 export function Today() {
   const { state, update, bible, savePlan, online, setError } = useApp();
-  const [step, setStep] = useState(0),
-    [chosen, setChosen] = useState<number | null>(null),
+  const [chosen, setChosen] = useState<number | null>(null),
     [feedback, setFeedback] = useState(""),
     [busy, setBusy] = useState(false),
     [feedbackSaved, setFeedbackSaved] = useState(false);
@@ -53,12 +48,6 @@ export function Today() {
     `${focal.book} ${focal.chapter}:${focal.verse}`,
     state.translation,
   );
-  const labels = ["Scripture", "Reflection", "Prayer", "Practice"];
-  const date = new Date().toLocaleDateString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
   async function complete() {
     setBusy(true);
     try {
@@ -134,209 +123,16 @@ export function Today() {
   }
   return (
     <div className="today-page">
-      <FirstRun />
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow date-line">
-            <Sun size={15} />
-            {date}
-          </p>
-          <h1>
-            A little stillness.
-            <br />
-            <em>A little closer.</em>
-          </h1>
-          <p className="page-intro">
-            Pause the noise. Let the Word meet you here.
-          </p>
-        </div>
-        <span className="rhythm-pill">
-          <Leaf size={17} />
-          {
-            new Set(
-              state.plans.flatMap((p) =>
-                p.days.map((d) => d.completedDate).filter(Boolean),
-              ),
-            ).size
-          }{" "}
-          days of showing up
-        </span>
-      </div>
-      <Participation />
+      <h1 className="sr-only">A little stillness. A little closer.</h1>
       <div className="today-columns">
-        <section className="daily-card">
-          <div className="landscape">
-            <div className="landscape-sun" />
-            <div className="hill hill-back" />
-            <div className="hill hill-front" />
-            <div className="landscape-content">
-              <span className="glass-label">YOUR DAILY RHYTHM</span>
-              <h2>{day.title}</h2>
-              <p>
-                {plan.title} <span>·</span> Day {day.number} of{" "}
-                {plan.days.length}
-              </p>
-            </div>
-            <span className="landscape-mark">
-              <Leaf size={23} />
-            </span>
-          </div>
-          <div className="sequence" role="tablist" aria-label="Daily rhythm">
-            {labels.map((label, i) => (
-              <button
-                key={label}
-                role="tab"
-                tabIndex={step === i ? 0 : -1}
-                onKeyDown={(e) => {
-                  if (
-                    ["ArrowRight", "ArrowLeft", "Home", "End"].includes(e.key)
-                  ) {
-                    e.preventDefault();
-                    const next =
-                      e.key === "Home"
-                        ? 0
-                        : e.key === "End"
-                          ? 3
-                          : (i + (e.key === "ArrowRight" ? 1 : 3)) % 4;
-                    setStep(next);
-                    (
-                      e.currentTarget.parentElement?.children[
-                        next
-                      ] as HTMLButtonElement
-                    )?.focus();
-                  }
-                }}
-                aria-selected={step === i}
-                aria-controls="daily-panel"
-                onClick={() => setStep(i)}
-                className={step === i ? "selected" : ""}
-              >
-                <span>
-                  {i < step ? (
-                    <Check size={11} />
-                  ) : (
-                    String(i + 1).padStart(2, "0")
-                  )}
-                </span>
-                {label}
-              </button>
-            ))}
-          </div>
-          <div
-            className="daily-body"
-            id="daily-panel"
-            role="tabpanel"
-            aria-label={labels[step]}
-          >
-            {step === 0 ? (
-              <>
-                <PassageCard passage={passage} />
-                <Link
-                  className="text-link"
-                  href={`/scripture?ref=${encodeURIComponent(day.passage.reference)}`}
-                >
-                  <BookOpen size={15} /> Read in context{" "}
-                  <ArrowUpRight size={14} />
-                </Link>
-              </>
-            ) : step === 1 ? (
-              <div className="devotional-prose">
-                <p className="eyebrow">LET IT TAKE ROOT</p>
-                <h3>{day.title}</h3>
-                <p>{day.reflection}</p>
-                <ReadingAudio
-                  compact
-                  payload={{
-                    kind: "devotional",
-                    text: day.reflection,
-                    title: day.title,
-                  }}
-                />
-                <div className="question-box">
-                  {day.questions.map((q) => (
-                    <p key={q}>{q}</p>
-                  ))}
-                </div>
-                <p className="fine-print">{day.interpretation}</p>
-              </div>
-            ) : step === 2 ? (
-              <div className="devotional-prose">
-                <p className="eyebrow">A PRAYER FOR TODAY</p>
-                <h3>Come as you are.</h3>
-                <p className="prayer-text">{day.prayer}</p>
-                <ReadingAudio
-                  compact
-                  payload={{
-                    kind: "prayer",
-                    text: day.prayer,
-                    title: day.title,
-                  }}
-                />
-                <p className="fine-print">
-                  A personal prayer inspired by your reading; not Scripture.
-                </p>
-              </div>
-            ) : (
-              <div className="devotional-prose">
-                <p className="eyebrow">ONE SMALL, FAITHFUL STEP</p>
-                <h3>Carry it into your day.</h3>
-                <p>{day.action}</p>
-                <ReadingAudio
-                  compact
-                  payload={{
-                    kind: "action",
-                    text: day.action,
-                    title: day.title,
-                  }}
-                />
-                <PracticeWriter
-                  key={`${plan.id}:${day.number}`}
-                  plan={plan}
-                  day={day}
-                  onComplete={complete}
-                />
-                {day.completedAt && (
-                  <div className="completion-note">
-                    <Check size={20} />
-                    <span>You made space today. That is enough.</span>
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="daily-bottom">
-              <span>
-                {step + 1} OF 4 <span className="small-dot">·</span> AT YOUR OWN
-                PACE
-              </span>
-              {step < 3 ? (
-                <Button
-                  key="continue-step"
-                  type="button"
-                  onClick={() => setStep(step + 1)}
-                >
-                  Continue to {labels[step + 1].toLowerCase()}{" "}
-                  <ArrowRight size={16} />
-                </Button>
-              ) : (
-                <Button
-                  key="complete-day"
-                  type="submit"
-                  form="practice-response-form"
-                  disabled={busy || !!day.completedAt}
-                >
-                  {day.completedAt ? (
-                    <>
-                      <Check size={16} />
-                      Day complete
-                    </>
-                  ) : (
-                    "Complete today"
-                  )}
-                </Button>
-              )}
-            </div>
-          </div>
-        </section>
+        <DailyFlow
+          key={`${plan.id}:${day.number}`}
+          localPassage={passage}
+          plan={plan}
+          day={day}
+          busy={busy}
+          onComplete={complete}
+        />
         <aside className="today-aside">
           <section className="journey-overview">
             <div className="section-label">
@@ -366,7 +162,19 @@ export function Today() {
                   className={`${current === i ? "current" : ""} ${d.completedAt ? "done" : ""}`}
                   onClick={() => {
                     setChosen(i);
-                    setStep(0);
+                    setFeedback("");
+                    requestAnimationFrame(() =>
+                      document
+                        .getElementById("today-scripture")
+                        ?.scrollIntoView({
+                          block: "start",
+                          behavior: window.matchMedia(
+                            "(prefers-reduced-motion: reduce)",
+                          ).matches
+                            ? "instant"
+                            : "smooth",
+                        }),
+                    );
                     setFeedbackSaved(false);
                   }}
                 >
@@ -402,7 +210,8 @@ export function Today() {
           </Link>
         </aside>
       </div>
-      {step === 2 && <PrayerWriter />}
+      <Participation />
+      <FirstRun />
       <section className="reflection-strip">
         <span className="journal-icon">
           <PenLine size={22} />

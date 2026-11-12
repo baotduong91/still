@@ -2,7 +2,13 @@ import { afterEach, expect, it, vi } from "vitest";
 import { Bible, type Corpus } from "@/lib/bible";
 import corpus from "../../public/bibles/WEB.json";
 import { firstEngine, readingText, verseSpeech } from "@/lib/tts/shared";
-const fixture = vi.hoisted(() => ({ text: "", voice: "", fail: false }));
+const fixture = vi.hoisted(() => ({
+  text: "",
+  voice: "",
+  fail: false,
+  hold: false,
+  release: null as (() => void) | null,
+}));
 vi.mock("node-edge-tts", () => ({
   EdgeTTS: class {
     constructor(options: { voice: string }) {
@@ -12,14 +18,51 @@ vi.mock("node-edge-tts", () => ({
       fixture.text = text;
       if (fixture.fail) throw new Error("Unavailable");
       yield Buffer.from([0xff, 0xfb, 0x90, 0x00]);
+      if (fixture.hold)
+        await new Promise<void>((resolve) => {
+          fixture.release = resolve;
+        });
+      yield Buffer.from([1, 2]);
     }
   },
 }));
-import { POST } from "@/app/api/tts/route";
+import { HEAD, POST } from "@/app/api/tts/route";
 afterEach(() => {
   fixture.fail = false;
   fixture.text = "";
+  fixture.hold = false;
+  fixture.release = null;
   vi.unstubAllEnvs();
+});
+it("warms the runtime without sending any text to Edge", () => {
+  fixture.voice = "";
+  const response = HEAD(
+    new Request("http://127.0.0.1:3000/api/tts", { method: "HEAD" }),
+  );
+  expect(response.status).toBe(204);
+  expect(fixture.text).toBe("");
+  expect(fixture.voice).toBe("");
+});
+it("streams the first exact-Scripture MP3 bytes before synthesis completes", async () => {
+  fixture.hold = true;
+  const response = await POST(
+    new Request("http://127.0.0.1:3000/api/tts", {
+      method: "POST",
+      body: JSON.stringify({
+        text: "Exact verse.",
+        reference: "John 3:16",
+        stream: true,
+      }),
+    }),
+  );
+  const reader = response.body!.getReader();
+  const first = await reader.read();
+  expect([...first.value!]).toEqual([0xff, 0xfb, 0x90, 0x00]);
+  expect(fixture.text).toBe("Exact verse.\n\nJohn 3:16");
+  await vi.waitFor(() => expect(fixture.release).not.toBeNull());
+  fixture.release!();
+  expect([...(await reader.read()).value!]).toEqual([1, 2]);
+  expect((await reader.read()).done).toBe(true);
 });
 it("sends the exact retrieved Scripture to TTS with its citation separately", async () => {
   const p = new Bible(corpus as Corpus).lookup("John 3:16");

@@ -7,6 +7,7 @@ export const maxDuration = 30;
 const inputSchema = z
   .object({
     text: z.string().min(1).max(10000),
+    stream: z.boolean().optional(),
     reference: z.string().max(100).optional(),
     voice: z
       .enum(["en-US-JennyNeural", "en-US-AriaNeural"])
@@ -47,6 +48,56 @@ export async function POST(request: Request) {
       timeout: 18000,
       outputFormat: "audio-24khz-48kbitrate-mono-mp3",
     });
+    if (input.stream) {
+      const iterator = tts.streamAudio(readingText(input));
+      let size = 0;
+      const nextAudio = async () => {
+        while (true) {
+          if (request.signal.aborted)
+            throw new DOMException("Cancelled", "AbortError");
+          const next = await iterator.next();
+          if (next.done) return null;
+          if (Buffer.isBuffer(next.value)) {
+            size += next.value.length;
+            if (size > 8_000_000) throw new Error("Audio too large");
+            return new Uint8Array(next.value);
+          }
+        }
+      };
+      let first: Uint8Array | null;
+      try {
+        first = await nextAudio();
+        if (!first?.length) throw new Error("Empty audio");
+      } catch (error) {
+        await iterator.return(undefined);
+        throw error;
+      }
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(first!);
+        },
+        async pull(controller) {
+          try {
+            const bytes = await nextAudio();
+            if (bytes) controller.enqueue(bytes);
+            else controller.close();
+          } catch (error) {
+            controller.error(error);
+            await iterator.return(undefined);
+          }
+        },
+        async cancel() {
+          await iterator.return(undefined);
+        },
+      });
+      return new Response(body, {
+        headers: {
+          ...headers,
+          "Content-Type": "audio/mpeg",
+          "X-Accel-Buffering": "no",
+        },
+      });
+    }
     const chunks: Buffer[] = [];
     let size = 0;
     for await (const chunk of tts.streamAudio(readingText(input))) {
@@ -66,5 +117,15 @@ export async function POST(request: Request) {
       { error: "Edge voice is unavailable. You can read on-device instead." },
       { status: 503, headers },
     );
+  }
+}
+
+// Warm the Next.js runtime without sending Scripture or personal text anywhere.
+export function HEAD(request: Request) {
+  try {
+    validateBrowserOrigin(request);
+    return new Response(null, { status: 204, headers });
+  } catch {
+    return new Response(null, { status: 403, headers });
   }
 }

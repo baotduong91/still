@@ -25,6 +25,24 @@ export function ReadingAudio({
   payload: ReadingPayload;
   compact?: boolean;
 }) {
+  const reader = useReadingAudio(payload);
+  return (
+    <ReadingControls payload={payload} reader={reader} compact={compact} />
+  );
+}
+export function ReadingControls({
+  payload,
+  reader,
+  compact = false,
+  minimal = false,
+  contextLabel,
+}: {
+  payload: ReadingPayload;
+  reader: ReturnType<typeof useReadingAudio>;
+  compact?: boolean;
+  minimal?: boolean;
+  contextLabel?: string;
+}) {
   const {
     status,
     engine,
@@ -35,11 +53,12 @@ export function ReadingAudio({
     preferredEngine,
     empty,
     changeSpeed,
-  } = useReadingAudio(payload);
+    playDevice,
+  } = reader;
   const label = labels[payload.kind];
   return (
     <div
-      className={`scripture-audio${compact ? " reading-audio--compact" : ""}`}
+      className={`scripture-audio${compact ? " reading-audio--compact" : ""}${minimal ? " reading-audio--minimal" : ""}`}
       role="group"
       aria-label={
         payload.kind === "scripture"
@@ -47,6 +66,7 @@ export function ReadingAudio({
           : `Read ${label} aloud`
       }
     >
+      {contextLabel && <p className="reading-context">{contextLabel}</p>}
       <div className="scripture-audio-controls">
         <Button
           variant="outline"
@@ -97,23 +117,39 @@ export function ReadingAudio({
         </label>
         <span className="audio-engine">
           {engine ||
-            (preferredEngine === "kokoro"
-              ? "Kokoro · on-device"
-              : "Edge · online")}
+            (preferredEngine === "device"
+              ? "Device voice · installed"
+              : preferredEngine === "kokoro"
+                ? "Kokoro · on-device"
+                : "Edge · online")}
         </span>
       </div>
-      <p
-        className="audio-status"
-        role={message ? "status" : undefined}
-        aria-live="polite"
-      >
-        {message ||
-          (status === "idle"
-            ? preferredEngine === "kokoro"
-              ? "Private reading. This stays on your device."
-              : "Play sends only this Scripture and reference for reading. On-device fallback available."
-            : "")}
-      </p>
+      {preferredEngine !== "device" &&
+        ((!minimal && preferredEngine === "kokoro") ||
+          status === "loading") && (
+          <Button
+            className="audio-device-choice"
+            variant="ghost"
+            disabled={empty}
+            onClick={playDevice}
+          >
+            Use device voice · no download
+          </Button>
+        )}
+      {(!minimal || !!message) && (
+        <p
+          className="audio-status"
+          role={message ? "status" : undefined}
+          aria-live="polite"
+        >
+          {message ||
+            (status === "idle"
+              ? preferredEngine !== "edge"
+                ? "Private reading. This stays on your device."
+                : "Play sends only this Scripture and reference for reading. On-device fallback available."
+              : "")}
+        </p>
+      )}
     </div>
   );
 }

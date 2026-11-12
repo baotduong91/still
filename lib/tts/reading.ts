@@ -24,6 +24,7 @@ export function engineForKind(
   preference: SpeechEngine,
   online: boolean,
 ) {
+  if (preference === "device") return "device";
   return kind === "scripture" ? firstEngine(preference, online) : "kokoro";
 }
 

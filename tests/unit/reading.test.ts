@@ -21,6 +21,9 @@ it("keeps every non-Scripture kind on-device for every preference and connectivi
   expect(engineForKind("scripture", "edge", true)).toBe("edge");
   expect(engineForKind("scripture", "kokoro", true)).toBe("kokoro");
   expect(engineForKind("scripture", "edge", false)).toBe("kokoro");
+  for (const kind of ["scripture", ...kinds] as const)
+    for (const online of [true, false])
+      expect(engineForKind(kind, "device", online)).toBe("device");
 });
 it("preserves Scripture text and citation bytes using the existing readingText contract", () => {
   const payload = {

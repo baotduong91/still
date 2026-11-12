@@ -1,13 +1,23 @@
 import { test, expect } from "@playwright/test";
-test("first-run Today renders and stays dismissed after reload", async ({ page }) => {
+test("first-run Today renders and stays dismissed after reload", async ({
+  page,
+}) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/today");
-  await expect(page.getByText("A quiet start, your way.", { exact: false })).toBeVisible();
-  await page.getByRole("button", { name: "Continue with guided study" }).click();
-  await expect(page.getByText("A quiet start, your way.", { exact: false })).toHaveCount(0);
+  await expect(
+    page.getByText("A quiet start, your way.", { exact: false }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Continue with guided study" })
+    .click();
+  await expect(
+    page.getByText("A quiet start, your way.", { exact: false }),
+  ).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole("heading", { name: "A little stillness. A little closer." })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "A little stillness. A little closer." }),
+  ).toBeVisible();
   expect(errors).toEqual([]);
 });
 test("today opens at Day 1 and completes the guided sequence", async ({
@@ -150,7 +160,7 @@ test("offline completion synchronizes its revision before later feedback", async
   await page.reload();
   await context.setOffline(true);
   await page.getByRole("link", { name: "Today", exact: true }).click();
-  await page.getByRole("tab", { name: "04 Practice" }).click();
+  await page.getByRole("link", { name: "04 Practice" }).click();
   await page
     .getByRole("button", { name: "Complete today", exact: true })
     .click();
@@ -177,7 +187,9 @@ test("offline completion synchronizes its revision before later feedback", async
 test("verse artwork exports a real PNG", async ({ page }) => {
   await page.goto("/today");
   await page.getByRole("link", { name: "Create Image", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Save to device" })).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "Save to device" }),
+  ).toBeEnabled();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Save to device" }).click();
   const file = await download;
@@ -204,7 +216,7 @@ test("a lost server session cannot prevent completion or lose the saved plan", a
       }),
     }),
   );
-  await page.getByRole("tab", { name: "04 Practice" }).click();
+  await page.getByRole("link", { name: "04 Practice" }).click();
   await page
     .getByRole("button", { name: "Complete today", exact: true })
     .click();
@@ -268,7 +280,8 @@ test("personal prayers persist in the journal and WEB is the new default", async
     page.getByRole("checkbox", { name: /Enable API.Bible/ }),
   ).not.toBeChecked();
   await page.goto("/today");
-  await page.getByRole("tab", { name: "03 Prayer" }).click();
+  await page.getByRole("link", { name: "03 Prayer" }).click();
+  await page.locator(".flow-personal-prayer > summary").click();
   await page
     .getByLabel("God, today I bring…")
     .fill("Give me patience for this ordinary day.");
@@ -364,14 +377,14 @@ test("phone Practice saves typed words with the day and survives completion", as
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/today");
-  await page.getByRole("tab", { name: "04 Practice" }).click();
+  await page.getByRole("link", { name: "04 Practice" }).click();
   await page
     .getByLabel("My response for today")
     .fill("I will tend one responsibility and release tomorrow's worry.");
   await page.getByRole("button", { name: "Save my response" }).click();
   await expect(page.getByRole("status")).toContainText("saved with Day 1");
   await page.reload();
-  await page.getByRole("tab", { name: "04 Practice" }).click();
+  await page.getByRole("link", { name: "04 Practice" }).click();
   await expect(page.getByLabel("My response for today")).toHaveValue(
     "I will tend one responsibility and release tomorrow's worry.",
   );
@@ -386,7 +399,7 @@ test("phone Practice saves typed words with the day and survives completion", as
   ).toBeDisabled();
   await page.reload();
   await page.getByRole("button", { name: "Open day 1", exact: true }).click();
-  await page.getByRole("tab", { name: "04 Practice" }).click();
+  await page.getByRole("link", { name: "04 Practice" }).click();
   await expect(page.getByLabel("My response for today")).toHaveValue(
     "An edited response saved on completion.",
   );
