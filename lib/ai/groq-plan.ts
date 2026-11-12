@@ -37,6 +37,13 @@ function distinct(values: string[]) {
     ).size === values.length
   );
 }
+class ReferenceRepair extends AppError {
+  constructor(
+    public corrections: { day: number; reference: string; issue: string }[],
+  ) {
+    super("SCRIPTURE_NOT_FOUND", "Outline references need correction.");
+  }
+}
 function draftFailure() {
   return new GroqDraftError("validation");
 }
@@ -56,6 +63,7 @@ async function verified<T>(
   check: (draft: T) => void,
 ): Promise<T> {
   let reason: string | undefined;
+  let corrections: ReferenceRepair["corrections"] | undefined;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       // Generation/parsing must be inside the repair boundary too: truncated
@@ -71,6 +79,7 @@ async function verified<T>(
               ? {
                   repair: {
                     reason,
+                    ...(corrections ? { corrections } : {}),
                     instruction:
                       "The previous attempt failed verification. Return every requested day exactly once, with unique titles/practices, real short canonical references, and commentary without quotations or reference patterns. Keep prose concise and satisfy every field length.",
                   },
@@ -94,6 +103,8 @@ async function verified<T>(
       )
         throw error;
       reason = repairReason(error);
+      corrections =
+        error instanceof ReferenceRepair ? error.corrections : undefined;
       // Operational metadata only. Never log the prompt, draft, passages, key,
       // raw SDK error, or provider response body.
       console.warn("[Still Groq plan]", {
@@ -102,7 +113,18 @@ async function verified<T>(
         reason,
         outcome: attempt === 0 ? "repair" : "rejected",
       });
-      if (attempt === 1) throw draftFailure();
+      if (attempt === 1) {
+        if (error instanceof ReferenceRepair)
+          throw new AppError(
+            "PLAN_GENERATION_FAILED",
+            "Groq Scripture verification: " +
+              error.corrections
+                .map((c) => `Day ${c.day}, ${c.reference}: ${c.issue}`)
+                .join("; ") +
+              " No guided plan was substituted. Retry generation.",
+          );
+        throw draftFailure();
+      }
     }
   }
   throw draftFailure();
@@ -131,6 +153,7 @@ export async function generateGroqPlan(
     {
       goal: input.prompt,
       count: input.days,
+      installedBooks: bible.books(),
       instruction:
         "Extract only supported themes/pace and design a coherent progressive journey around this exact goal. Themes are metadata, not a restriction to a curated curriculum. Supply consecutive day numbers and distinct titles/objectives. Use canonical references in Book Chapter:Verse-Verse format within one chapter, at most 8 verses per passage. No quotes or reference patterns in commentary. Keep context to 1-2 sentences and bridge to one sentence.",
     },
@@ -138,13 +161,38 @@ export async function generateGroqPlan(
       checkText([draft.title]);
       if (!distinct(draft.days.map((day) => day.title))) throw draftFailure();
       const refs: string[] = [];
+      const corrections: ReferenceRepair["corrections"] = [];
       draft.days.forEach((day, index) => {
         if (day.number !== index + 1) throw draftFailure();
         checkText([day.title, day.objective, day.context, day.bridge]);
-        const passage = bible.lookup(day.reference, input.translation);
-        if (passage.verses.length > 8) throw draftFailure();
-        refs.push(passage.reference);
+        try {
+          const passage = bible.lookup(day.reference, input.translation);
+          if (passage.verses.length > 8) {
+            corrections.push({
+              day: day.number,
+              reference: day.reference,
+              issue: "Choose at most 8 consecutive verses within this chapter.",
+            });
+          } else {
+            day.reference = passage.reference;
+            refs.push(passage.reference);
+          }
+        } catch (error) {
+          if (
+            !(error instanceof AppError) ||
+            error.code !== "SCRIPTURE_NOT_FOUND"
+          )
+            throw error;
+          corrections.push({
+            day: day.number,
+            reference: day.reference,
+            issue:
+              error.message +
+              " Use an exact installedBooks name and a valid verse range; do not use abbreviations or cross-chapter ranges.",
+          });
+        }
       });
+      if (corrections.length) throw new ReferenceRepair(corrections);
       if (new Set(refs).size < Math.min(3, input.days)) throw draftFailure();
     },
   );

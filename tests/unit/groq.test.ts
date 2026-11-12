@@ -236,25 +236,17 @@ describe("Groq direct provider integration and consent", () => {
       expect(f.mock.calls[0][0]).toBe(`${GROQ_BASE_URL}/chat/completions`);
     },
   );
-  it("returns a full guided WEB journey when Groq is unreachable, even for an unsupported prompt", async () => {
-    const f = vi
-      .spyOn(globalThis, "fetch")
-      .mockRejectedValue(new TypeError("fixture offline"));
-    const status = vi.fn();
-    const plan = await generatePlan(
-      {
+  it("keeps cloud selection explicit when Groq is unreachable", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(
+      new TypeError("fixture offline"),
+    );
+    await expect(
+      generatePlan({
         prompt: "Explore the mystery of suffering",
         days: 3,
         provider: "cloud",
-      },
-      { onCloudStatus: status },
-    );
-    const bible = await getBible("WEB");
-    expect(plan.provider).toBe("curated");
-    expect(plan.profile.prompt).toBe("Explore the mystery of suffering");
-    expect(plan.days.every((day) => bible.validate(day.passage))).toBe(true);
-    expect(status).toHaveBeenLastCalledWith("unavailable", true);
-    expect(f.mock.calls.length).toBeGreaterThanOrEqual(1);
+      }),
+    ).rejects.toMatchObject({ code: "PROVIDER_UNAVAILABLE" });
   });
   it("runs outline and batched composition, retrieving all Scripture independently", async () => {
     const bible = await getBible("WEB");

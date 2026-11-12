@@ -279,7 +279,12 @@ describe("Seven-day Groq journey regression", () => {
     expect(plan.provider).toBe("groq");
     expect(calls[1]).toMatchObject({
       stage: "outline",
-      repair: { reason: "reference" },
+      repair: {
+        reason: "reference",
+        corrections: [
+          expect.objectContaining({ day: 1, reference: "Imaginary 1:1" }),
+        ],
+      },
     });
     expect(plan.days[0].passage.reference).toBe("Psalms 13:1-6");
   });
@@ -290,13 +295,11 @@ describe("Seven-day Groq journey regression", () => {
       return completion(draft);
     });
     const status = vi.fn();
-    const plan = await generatePlan(input, { onCloudStatus: status });
-    expect(plan.provider).toBe("curated");
+    await expect(
+      generatePlan(input, { onCloudStatus: status }),
+    ).rejects.toMatchObject({ code: "PLAN_GENERATION_FAILED" });
     expect(calls).toHaveLength(2);
-    expect(status).toHaveBeenLastCalledWith("unavailable", true);
-    expect(
-      plan.days.every((day) => !day.passage.reference.includes("Imaginary")),
-    ).toBe(true);
+    expect(status).not.toHaveBeenCalledWith("unavailable", true);
     const logs = JSON.stringify(vi.mocked(console.warn).mock.calls);
     expect(logs).not.toContain(goal);
     expect(logs).not.toContain("fixture-secret");
@@ -325,11 +328,11 @@ describe("Seven-day Groq journey regression", () => {
       ),
     );
     const status = vi.fn();
-    expect(
-      (await generatePlan(input, { onCloudStatus: status })).provider,
-    ).toBe("curated");
+    await expect(
+      generatePlan(input, { onCloudStatus: status }),
+    ).rejects.toMatchObject({ code: "PROVIDER_UNAVAILABLE" });
     expect(calls).toHaveLength(1);
-    expect(status).toHaveBeenLastCalledWith("rate-limited", true);
+    expect(status).toHaveBeenLastCalledWith("rate-limited");
   });
   it("cancels without repairing, selecting guided, or making another model request", async () => {
     const abort = new AbortController();
@@ -344,4 +347,17 @@ describe("Seven-day Groq journey regression", () => {
     expect(fetch).toHaveBeenCalledOnce();
     expect(status).not.toHaveBeenCalledWith("unavailable", true);
   });
+});
+
+it("retrieves a formatted valid reference exactly without wasting an outline repair", async () => {
+  const { calls } = mockModel((payload) => {
+    if (payload.stage !== "outline") return;
+    const draft = outline();
+    draft.days[0].reference = "Psalm 13 : 1 – 6";
+    return completion(draft);
+  });
+  const plan = await generatePlan(input);
+  expect(plan.provider).toBe("groq");
+  expect(plan.days[0].passage.reference).toBe("Psalms 13:1-6");
+  expect(calls.filter((c) => c.stage === "outline")).toHaveLength(1);
 });

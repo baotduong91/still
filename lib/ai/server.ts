@@ -11,7 +11,6 @@ import { themes } from "./themes";
 import { GroqUnavailable } from "./providers/groq";
 import type { ModelRunOptions, CloudStatus } from "./cloud-status";
 import { cloudVendor } from "./modes";
-import { groqGuidedPlan } from "./groq-guided";
 import { generateGroqPlan } from "./groq-plan";
 
 function shouldGroqCloudFallback(
@@ -266,17 +265,9 @@ export async function generatePlan(
   raw: unknown,
   options: ModelRunOptions = {},
 ) {
-  const input = GenerateInput.parse(raw);
-  try {
-    return await modelPlan(raw, options);
-  } catch (error) {
-    if (!shouldGroqCloudFallback(error, input.provider, options.signal))
-      throw error;
-    const bible = await getBible("WEB");
-    const plan = groqGuidedPlan(input, bible);
-    options.onCloudStatus?.(groqFallbackStatus(error), true);
-    return plan;
-  }
+  // Cloud selection is a contract: never save a guided plan in its place.
+  // Validated cloud output succeeds; outages/invalid drafts remain retryable errors.
+  return modelPlan(raw, options);
 }
 export async function guidedChatFallback(
   raw: unknown,

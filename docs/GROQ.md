@@ -62,3 +62,18 @@ Primary sources: [Groq quickstart](https://console.groq.com/docs/quickstart), [O
 Verification uses the real Groq SDK against mocked HTTP responses, including opt-in, no-key/no-consent isolation, staged plans, exact WEB citations, rate limits, and incremental streaming. It does not spend a real account's quota or certify live availability.
 
 For an explicit live check of the working tree, provide `GROQ_API_KEY` through your environment and run `node --import tsx scripts/verify-groq-plan.ts`. This spends Groq quota on one synthetic seven-day lament, prints only verification metadata, and saves no plan or journal. It exits unsuccessfully if the result falls back to guided. Keep this separate from deterministic tests.
+
+### Cloud plan verification (November 12 follow-up)
+
+Production logs showed successful Groq outline responses rejected at Scripture
+reference lookup on both attempts. Outline requests now include the installed
+canonical book names and chapter counts. Repairs identify each failing day,
+reference, and lookup problem rather than repeating a generic instruction.
+Harmless whitespace around colons and verse-range dashes is normalized before
+exact corpus lookup; nonexistent verses and cross-chapter ranges remain rejected.
+
+An explicit cloud plan request no longer silently saves a guided replacement.
+It returns a fully validated Groq plan or a retryable error; saved days stay
+unchanged. Guided mode remains available by choice. Provider quotas/outages and
+model validity cannot be guaranteed, and Scripture verification is never bypassed.
+Chat's existing labelled fallback is unchanged.

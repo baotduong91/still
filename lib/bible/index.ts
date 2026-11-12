@@ -47,7 +47,9 @@ export class Bible {
   lookup(input: string, requested: TranslationId = "WEB"): PassageType {
     const match = input
       .trim()
-      .replace(/[–—]/g, "-")
+      .replace(/[–—−]/g, "-")
+      .replace(/\s*:\s*/g, ":")
+      .replace(/\s*-\s*/g, "-")
       .match(/^(.+?)\s+(\d{1,3})(?::(\d{1,3})(?:-(\d{1,3}))?)?$/);
     if (!match)
       throw new AppError(

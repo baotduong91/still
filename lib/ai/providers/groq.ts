@@ -18,7 +18,7 @@ export class GroqDraftError extends AppError {
   constructor(public reason: "truncated" | "schema" | "validation") {
     super(
       "PLAN_GENERATION_FAILED",
-      "Groq returned a draft that needs verification. No unvalidated content was used.",
+      "Groq could not verify this draft after a repair. Please retry. No guided plan was substituted and your saved days are unchanged.",
     );
   }
 }

@@ -1,0 +1,15 @@
+node_modules
+.next
+.next-dev
+.git
+.vercel
+.env*
+.data
+test-results*
+playwright-report
+*.tsbuildinfo
+public/tts
+public/bibles/CSB.json
+public/bibles/NLT.json
+public/bibles/NIV.json
+public/bibles/ESV.json
