@@ -21,6 +21,12 @@ import {
   writeState,
   type SavedState,
 } from "@/lib/client/store";
+import { recordCloudVendor } from "@/lib/client/cloud-status";
+import {
+  hostedGroqAvailable,
+  hostedGroqDefaultState,
+  shouldApplyHostedGroqDefault,
+} from "@/lib/client/hosted-groq";
 import type { PlanType, TranslationId } from "@/lib/schemas";
 import { warmKokoro } from "@/lib/tts/kokoro-client";
 import { offlineModelStored } from "@/lib/tts/model-cache";
@@ -98,6 +104,26 @@ export function Provider({ children }: { children: React.ReactNode }) {
       alive = false;
     };
   }, [getBible, update]);
+  useEffect(() => {
+    if (!ready || !online) return;
+    let alive = true;
+    fetch("/api/modes")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((status) => {
+        if (!alive || !status || !hostedGroqAvailable(status)) return;
+        recordCloudVendor(status.modes.cloud.vendor);
+        void update((s) => {
+          if (s.provider === "ollama")
+            return hostedGroqDefaultState({ ...s, guidePreferenceSet: false });
+          if (!shouldApplyHostedGroqDefault(s)) return s;
+          return hostedGroqDefaultState(s);
+        }).catch(() => {});
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [ready, online, update]);
   useEffect(() => {
     if (!ready || state.deviceProfile) return;
     let timer: ReturnType<typeof setTimeout>;

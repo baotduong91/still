@@ -1,6 +1,6 @@
 # Groq: one-key optional cloud
 
-Guided study stays the default. Groq enables open-ended Bible questions and generated journeys only after your explicit Settings choice. No Ollama server, AI Gateway account, or additional model setting is needed.
+On a hosted Still site with `GROQ_API_KEY`, new visitors default to **Custom journeys & chat · Groq** so **Create** can use a personal prompt immediately (for example a 7-day lament). Choose **Guided study only** in Settings to stay offline and keep prompts on the device. No Ollama server or AI Gateway account is required.
 
 ## Vercel setup
 
@@ -8,8 +8,8 @@ Guided study stays the default. Groq enables open-ended Bible questions and gene
 2. Open [API Keys](https://console.groq.com/keys), choose **Create API Key**, and copy the key.
 3. Open your Vercel project → **Settings → Environment Variables**. Add **GROQ_API_KEY**, paste the key as its value, select **Production**, and save it as a Secret. Add a separate Preview value if desired. Never use a `NEXT_PUBLIC_` prefix.
 4. Deploy the updated Still code. Changes to Vercel environment variables require a new deployment.
-5. Open Still → **Settings → Your answer mode → Guide → Cloud · Groq**. Check **I choose to send my questions, goals, recent chat context, and retrieved passages to the configured cloud model**.
-6. Tap **Check Groq connection**. A successful check shows **Groq connected**. Ask a question in Chat or create a journey.
+5. Open Still → **Create**, type a goal, keep **7 days**, and tap **Begin my journey**. Custom Groq is selected automatically when the server key is present.
+6. Optional: **Settings → Your answer mode** to switch to **Guided study only**, or tap **Check Groq connection** (no personal text is sent).
 
 The connection check requests only the model catalog. It sends no personal text and does not select cloud or grant sharing consent. The one required variable is:
 

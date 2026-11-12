@@ -29,6 +29,7 @@ export type SavedState = {
   highlights: Record<string, string>;
   notes: Record<string, string>;
   cloudConsent: boolean;
+  guidePreferenceSet?: boolean;
   onlineScripture: boolean;
   remoteIds: string[];
   outbox: { path: string; body: unknown }[];

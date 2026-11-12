@@ -152,8 +152,9 @@ function Create() {
           Share only what you’re comfortable saving on this device.
         </p>
         <p className="field-hint">
-          Guided mode accepts a theme such as anxiety or a reference such as
-          John 3:16. No model needed.
+          {state.provider === "cloud"
+            ? "Describe your season in your own words. Still retrieves exact WEB verses; Groq shapes the journey around your prompt."
+            : "Guided mode accepts a theme such as anxiety or a reference such as John 3:16. Nothing is sent to a cloud model."}
         </p>
         <button
           type="button"
@@ -199,17 +200,20 @@ function Create() {
                 ? "Guided study"
                 : state.provider === "ollama"
                   ? "Your Mac · Ollama"
-                  : "Cloud model"}
+                  : "Custom journey · Groq"}
             </p>
             <Link className="text-link" href="/settings">
-              Change in Settings <ArrowUpRight size={12} />
+              {state.provider === "cloud"
+                ? "Switch to guided only"
+                : "Change guide"}{" "}
+              <ArrowUpRight size={12} />
             </Link>
           </div>
         </div>
         {state.provider === "cloud" && (
           <p className="notice">
-            Your goal and selected passages will be sent to the configured cloud
-            model.
+            Your goal is sent to Groq to draft this {days}-day journey. Scripture
+            text still comes from Still’s local WEB Bible.
           </p>
         )}
         <Button type="submit" disabled={busy || !bible}>
