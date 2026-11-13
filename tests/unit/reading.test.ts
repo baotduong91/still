@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import {
   buildSpokenText,
+  devotionReflectionText,
   engineForKind,
   type ReadingKind,
 } from "@/lib/tts/reading";
@@ -37,6 +38,17 @@ it("preserves Scripture text and citation bytes using the existing readingText c
     "  Exact text.\nSecond line.  \n\nMatthew 6:34",
   );
 });
+it("speaks the full Today reflection section in display order", () => {
+  const spoken = devotionReflectionText({
+    reflection: "Pause and notice God’s love.",
+    questions: ["What stirs gratitude?", "Who needs kindness?"],
+    interpretation: "Small steps can keep the heart aligned.",
+  });
+  expect(buildSpokenText({ kind: "devotional", text: spoken })).toBe(spoken);
+  expect(spoken).toContain("What stirs gratitude?");
+  expect(spoken).toContain("Small steps can keep the heart aligned.");
+});
+
 it("trims curated prose and never speaks its optional title/reference as Scripture", () => {
   for (const kind of ["devotional", "action", "interpretation"] as const)
     expect(

@@ -7,7 +7,10 @@ import { Button } from "@/components/ui/button";
 import { ReadingControls } from "@/components/scripture/audio-player";
 import { useReadingAudio } from "@/components/scripture/use-reading-audio";
 import { usePassage } from "@/components/scripture/use-passage";
-import { type ReadingPayload } from "@/lib/tts/reading";
+import {
+  devotionReflectionText,
+  type ReadingPayload,
+} from "@/lib/tts/reading";
 import { verseSpeech } from "@/lib/tts/shared";
 import { offlineModelStored } from "@/lib/tts/model-cache";
 import { clearKokoroPreviews, warmKokoro } from "@/lib/tts/kokoro-client";
@@ -48,7 +51,11 @@ export function DailyFlow({
     consumed = useRef(0);
   const payloads: ReadingPayload[] = [
     { kind: "scripture", ...verseSpeech(passage) },
-    { kind: "devotional", text: day.reflection, title: day.title },
+    {
+      kind: "devotional",
+      text: devotionReflectionText(day),
+      title: day.title,
+    },
     { kind: "prayer", text: day.prayer, title: day.title },
     { kind: "action", text: day.action, title: day.title },
   ];
@@ -143,7 +150,7 @@ export function DailyFlow({
     },
   };
   const warmSignature = JSON.stringify([
-    day.reflection,
+    devotionReflectionText(day),
     day.prayer,
     day.action,
     state.speechEngine,

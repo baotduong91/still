@@ -513,11 +513,20 @@ test("Today curated steps stay local with Auto online and never read personal fi
   await page.goto("/today");
   await page.getByRole("link", { name: "02 Reflection" }).click();
   const reflection = (await page
-    .locator(
-      "#today-reflection .devotional-prose > p:not(.eyebrow):not(.fine-print)",
-    )
-    .first()
-    .textContent())!.trim();
+    .locator("#today-reflection .devotional-prose")
+    .evaluate((el) => {
+      const parts: string[] = [];
+      const main = el.querySelector(":scope > p:not(.fine-print)");
+      if (main) parts.push(main.textContent!.trim());
+      el.querySelectorAll(".question-box p").forEach((p) =>
+        parts.push(p.textContent!.trim()),
+      );
+      el.querySelectorAll(":scope > p.fine-print").forEach((p) => {
+        const text = p.textContent!.trim();
+        if (text && !text.startsWith("Download Bella")) parts.push(text);
+      });
+      return parts.filter(Boolean).join("\n\n");
+    }))!;
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
   await expect(
     page.getByRole("button", { name: "Pause reflection" }),

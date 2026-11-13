@@ -1,3 +1,4 @@
+import type { DayType } from "@/lib/schemas";
 import { firstEngine, readingText, type SpeechEngine } from "./shared";
 
 export type ReadingKind =
@@ -8,6 +9,14 @@ export type ReadingPayload = {
   reference?: string;
   title?: string;
 };
+
+/** Matches Today reflection section: prose, questions, and closing line. */
+export function devotionReflectionText(day: Pick<DayType, "reflection" | "questions" | "interpretation">) {
+  return [day.reflection, ...day.questions, day.interpretation]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
 
 export function buildSpokenText(payload: ReadingPayload) {
   // Preserve the existing Scripture bytes and reference behavior exactly.

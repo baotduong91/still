@@ -7,7 +7,7 @@ Still’s optional listen controls complement screen readers; they do not replac
 | Kind | Source and placement | Spoken text | Edge eligibility |
 | --- | --- | --- | --- |
 | `scripture` | Retrieved `PassageType`: Today Scripture, passage/verse tools, public WEB reader, Create Image, chat citations | Exact retrieved verse text followed by its reference | Auto/Edge online only, after Play |
-| `devotional` | Today Reflection: `day.reflection` | Validated plan reflection, guided or generated | Never; Kokoro then installed local voice |
+| `devotional` | Today Reflection: reflection, both questions, and interpretation (as shown in the section) | Validated plan copy, guided or generated | Never; Kokoro then installed local voice |
 | `prayer` | Today Prayer: `day.prayer`, after plan validation | “A prayer inspired by today’s reading. This is not Scripture.” followed by the plan prayer | Never; Kokoro then installed local voice |
 | `action` | Today Practice: fixed `day.action` copy | Validated plan action, guided or generated | Never; Kokoro then installed local voice |
 | `interpretation` | Successful cited chat response’s `interpretation` block | Interpretation only, separate from answer/citations | Never; Kokoro then installed local voice |
