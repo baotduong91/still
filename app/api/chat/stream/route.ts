@@ -1,4 +1,5 @@
 import { ChatInput } from "@/lib/schemas";
+import { parseWithServerTranslationDefault } from "@/lib/bible/default-translation-server";
 import { identify } from "@/lib/awp/auth";
 import { rateLimit } from "@/lib/awp/rate-limit";
 import { AppError, errors } from "@/lib/awp/errors";
@@ -17,7 +18,10 @@ export async function POST(request: Request) {
         "INVALID_INPUT",
         "Choose a shorter question or conversation.",
       );
-    const input = ChatInput.parse(JSON.parse(body));
+    const input = parseWithServerTranslationDefault(
+      ChatInput,
+      JSON.parse(body),
+    );
     requireCloudConsent(request, input, true);
     if (
       input.provider !== "cloud" ||

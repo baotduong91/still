@@ -1,8 +1,9 @@
 import type { Bible } from "@/lib/bible";
 import { GenerateInput } from "@/lib/schemas";
+import { parseWithServerTranslationDefault } from "@/lib/bible/default-translation-server";
 import { buildGuidedPlan } from "./guided";
 export function groqGuidedPlan(raw: unknown, bible: Bible) {
-  const input = GenerateInput.parse(raw);
+  const input = parseWithServerTranslationDefault(GenerateInput, raw);
   try {
     return buildGuidedPlan({ ...input, provider: "curated" }, bible);
   } catch {

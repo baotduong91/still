@@ -1,4 +1,5 @@
 import { ChatInput, ChatAnswer } from "@/lib/schemas";
+import { parseWithServerTranslationDefault } from "@/lib/bible/default-translation-server";
 import { resolvePassage } from "@/lib/bible/api-bible";
 import { AppError } from "@/lib/awp/errors";
 import { getProvider, validateCommentary } from "./providers";
@@ -18,7 +19,7 @@ export async function* streamGroqChat(
   raw: unknown,
   options: ModelRunOptions = {},
 ): AsyncGenerator<ChatStreamEvent> {
-  const input = ChatInput.parse(raw);
+  const input = parseWithServerTranslationDefault(ChatInput, raw);
   try {
     const base = await prepareChat(input, options);
     if (!base.citations.length) {

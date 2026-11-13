@@ -93,7 +93,7 @@ function Create() {
         if (journeyTranslationTouched.current) return;
         const preferred = ids.includes(r.default)
           ? r.default
-          : defaultTranslationFromAvailable(ids);
+          : defaultTranslationFromAvailable(ids, r.default);
         setJourneyTranslation(
           ids.includes(state.translation) ? state.translation : preferred,
         );

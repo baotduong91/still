@@ -20,7 +20,7 @@ export function hostedTranslationDefaultState(
     .map((t) => t.id);
   const next = available.includes(status.default)
     ? status.default
-    : defaultTranslationFromAvailable(available);
+    : defaultTranslationFromAvailable(available, status.default);
   if (next === "WEB" || next === state.translation) return state;
   return { ...state, translation: next };
 }

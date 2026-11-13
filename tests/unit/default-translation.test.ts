@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, expect, it } from "vitest";
-import {
-  defaultTranslationFromAvailable,
-  serverDefaultTranslation,
-} from "@/lib/bible/default-translation";
+import { defaultTranslationFromAvailable } from "@/lib/bible/default-translation";
+import { serverDefaultTranslation } from "@/lib/bible/default-translation-server";
 
 beforeEach(() => {
   delete process.env.DEFAULT_TRANSLATION;

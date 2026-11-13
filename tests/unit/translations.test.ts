@@ -2,6 +2,7 @@ import { afterEach, beforeEach, it, expect, vi } from "vitest";
 import { resolvePassage } from "@/lib/bible/api-bible";
 import { getBible } from "@/lib/bible/server";
 import { GenerateInput } from "@/lib/schemas";
+import { parseWithServerTranslationDefault } from "@/lib/bible/default-translation-server";
 beforeEach(() => {
   delete process.env.DATABASE_URL;
   process.env.API_BIBLE_KEY = "fixture-key";
@@ -15,7 +16,11 @@ afterEach(() => {
   delete process.env.API_BIBLE_NONCOMMERCIAL;
 });
 it("defaults omitted generate input to the configured API.Bible edition", () => {
-  expect(GenerateInput.parse({ prompt: "Help with prayer" }).translation).toBe(
+  expect(
+    parseWithServerTranslationDefault(GenerateInput, {
+      prompt: "Help with prayer",
+    }).translation,
+  ).toBe(
     "CSB",
   );
 });

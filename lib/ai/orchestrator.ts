@@ -6,6 +6,7 @@ import {
   type PlanType,
   type DayType,
 } from "@/lib/schemas";
+import { parseWithServerTranslationDefault } from "@/lib/bible/default-translation-server";
 import { themes, type Lesson } from "./themes";
 const lenses: { pattern: RegExp; lesson: Lesson }[] = [
   {
@@ -132,7 +133,7 @@ export function buildPlan(
   bible: Bible,
   profileOverride?: ReturnType<typeof extractGoals>,
 ): PlanType {
-  const input = GenerateInput.parse(raw);
+  const input = parseWithServerTranslationDefault(GenerateInput, raw);
   const profile = profileOverride ?? extractGoals(input.prompt);
   const outline = designObjectives(profile, input.days);
   const days: DayType[] = outline.map((step, i) => {

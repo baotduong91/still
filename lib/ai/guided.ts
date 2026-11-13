@@ -1,5 +1,6 @@
 import { Bible } from "@/lib/bible";
 import { GenerateInput } from "@/lib/schemas";
+import { parseWithServerTranslationDefault } from "@/lib/bible/default-translation-server";
 import { buildPlan, validatePlan } from "./orchestrator";
 const phases = [
   "Read slowly",
@@ -11,7 +12,7 @@ const phases = [
   "Carry one practice forward",
 ];
 export function buildGuidedPlan(raw: unknown, bible: Bible) {
-  const input = GenerateInput.parse(raw);
+  const input = parseWithServerTranslationDefault(GenerateInput, raw);
   const reference = input.prompt.match(
     /(?:[1-3]\s+)?[A-Za-z]+(?:\s+of\s+[A-Za-z]+)?\s+\d{1,3}(?::\d{1,3}(?:[-–]\d{1,3})?)?/,
   );

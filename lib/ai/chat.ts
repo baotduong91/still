@@ -1,8 +1,9 @@
 import type { Bible } from "@/lib/bible";
 import { ChatInput, type ChatType } from "@/lib/schemas";
+import { parseWithServerTranslationDefault } from "@/lib/bible/default-translation-server";
 import { themes } from "./themes";
 export function answerQuestion(raw: unknown, bible: Bible): ChatType {
-  const input = ChatInput.parse(raw);
+  const input = parseWithServerTranslationDefault(ChatInput, raw);
   const direct = input.question.match(
     /(?:[1-3]\s+)?[A-Za-z]+(?:\s+of\s+[A-Za-z]+)?\s+\d{1,3}(?::\d{1,3}(?:[-–]\d{1,3})?)?/,
   );

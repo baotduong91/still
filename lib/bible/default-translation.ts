@@ -1,6 +1,4 @@
 import type { TranslationId } from "@/lib/schemas";
-import { Translation } from "@/lib/schemas";
-import { apiBibleEnabled } from "./api-bible";
 
 export const apiBibleTranslationIds = [
   "CSB",
@@ -14,24 +12,12 @@ export function isApiBibleTranslation(
   return (apiBibleTranslationIds as readonly string[]).includes(translation);
 }
 
-/** Server default when AWP omits translation or env requests a preferred edition. */
-export function serverDefaultTranslation(): TranslationId {
-  const env = process.env.DEFAULT_TRANSLATION?.trim();
-  if (env) {
-    const parsed = Translation.safeParse(env);
-    if (parsed.success && apiBibleEnabled(parsed.data)) return parsed.data;
-  }
-  for (const id of apiBibleTranslationIds) {
-    if (apiBibleEnabled(id)) return id;
-  }
-  return "WEB";
-}
-
+/** Pick best hosted edition from a list the server reported as available. */
 export function defaultTranslationFromAvailable(
   available: Iterable<TranslationId>,
+  preferred: TranslationId = "WEB",
 ): TranslationId {
   const set = new Set(available);
-  const preferred = serverDefaultTranslation();
   if (preferred !== "WEB" && set.has(preferred)) return preferred;
   for (const id of apiBibleTranslationIds) {
     if (set.has(id)) return id;

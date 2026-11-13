@@ -7,7 +7,10 @@ import { rateLimit } from "./rate-limit";
 import { AppError, errors } from "./errors";
 import { generatePlan, chat } from "@/lib/ai/server";
 import { getBible, translations } from "@/lib/bible/server";
-import { serverDefaultTranslation } from "@/lib/bible/default-translation";
+import {
+  parseWithServerTranslationDefault,
+  serverDefaultTranslation,
+} from "@/lib/bible/default-translation-server";
 import { adaptPlan } from "@/lib/ai/orchestrator";
 import { themes } from "@/lib/ai/themes";
 import * as repo from "@/lib/db/repository";
@@ -74,13 +77,13 @@ export async function execute(
       return { plan: await repo.savePlan(owner, plan, revision) };
     }
     case "lookup_scripture": {
-      const input = S.LookupInput.parse(raw);
+      const input = parseWithServerTranslationDefault(S.LookupInput, raw);
       return {
         passage: await resolvePassage(input.reference, input.translation),
       };
     }
     case "search_scripture": {
-      const input = S.SearchInput.parse(raw);
+      const input = parseWithServerTranslationDefault(S.SearchInput, raw);
       const bible = await getBible(input.translation);
       const theme = themes[input.query.toLowerCase()];
       const found = theme
@@ -160,7 +163,13 @@ export async function handle(request: Request, path: string) {
         throw new AppError("INVALID_INPUT", "Request body must be JSON.");
       }
     }
-    const parsed = action.input.parse(raw);
+    const parsed =
+      action.input === S.GenerateInput ||
+      action.input === S.LookupInput ||
+      action.input === S.SearchInput ||
+      action.input === S.ChatInput
+        ? parseWithServerTranslationDefault(action.input, raw)
+        : action.input.parse(raw);
     requireCloudConsent(request, parsed);
     const result = await execute(id as ActionId, parsed, identity.owner, {
       signal: request.signal,
