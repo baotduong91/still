@@ -12,11 +12,7 @@ export function usePassage(local: PassageType, requested?: TranslationId) {
   useEffect(() => {
     let alive = true;
     setRemote(null);
-    if (
-      online &&
-      state.onlineScripture &&
-      isApiBibleTranslation(translation)
-    ) {
+    if (online && state.onlineScripture && isApiBibleTranslation(translation)) {
       if (local.source === "api.bible" && local.translation === translation)
         setRemote(local);
       else
@@ -37,8 +33,9 @@ export function usePassage(local: PassageType, requested?: TranslationId) {
       ? (bible?.lookup(local.reference, translation) ?? local)
       : local;
   const displayed =
-    remote?.reference === local.reference &&
-    remote.requestedTranslation === translation &&
+    (remote?.requestedReference ?? remote?.reference) ===
+      (local.requestedReference ?? local.reference) &&
+    remote?.requestedTranslation === translation &&
     online &&
     state.onlineScripture
       ? remote

@@ -43,7 +43,7 @@ export function Today() {
       : plan.days.findIndex((d) => !d.completedAt));
   const day = plan.days[current];
   const done = plan.days.filter((d) => d.completedAt).length;
-  const focal = day.passage.verses.at(-1)!;
+  const focal = (day.webPassage ?? day.passage).verses.at(-1)!;
   const passage = bible.lookup(
     `${focal.book} ${focal.chapter}:${focal.verse}`,
     state.translation,

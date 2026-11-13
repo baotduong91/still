@@ -268,7 +268,20 @@ export async function generatePlan(
 ) {
   // Cloud selection is a contract: never save a guided plan in its place.
   // Validated cloud output succeeds; outages/invalid drafts remain retryable errors.
-  return modelPlan(raw, options);
+  const plan = await modelPlan(raw, options);
+  if (plan.translation === "WEB") return plan;
+  // The model plan has passed exact WEB validation. Licensed wording is
+  // retrieved independently afterward; it is never checked against WEB text.
+  for (let i = 0; i < plan.days.length; i += 3) {
+    await Promise.all(
+      plan.days.slice(i, i + 3).map(async (day) => {
+        const web = day.passage;
+        day.passage = await resolvePassage(web.reference, plan.translation);
+        day.webPassage = web;
+      }),
+    );
+  }
+  return plan;
 }
 export async function guidedChatFallback(
   raw: unknown,

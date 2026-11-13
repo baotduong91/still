@@ -38,3 +38,22 @@ Guided study uses reviewed thematic paths and is labeled guided. Explicitly sele
 For theological questions outside guided themes, model chat can select additional real passages before composing an answer. Unsupported questions abstain. Exact quotations remain separate from interpretation.
 
 The Prayer step and Journal now offer a personal prayer writer, saved privately on the device. A seven-day participation panel counts returning without erasing earlier progress after a gap.
+
+### Plans and grouped editions
+
+Groq/local plan generation validates against local WEB before any selected
+online wording is attached. The API then retrieves CSB, NLT, or MSG independently
+and returns the selected edition with attribution plus a `webPassage` validation
+copy. Offline Today reading uses WEB. Licensed text is never validated by comparing
+it with WEB wording, and the model never generates verse text.
+
+MSG may group several canonical verses into one provider span. Still validates
+that the span contains the requested verse, deduplicates the returned text, and
+expands the displayed citation to the complete provider span. `requestedReference`
+retains the original request for UI matching. Unexpected identities, inaccessible
+editions, or quota errors return a labelled WEB fallback.
+
+Vercel production requires API_BIBLE_KEY, API_BIBLE_NONCOMMERCIAL=true, and the
+edition IDs API_BIBLE_CSB_ID, API_BIBLE_NLT_ID, API_BIBLE_MSG_ID. Your key must be
+entitled to each edition; an environment variable alone does not grant a license.
+The default remains CSB when configured; explicit WEB selection is respected.

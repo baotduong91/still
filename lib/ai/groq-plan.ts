@@ -39,7 +39,13 @@ function distinct(values: string[]) {
 }
 class ReferenceRepair extends AppError {
   constructor(
-    public corrections: { day: number; reference: string; issue: string }[],
+    public corrections: {
+      day: number;
+      reference: string;
+      issue: string;
+      validReferences?: string[];
+    }[],
+    public validDays: z.infer<typeof outlineDay>[] = [],
   ) {
     super("SCRIPTURE_NOT_FOUND", "Outline references need correction.");
   }
@@ -64,6 +70,7 @@ async function verified<T>(
 ): Promise<T> {
   let reason: string | undefined;
   let corrections: ReferenceRepair["corrections"] | undefined;
+  let validDays: ReferenceRepair["validDays"] = [];
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       // Generation/parsing must be inside the repair boundary too: truncated
@@ -79,7 +86,9 @@ async function verified<T>(
               ? {
                   repair: {
                     reason,
-                    ...(corrections ? { corrections } : {}),
+                    ...(corrections
+                      ? { corrections, preserveDays: validDays }
+                      : {}),
                     instruction:
                       "The previous attempt failed verification. Return every requested day exactly once, with unique titles/practices, real short canonical references, and commentary without quotations or reference patterns. Keep prose concise and satisfy every field length.",
                   },
@@ -88,6 +97,13 @@ async function verified<T>(
           }),
         ),
       );
+      if (stage === "outline" && validDays.length) {
+        const outlined = draft as { days: z.infer<typeof outlineDay>[] };
+        outlined.days = outlined.days.map(
+          (day) =>
+            validDays.find((valid) => valid.number === day.number) ?? day,
+        );
+      }
       check(draft);
       return draft;
     } catch (error) {
@@ -105,6 +121,7 @@ async function verified<T>(
       reason = repairReason(error);
       corrections =
         error instanceof ReferenceRepair ? error.corrections : undefined;
+      validDays = error instanceof ReferenceRepair ? error.validDays : [];
       // Operational metadata only. Never log the prompt, draft, passages, key,
       // raw SDK error, or provider response body.
       console.warn("[Still Groq plan]", {
@@ -166,7 +183,8 @@ export async function generateGroqPlan(
         if (day.number !== index + 1) throw draftFailure();
         checkText([day.title, day.objective, day.context, day.bridge]);
         try {
-          const passage = bible.lookup(day.reference, input.translation);
+          const selection = bible.planReference(day.reference);
+          const passage = bible.lookup(selection.reference, input.translation);
           if (passage.verses.length > 8) {
             corrections.push({
               day: day.number,
@@ -186,13 +204,22 @@ export async function generateGroqPlan(
           corrections.push({
             day: day.number,
             reference: day.reference,
+            validReferences: bible.planReference(day.reference).candidates,
             issue:
               error.message +
               " Use an exact installedBooks name and a valid verse range; do not use abbreviations or cross-chapter ranges.",
           });
         }
       });
-      if (corrections.length) throw new ReferenceRepair(corrections);
+      if (corrections.length)
+        throw new ReferenceRepair(
+          corrections,
+          structuredClone(
+            draft.days.filter(
+              (day) => !corrections.some((c) => c.day === day.number),
+            ),
+          ),
+        );
       if (new Set(refs).size < Math.min(3, input.days)) throw draftFailure();
     },
   );

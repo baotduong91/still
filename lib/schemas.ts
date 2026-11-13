@@ -9,6 +9,7 @@ export const Verse = z.object({
 });
 export const Passage = z.object({
   reference: z.string(),
+  requestedReference: z.string().optional(),
   requestedTranslation: Translation,
   translation: Translation,
   fallback: z.boolean(),
@@ -24,6 +25,7 @@ export const Day = z.object({
   title: z.string(),
   objective: z.string(),
   passage: Passage,
+  webPassage: Passage.optional(),
   context: z.string(),
   explanation: z.string(),
   reflection: z.string(),

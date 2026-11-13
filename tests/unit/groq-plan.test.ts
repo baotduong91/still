@@ -361,3 +361,72 @@ it("retrieves a formatted valid reference exactly without wasting an outline rep
   expect(plan.days[0].passage.reference).toBe("Psalms 13:1-6");
   expect(calls.filter((c) => c.stage === "outline")).toHaveLength(1);
 });
+
+it.each(["CSB", "NLT", "MSG"] as const)(
+  "hydrates a verified Groq plan with %s and retains its WEB validation source",
+  async (translation) => {
+    vi.stubEnv("API_BIBLE_KEY", "fixture-key");
+    vi.stubEnv("API_BIBLE_NONCOMMERCIAL", "true");
+    const id = crypto.randomUUID();
+    vi.stubEnv(`API_BIBLE_${translation}_ID`, id);
+    const { fetch: mocked } = mockModel();
+    const generate = mocked.getMockImplementation()!;
+    mocked.mockImplementation(async (url, opts) => {
+      if (String(url).startsWith("https://rest.api.bible/")) {
+        const orgId = new URL(String(url)).pathname.split("/").at(-1)!;
+        return Response.json({
+          data: {
+            orgId,
+            bibleId: id,
+            content: `Exact licensed fixture for ${orgId}.`,
+            copyright: "Rights fixture",
+          },
+          meta: { fumsToken: "fixture" },
+        });
+      }
+      return generate(url, opts);
+    });
+    const plan = await generatePlan({ ...input, translation });
+    const bible = await getBible("WEB");
+    expect(plan.provider).toBe("groq");
+    expect(plan.translation).toBe(translation);
+    for (const day of plan.days) {
+      expect(day.passage.translation).toBe(translation);
+      expect(day.passage.source).toBe("api.bible");
+      expect(day.webPassage && bible.validate(day.webPassage)).toBe(true);
+      expect(day.passage.text).not.toBe(day.webPassage!.text);
+    }
+  },
+);
+
+it("repairs Psalm 4:8-9 locally without another outline call or an invented verse", async () => {
+  const { calls } = mockModel((payload) => {
+    if (payload.stage !== "outline") return;
+    const draft = outline();
+    draft.days[4].reference = "Psalm 4:8-9";
+    return completion(draft);
+  });
+  const plan = await generatePlan(input);
+  expect(plan.provider).toBe("groq");
+  expect(plan.days[4].passage.reference).toBe("Psalms 4:8");
+  expect(plan.days[4].passage.verses.map((v) => v.verse)).toEqual([8]);
+  expect(calls.filter((c) => c.stage === "outline")).toHaveLength(1);
+});
+it("offers real bounds for invalid starts and keeps verified days during repair", async () => {
+  const { calls } = mockModel((payload, index) => {
+    if (payload.stage !== "outline") return;
+    const draft = outline();
+    if (index === 1) draft.days[4].reference = "Psalm 4:99";
+    else draft.days[0].reference = "John 3:16";
+    return completion(draft);
+  });
+  const plan = await generatePlan(input);
+  expect(calls[1]).toMatchObject({
+    repair: {
+      corrections: [
+        expect.objectContaining({ day: 5, validReferences: ["Psalms 4:1-8"] }),
+      ],
+    },
+  });
+  expect(plan.days[0].passage.reference).toBe("Psalms 13:1-6");
+});

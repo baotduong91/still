@@ -96,6 +96,47 @@ export class Bible {
       text: verses.map((v) => v.text).join(" "),
     };
   }
+  /** Bounded references grounded in installed verses, for plan selection only. */
+  planReference(input: string) {
+    const normalized = input
+      .trim()
+      .replace(/[–—−]/g, "-")
+      .replace(/\s*:\s*/g, ":")
+      .replace(/\s*-\s*/g, "-");
+    const match = normalized.match(/^(.+?)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$/);
+    if (!match) return { reference: input, candidates: [] as string[] };
+    const book = this.aliases.get(match[1].toLowerCase().replace(/\s+/g, " "));
+    const verses = [
+      ...(this.index.get(`${book} ${Number(match[2])}`) ?? []),
+    ].sort((a, b) => a.verse - b.verse);
+    const candidates: string[] = [];
+    for (let i = 0; i < verses.length; i += 8) {
+      const start = verses[i].verse,
+        end = verses[Math.min(i + 7, verses.length - 1)].verse;
+      const ref = `${book} ${Number(match[2])}:${start}${end === start ? "" : `-${end}`}`;
+      try {
+        this.lookup(ref);
+        candidates.push(ref);
+      } catch {
+        /* Never offer a range with missing verses. */
+      }
+    }
+    if (!verses.length || !match[3]) return { reference: input, candidates };
+    const start = Number(match[3]),
+      requestedEnd = Number(match[4] ?? match[3]);
+    if (!verses.some((v) => v.verse === start) || requestedEnd < start)
+      return { reference: input, candidates };
+    const end = Math.min(requestedEnd, verses.at(-1)!.verse, start + 7);
+    // Only trim a valid starting selection. Never invent or move its start.
+    try {
+      const passage = this.lookup(
+        `${book} ${Number(match[2])}:${start}${end === start ? "" : `-${end}`}`,
+      );
+      return { reference: passage.reference, candidates };
+    } catch {
+      return { reference: input, candidates };
+    }
+  }
   search(query: string, requested: TranslationId, offset = 0, limit = 20) {
     if (/\d/.test(query)) {
       try {

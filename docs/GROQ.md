@@ -77,3 +77,13 @@ It returns a fully validated Groq plan or a retryable error; saved days stay
 unchanged. Guided mode remains available by choice. Provider quotas/outages and
 model validity cannot be guaranteed, and Scripture verification is never bypassed.
 Chat's existing labelled fallback is unchanged.
+
+### Reference bounds recovery
+
+Plan passage selection uses the installed WEB chapter/verse index before any
+commentary or licensed translation retrieval. An existing start with an overlong
+end is trimmed to the chapter boundary and the eight-verse daily limit. For
+example Psalm 4:8-9 becomes Psalms 4:8, with only that retrieved verse displayed.
+Invalid starts, reversed ranges, unknown books, and missing chapters still need
+model correction. Repairs receive verified chapter selections and preserve the
+already-valid days. No absent verse is synthesized or labelled as present.
