@@ -6,7 +6,11 @@ WEB is the fully local default and canonical validation corpus. No CSB or NLT co
 
 Create an app at https://api.bible. Starter currently supports non-commercial use, 5,000 calls per month, and up to three selected licensed editions. Choose CSB and/or NLT if offered to your account. Copy the exact authorized Bible IDs, checking edition names carefully; a key alone does not authorize every translation.
 
-Set server-only API_BIBLE_KEY, API_BIBLE_CSB_ID and/or API_BIBLE_NLT_ID. Set API_BIBLE_NONCOMMERCIAL=true only after confirming eligibility. Restart/redeploy. Never use NEXT_PUBLIC for the key. In Settings enable optional online Scripture and disclosed usage reporting, then select the edition. Without access or consent, displays remain labeled WEB.
+Set server-only `API_BIBLE_KEY`, edition IDs (`API_BIBLE_CSB_ID`, `API_BIBLE_NLT_ID`, `API_BIBLE_MSG_ID`, …), and optional `DEFAULT_TRANSLATION=CSB` (or `NLT` / `MSG`) when that edition is licensed on the account. Set `API_BIBLE_NONCOMMERCIAL=true` only after confirming eligibility. Restart/redeploy. Never use `NEXT_PUBLIC` for the key.
+
+When configured, the server default in `get_translations` and omitted AWP translation fields follow `DEFAULT_TRANSLATION`, otherwise the first licensed CSB → NLT → MSG ID present. New devices auto-select that default in Settings until the reader picks another edition. **Online Scripture** (FUMS reporting) still requires an explicit in-app opt-in; agents can resolve licensed text without that toggle.
+
+In Settings enable optional online Scripture and disclosed usage reporting, then select the edition. Without access or consent, displays remain labeled WEB.
 
 API.Bible requires Scripture-view reporting in web apps. Still uses direct FUMS requests with returned tokens and anonymous device/session identifiers only after explicit opt-in. It loads no tracking SDK, supplies no user ID, and sends no prompts or journals to API.Bible. WEB uses no reporting. Disabling the option stops subsequent requests and reports. Required reporting: https://docs.api.bible/resources/fair-use/.
 

@@ -10,6 +10,7 @@ export type Corpus = {
 export const translationNames = {
   CSB: "Christian Standard Bible",
   NLT: "New Living Translation",
+  MSG: "The Message",
   NIV: "New International Version",
   ESV: "English Standard Version",
   WEB: "World English Bible",

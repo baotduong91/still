@@ -30,6 +30,7 @@ export type SavedState = {
   notes: Record<string, string>;
   cloudConsent: boolean;
   guidePreferenceSet?: boolean;
+  translationPreferenceSet?: boolean;
   onlineScripture: boolean;
   remoteIds: string[];
   outbox: { path: string; body: unknown }[];

@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { apiBibleEnabled } from "./api-bible";
+import { serverDefaultTranslation } from "./default-translation";
 import { db } from "@/lib/db/client";
 import { Bible, type Corpus, translationNames } from "./index";
 import type { TranslationId } from "@/lib/schemas";
@@ -58,7 +59,7 @@ export async function translations() {
       name: translationNames[id],
       available:
         apiBibleEnabled(id) || (await getBible(id)).corpus.translation === id,
-      preferred: id === "WEB",
+      preferred: id === serverDefaultTranslation(),
       primaryAlternative: id === "NLT",
       license:
         id === "WEB"

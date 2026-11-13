@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useApp } from "@/components/provider";
 import { api } from "@/lib/client/store";
 import type { PassageType, TranslationId } from "@/lib/schemas";
+import { isApiBibleTranslation } from "@/lib/bible/default-translation";
 export function usePassage(local: PassageType, requested?: TranslationId) {
   const { state, online, bible } = useApp();
   const translation = requested ?? state.translation;
@@ -14,7 +15,7 @@ export function usePassage(local: PassageType, requested?: TranslationId) {
     if (
       online &&
       state.onlineScripture &&
-      ["CSB", "NLT"].includes(translation)
+      isApiBibleTranslation(translation)
     ) {
       if (local.source === "api.bible" && local.translation === translation)
         setRemote(local);

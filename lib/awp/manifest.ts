@@ -113,7 +113,7 @@ export function manifest(origin: string) {
     },
     agent_hints: {
       translation:
-        "Request WEB by default. Check the returned translation; missing online access falls back to WEB, never mislabeled.",
+        "Omit translation to use the server default from get_translations (DEFAULT_TRANSLATION or the first configured API.Bible edition). UI readers still need explicit online Scripture opt-in; agents resolve licensed text when the server is configured.",
       privacy:
         "Send sensitive prompts to cloud only with the user’s explicit choice. Curated is the default.",
       schema:

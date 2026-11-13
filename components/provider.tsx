@@ -27,6 +27,11 @@ import {
   hostedGroqDefaultState,
   shouldApplyHostedGroqDefault,
 } from "@/lib/client/hosted-groq";
+import {
+  hostedTranslationDefaultState,
+  shouldApplyHostedTranslationDefault,
+  type TranslationsStatus,
+} from "@/lib/client/hosted-translation";
 import type { PlanType, TranslationId } from "@/lib/schemas";
 import { warmKokoro } from "@/lib/tts/kokoro-client";
 import { offlineModelStored } from "@/lib/tts/model-cache";
@@ -124,6 +129,22 @@ export function Provider({ children }: { children: React.ReactNode }) {
       alive = false;
     };
   }, [ready, online, update]);
+  useEffect(() => {
+    if (!ready) return;
+    let alive = true;
+    api<TranslationsStatus>("translations")
+      .then((status) => {
+        if (!alive) return;
+        void update((s) => {
+          if (!shouldApplyHostedTranslationDefault(s)) return s;
+          return hostedTranslationDefaultState(s, status);
+        }).catch(() => {});
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [ready, update]);
   useEffect(() => {
     if (!ready || state.deviceProfile) return;
     let timer: ReturnType<typeof setTimeout>;

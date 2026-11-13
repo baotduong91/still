@@ -7,6 +7,7 @@ import { rateLimit } from "./rate-limit";
 import { AppError, errors } from "./errors";
 import { generatePlan, chat } from "@/lib/ai/server";
 import { getBible, translations } from "@/lib/bible/server";
+import { serverDefaultTranslation } from "@/lib/bible/default-translation";
 import { adaptPlan } from "@/lib/ai/orchestrator";
 import { themes } from "@/lib/ai/themes";
 import * as repo from "@/lib/db/repository";
@@ -122,7 +123,10 @@ export async function execute(
     case "list_journal":
       return { entries: await repo.listJournal(owner) };
     case "get_translations":
-      return { translations: await translations(), default: "WEB" };
+      return {
+        translations: await translations(),
+        default: serverDefaultTranslation(),
+      };
   }
 }
 export async function handle(request: Request, path: string) {

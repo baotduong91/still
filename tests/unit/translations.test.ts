@@ -14,11 +14,13 @@ afterEach(() => {
   delete process.env.API_BIBLE_CSB_ID;
   delete process.env.API_BIBLE_NONCOMMERCIAL;
 });
+it("defaults omitted generate input to the configured API.Bible edition", () => {
+  expect(GenerateInput.parse({ prompt: "Help with prayer" }).translation).toBe(
+    "CSB",
+  );
+});
 it("defaults to offline WEB without network", async () => {
   const f = vi.spyOn(globalThis, "fetch");
-  expect(GenerateInput.parse({ prompt: "Help with prayer" }).translation).toBe(
-    "WEB",
-  );
   expect((await resolvePassage("John 3:16")).translation).toBe("WEB");
   expect(f).not.toHaveBeenCalled();
 });

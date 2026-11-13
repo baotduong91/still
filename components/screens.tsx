@@ -47,6 +47,8 @@ import { buildPlan } from "@/lib/ai/orchestrator";
 import { answerQuestion } from "@/lib/ai/chat";
 import { themes } from "@/lib/ai/themes";
 import { translationNames } from "@/lib/bible";
+import { defaultTranslationFromAvailable } from "@/lib/bible/default-translation";
+import type { TranslationsStatus } from "@/lib/client/hosted-translation";
 import type {
   PlanType,
   PassageType,
@@ -76,7 +78,28 @@ function Create() {
   const router = useRouter();
   const [prompt, setPrompt] = useState(""),
     [days, setDays] = useState(7),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [available, setAvailable] = useState<TranslationId[]>(["WEB"]),
+    [journeyTranslation, setJourneyTranslation] =
+      useState<TranslationId>(state.translation);
+  const journeyTranslationTouched = useRef(false);
+  useEffect(() => {
+    api<TranslationsStatus>("translations")
+      .then((r) => {
+        const ids = r.translations
+          .filter((t) => t.available)
+          .map((t) => t.id);
+        setAvailable(ids);
+        if (journeyTranslationTouched.current) return;
+        const preferred = ids.includes(r.default)
+          ? r.default
+          : defaultTranslationFromAvailable(ids);
+        setJourneyTranslation(
+          ids.includes(state.translation) ? state.translation : preferred,
+        );
+      })
+      .catch(() => {});
+  }, [state.translation]);
   async function generate(e: React.FormEvent) {
     e.preventDefault();
     if (!bible) return;
@@ -85,7 +108,7 @@ function Create() {
       const input = {
         prompt,
         days,
-        translation: state.translation,
+        translation: journeyTranslation,
         provider: selectedProvider(state),
       };
       if (online || input.provider === "ollama") {
@@ -195,6 +218,33 @@ function Create() {
             </select>
           </div>
           <div>
+            <label htmlFor="journey-translation">Scripture edition</label>
+            <select
+              id="journey-translation"
+              value={journeyTranslation}
+              onChange={(e) => {
+                journeyTranslationTouched.current = true;
+                setJourneyTranslation(e.target.value as TranslationId);
+              }}
+            >
+              {Object.entries(translationNames)
+                .filter(([id]) => available.includes(id as TranslationId))
+                .sort(([a], [b]) =>
+                  a === "WEB" ? -1 : b === "WEB" ? 1 : 0,
+                )
+                .map(([id, name]) => (
+                  <option value={id} key={id}>
+                    {id} — {name}
+                    {id === "WEB"
+                      ? " (offline)"
+                      : ["CSB", "NLT", "MSG"].includes(id)
+                        ? " (online)"
+                        : ""}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div>
             <label>Your guide</label>
             <p className="provider-label">
               {state.provider === "curated"
@@ -211,10 +261,18 @@ function Create() {
             </Link>
           </div>
         </div>
+        {journeyTranslation !== "WEB" && (
+          <p className="field-hint">
+            Journeys are stored with exact WEB verses for offline use. With
+            online Scripture enabled in Settings, Today and reading can show{" "}
+            {journeyTranslation} from API.Bible.
+          </p>
+        )}
         {state.provider === "cloud" && (
           <p className="notice">
-            Your goal is sent to Groq to draft this {days}-day journey. Scripture
-            text still comes from Still’s local WEB Bible.
+            Your goal is sent to Groq to draft this {days}-day journey. Verse
+            references are validated against Still’s local WEB Bible; wording
+            online follows your edition when API.Bible access is enabled.
           </p>
         )}
         <Button type="submit" disabled={busy || !bible}>
@@ -1052,6 +1110,7 @@ function Settings() {
             update((s) => ({
               ...s,
               translation: e.target.value as TranslationId,
+              translationPreferenceSet: true,
             }))
           }
         >
@@ -1062,7 +1121,7 @@ function Settings() {
                 {id} — {name}
                 {id === "WEB"
                   ? " (offline default)"
-                  : ["CSB", "NLT"].includes(id)
+                  : ["CSB", "NLT", "MSG"].includes(id)
                     ? " (optional online)"
                     : ""}
               </option>
@@ -1089,8 +1148,8 @@ function Settings() {
           Enable API.Bible editions and required Scripture-view reporting
         </label>
         <p className="field-hint">
-          CSB and NLT require a server-configured API.Bible key and access to
-          that edition. Choosing this sends Bible references and anonymous
+          CSB, NLT, and MSG require a server-configured API.Bible key and access
+          to each edition. Choosing this sends Bible references and anonymous
           device/session identifiers to API.Bible for its required usage
           reporting. Personal prompts and journals are not sent. WEB stays fully
           local. Saved journeys retain WEB for offline use.

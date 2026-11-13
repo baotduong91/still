@@ -8,6 +8,7 @@ import { useApp } from "@/components/provider";
 import { usePassage } from "@/components/scripture/use-passage";
 import { Button } from "@/components/ui/button";
 import type { PassageType, TranslationId } from "@/lib/schemas";
+import { isApiBibleTranslation } from "@/lib/bible/default-translation";
 import {
   backgrounds,
   formats,
@@ -26,7 +27,9 @@ export function CreateImage() {
   const reference = params.get("ref") || "Psalms 46:10";
   const [translation, setTranslation] = useState<TranslationId>(() => {
     const value = params.get("translation") || state.translation;
-    return value === "CSB" || value === "NLT" ? value : "WEB";
+    return isApiBibleTranslation(value as TranslationId)
+      ? (value as TranslationId)
+      : "WEB";
   });
   let passage: PassageType | null = null,
     error = "";
@@ -344,6 +347,7 @@ function ImageEditor({
                 <option value="WEB">WEB · offline default</option>
                 <option value="CSB">CSB · online via API.Bible</option>
                 <option value="NLT">NLT · online via API.Bible</option>
+                <option value="MSG">MSG · online via API.Bible</option>
               </select>
               <p className="image-exact-text">{passage.verses[0].text}</p>
               <p className="fine-print">

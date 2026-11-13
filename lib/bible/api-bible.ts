@@ -20,7 +20,9 @@ export function apiBibleId(id: TranslationId) {
     ? process.env.API_BIBLE_CSB_ID
     : id === "NLT"
       ? process.env.API_BIBLE_NLT_ID
-      : undefined;
+      : id === "MSG"
+        ? process.env.API_BIBLE_MSG_ID
+        : undefined;
 }
 export function apiBibleEnabled(id: TranslationId) {
   return !!(
