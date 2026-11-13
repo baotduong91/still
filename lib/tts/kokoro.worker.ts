@@ -1,6 +1,12 @@
 import { KokoroTTS } from "kokoro-js";
 import { env } from "@huggingface/transformers";
-import { speechChunks, wavBytes } from "./chunks";
+import {
+  speechChunks,
+  wavBytes,
+  joinAudio,
+  guardSpeechTokenizer,
+  SpeechInputTooLong,
+} from "./chunks";
 import {
   modelCache,
   optimizedModelStored,
@@ -29,7 +35,7 @@ type Input = {
   text?: string;
   prepare?: boolean;
   mode?: "warm" | "prime" | "clear" | "cancel";
-  skipFirst?: boolean;
+  crossfadeMs?: number;
   preferGpu?: boolean;
 };
 type Job = {
@@ -122,6 +128,7 @@ function load(job: Job) {
       backend = "WASM";
       tts = await create("wasm", "q8");
     }
+    guardSpeechTokenizer(tts);
     await voice;
     return tts;
   })().catch((error) => {
@@ -142,7 +149,12 @@ async function generate(job: Job, tts: KokoroTTS, text: string) {
   try {
     result = await tts.generate(text, { voice: "af_bella", speed: 1 });
   } catch (error) {
-    if (backend !== "WebGPU" || job.cancelled) throw error;
+    if (
+      error instanceof SpeechInputTooLong ||
+      backend !== "WebGPU" ||
+      job.cancelled
+    )
+      throw error;
     try {
       await tts.model.dispose();
     } catch {
@@ -167,7 +179,7 @@ async function generate(job: Job, tts: KokoroTTS, text: string) {
 }
 async function handle(job: Job) {
   if (job.cancelled) return;
-  const { text, prepare, mode, skipFirst } = job.input;
+  const { text, prepare, mode } = job.input;
   try {
     progress(job, "Loading Bella on-device…", "model_load");
     const tts = await load(job);
@@ -182,48 +194,38 @@ async function handle(job: Job) {
     const parts = speechChunks(text ?? "", {
       warmed: modelWarmed || mode === "prime",
     });
-    if (mode === "prime") {
-      const key = text ?? "";
-      if (key && !preparedReadings.has(key)) {
-        const samples: Float32Array[] = [];
-        for (const part of parts) {
-          if (job.cancelled) return;
-          samples.push((await generate(job, tts, part)).audio);
+    const key = JSON.stringify([text ?? "", job.input.crossfadeMs ?? 0]);
+    let wav = preparedReadings.get(key)?.slice(0);
+    if (!wav) {
+      const samples: Float32Array[] = [];
+      async function synthesize(part: string): Promise<void> {
+        if (job.cancelled) return;
+        try {
+          samples.push((await generate(job, await load(job), part)).audio);
+        } catch (error) {
+          if (!(error instanceof SpeechInputTooLong)) throw error;
+          const words = part.match(/\S+\s*/g) ?? [];
+          if (words.length < 2) throw error;
+          const middle = Math.ceil(words.length / 2);
+          const lead = part.match(/^\s*/)?.[0] ?? "";
+          await synthesize(lead + words.slice(0, middle).join(""));
+          await synthesize(words.slice(middle).join(""));
         }
-        if (job.cancelled || job.epoch !== cacheEpoch) return;
-        const joined = new Float32Array(
-          samples.reduce((n, a) => n + a.length, 0),
-        );
-        let offset = 0;
-        for (const sample of samples) {
-          joined.set(sample, offset);
-          offset += sample.length;
-        }
+      }
+      for (const part of parts) {
+        await synthesize(part);
+        if (job.cancelled) return;
+      }
+      wav = wavBytes(joinAudio(samples, job.input.crossfadeMs));
+      if (job.cancelled) return;
+      if (key && job.epoch === cacheEpoch) {
         while (preparedReadings.size >= 4)
           preparedReadings.delete(preparedReadings.keys().next().value!);
-        preparedReadings.set(key, wavBytes(joined));
+        preparedReadings.set(key, wav.slice(0));
       }
-      const wav = preparedReadings.get(key)?.slice(0);
-      send(
-        job,
-        wav ? { type: "primed", wav } : { type: "ready" },
-        wav ? [wav] : undefined,
-      );
-      return;
     }
-    // A foreground read queued behind preparation reuses the entire section.
-    const prepared = preparedReadings.get(text ?? "")?.slice(0);
-    if (prepared) {
-      send(job, { type: "audio", wav: prepared }, [prepared]);
-      return;
-    }
-    for (let index = skipFirst ? 1 : 0; index < parts.length; index++) {
-      if (job.cancelled) return;
-      const wav = wavBytes((await generate(job, tts, parts[index])).audio);
-      if (job.cancelled) return;
-      send(job, { type: "chunk", wav, index, total: parts.length }, [wav]);
-    }
-    send(job, { type: "done" });
+    // Both foreground and lookahead deliver exactly one complete WAV.
+    send(job, { type: mode === "prime" ? "primed" : "audio", wav }, [wav]);
   } catch {
     send(job, {
       type: "error",

@@ -180,3 +180,19 @@ and offline isolated Today reload). The two opt-in real-model/live-Edge checks
 were skipped; WebGPU performance has not been measured on physical hardware.
 When upgrading ONNX Runtime, bump `still-tts-runtime-v1` in both the service worker
 and runtime preparation helper so cached loader/WASM files stay matched.
+
+### One-file Bella playback
+
+Warmed and lookahead readings use up to 96 words / 600 characters per segment;
+short daily reflections commonly fit in one segment. Kokoro tokenization runs
+without silent truncation: input over the guarded 510-token budget is split
+again at word boundaries before inference. All original text remains in order.
+Cold readings keep smaller inference segments, but every foreground or prime
+job joins PCM in the worker and transfers exactly one WAV for playback. This
+avoids per-part decoding/scheduling and reuses complete readings in memory.
+
+`joinAudio(parts, crossfadeMs)` optionally overlaps up to 10 ms at each seam.
+The worker accepts `crossfadeMs` for explicit callers. Default is 0 (lossless
+concatenation); enabling overlap may affect adjacent phonemes and is not applied
+automatically to Scripture. Cancellation discards incomplete audio. Existing
+heartbeat/budget handling and GPU/WASM recovery remain active.

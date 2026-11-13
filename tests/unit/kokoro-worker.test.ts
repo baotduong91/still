@@ -92,7 +92,7 @@ it("serializes reads, discards cancelled audio, and switches later generation to
   expect(fixture.generate).toHaveBeenCalledOnce();
   release({ audio: new Float32Array(16) });
   await vi.waitFor(() =>
-    expect(messages().some((m) => m.id === 2 && m.type === "done")).toBe(true),
+    expect(messages().some((m) => m.id === 2 && m.type === "audio")).toBe(true),
   );
   expect(messages().some((m) => m.id === 1 && m.type === "chunk")).toBe(false);
   expect(
@@ -117,14 +117,14 @@ it("clear cancels an in-flight prime before its result can repopulate previews",
   release({ audio: new Float32Array(16) });
   scope.onmessage({ data: { id: 2, text: "Private plan copy." } });
   await vi.waitFor(() =>
-    expect(messages().some((m) => m.id === 2 && m.type === "done")).toBe(true),
+    expect(messages().some((m) => m.id === 2 && m.type === "audio")).toBe(true),
   );
   expect(messages().some((m) => m.id === 1 && m.type === "primed")).toBe(false);
   expect(fixture.generate).toHaveBeenCalledTimes(2);
 });
 
 it("primes every segment and reuses the complete reading without more inference", async () => {
-  const text = Array.from({ length: 110 }, (_, i) => `word${i}`).join(" ");
+  const text = Array.from({ length: 210 }, (_, i) => `word${i}`).join(" ");
   scope.onmessage({ data: { id: 1, text, mode: "prime" } });
   await vi.waitFor(() =>
     expect(messages().some((m) => m.type === "primed")).toBe(true),
@@ -232,4 +232,61 @@ it("recovers a GPU inference failure with Bella WASM without changing voice", as
   expect(
     fixture.generate.mock.calls.every((call) => call[1].voice === "af_bella"),
   ).toBe(true);
+});
+
+it("returns a typical warmed reflection as one synthesis and one complete WAV", async () => {
+  scope.onmessage({ data: { id: 1, mode: "warm", prepare: true } });
+  await vi.waitFor(() =>
+    expect(messages().some((m) => m.type === "ready")).toBe(true),
+  );
+  fixture.generate.mockClear();
+  const text =
+    "Take a quiet breath and notice the small gifts around you. Let this moment become a gentle invitation to turn toward God in the middle of your ordinary day. You do not need to find perfect words or finish every task before you can pray. Bring one honest thought to God, listen with patience, and choose a small act of kindness that carries your attention into the next moment.";
+  expect(text.split(/\s+/).length).toBeGreaterThan(58);
+  scope.onmessage({ data: { id: 2, text } });
+  await vi.waitFor(() =>
+    expect(messages().some((m) => m.id === 2 && m.type === "audio")).toBe(true),
+  );
+  expect(fixture.generate).toHaveBeenCalledExactlyOnceWith(text, {
+    voice: "af_bella",
+    speed: 1,
+  });
+  expect(
+    messages().filter(
+      (m) => m.id === 2 && ["audio", "chunk", "done"].includes(m.type),
+    ),
+  ).toHaveLength(1);
+  expect(
+    messages().find((m) => m.id === 2 && m.type === "audio").wav.byteLength,
+  ).toBe(44 + 16 * 2);
+});
+it("joins a multi-part foreground reading into one WAV with all samples", async () => {
+  const text = Array.from({ length: 210 }, (_, i) => `word${i}`).join(" ");
+  scope.onmessage({ data: { id: 1, text } });
+  await vi.waitFor(() =>
+    expect(messages().some((m) => m.type === "audio")).toBe(true),
+  );
+  const count = fixture.generate.mock.calls.length;
+  expect(count).toBeGreaterThan(1);
+  expect(fixture.generate.mock.calls.map((c) => c[0]).join("")).toBe(text);
+  expect(messages().filter((m) => m.type === "audio")).toHaveLength(1);
+  expect(messages().some((m) => m.type === "chunk")).toBe(false);
+  expect(messages().find((m) => m.type === "audio").wav.byteLength).toBe(
+    44 + count * 32,
+  );
+});
+it("splits token-overflow segments without dropping text", async () => {
+  const { SpeechInputTooLong } = await import("@/lib/tts/chunks");
+  const accepted: string[] = [];
+  fixture.generate.mockImplementation(async (text: string) => {
+    if (text.split(/\s+/).length > 20) throw new SpeechInputTooLong();
+    accepted.push(text);
+    return { audio: new Float32Array(16) };
+  });
+  const text = Array.from({ length: 70 }, (_, i) => `w${i}`).join(" ");
+  scope.onmessage({ data: { id: 1, text, mode: "prime" } });
+  await vi.waitFor(() =>
+    expect(messages().some((m) => m.type === "primed")).toBe(true),
+  );
+  expect(accepted.join("")).toBe(text);
 });
