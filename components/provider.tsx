@@ -206,9 +206,6 @@ export function Provider({ children }: { children: React.ReactNode }) {
     };
   }, []);
   useEffect(() => {
-    // Today compiles Bella with its upcoming reflection; don't enqueue a
-    // competing throwaway warm-up ahead of that useful first synthesis.
-    if (window.location.pathname.replace(/\/$/, "") === "/today") return;
     let alive = true;
     void offlineModelStored()
       .then((stored) => {

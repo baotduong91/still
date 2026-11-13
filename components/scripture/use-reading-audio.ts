@@ -11,6 +11,7 @@ import {
 import { supportsMp3Stream, streamMp3 } from "@/lib/tts/edge-stream";
 import {
   bellaSessionPrepared,
+  bellaBackend,
   kokoroAudio,
   primeKokoro,
   preparedKokoro,
@@ -61,7 +62,7 @@ export function useReadingAudio(payload: ReadingPayload) {
     clearPrepared();
     const epoch = preparationEpoch.current;
     if (
-      !(await primeKokoro(text, allowDownload && online).catch(() => false)) ||
+      !(await primeKokoro(text, false).catch(() => false)) ||
       epoch !== preparationEpoch.current
     )
       return false;
@@ -407,7 +408,7 @@ export function useReadingAudio(payload: ReadingPayload) {
       const ready = preparedKokoro(spoken);
       if (ready) {
         setMessage("");
-        setEngine("Kokoro · Bella · WASM");
+        setEngine(`Kokoro · Bella · ${bellaBackend()}`);
         await playBlob(ready);
         return;
       }
@@ -418,7 +419,13 @@ export function useReadingAudio(payload: ReadingPayload) {
             ? "Loading Bella on this device…"
             : "Warming Bella for private reading…",
         );
-      } else if (!online) setMessage("Loading your downloaded voice…");
+      } else {
+        setStatus("idle");
+        setMessage(
+          "Download Bella in Settings → Reading voice before private listening. This is a one-time setup while browser storage is retained.",
+        );
+        return;
+      }
       if (!alive()) return;
       setMessage("Preparing a continuous Bella reading on-device…");
       let playbackError: unknown,

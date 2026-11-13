@@ -1,4 +1,5 @@
 "use client";
+import Link from "@/components/smart-link";
 import { Pause, Play, Square, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { verseSpeech } from "@/lib/tts/shared";
@@ -140,6 +141,9 @@ export function ReadingControls({
                 : "Edge · online")}
         </span>
       </div>
+      {message.includes("Download Bella in Settings") && (
+        <Link href="/settings#reading-voice">Set up private listening</Link>
+      )}
       {canKeepWaiting && (
         <Button variant="outline" onClick={keepWaiting}>
           Keep waiting

@@ -23,6 +23,8 @@ type Options = {
 const sessionKey = "still-bella-session";
 let worker: Worker | null = null;
 let modelWarmed = false;
+let activeBackend = "WASM";
+export const bellaBackend = () => activeBackend;
 let serial = 0;
 const pending = new Map<
   number,
@@ -145,6 +147,7 @@ export function kokoroAudio(
     const message = (event: MessageEvent) => {
       const data = event.data;
       if (data.id !== id || settled) return;
+      if (data.backend) activeBackend = data.backend;
       if (data.modelWarmed === true) modelWarmed = true;
       if (data.type === "progress") {
         const next =
@@ -207,7 +210,7 @@ export function kokoroAudio(
     const preview = text && !options?.mode ? previews.get(text) : undefined;
     if (preview) {
       cleanup();
-      resolve({ blob: preview, backend: "WASM" });
+      resolve({ blob: preview, backend: activeBackend });
       return;
     }
     current.postMessage({
@@ -216,6 +219,9 @@ export function kokoroAudio(
       prepare: text === null,
       mode: options?.mode,
       skipFirst: false,
+      preferGpu:
+        typeof localStorage !== "undefined" &&
+        localStorage.getItem("still-bella-gpu") === "true",
     });
   });
 }
@@ -270,8 +276,7 @@ export function primeKokoro(
 async function prepare(text: string, allowDownload: boolean) {
   const epoch = previewEpoch;
   // Compile using the actual next section: no throwaway Ready inference first.
-  if (!allowDownload && !modelWarmed && !(await offlineModelStored()))
-    return false;
+  if (!modelWarmed && !(await offlineModelStored())) return false;
   if (epoch !== previewEpoch) return false;
   const result = await kokoroAudio(
     text,
@@ -295,4 +300,13 @@ export function clearKokoroPreviews() {
     if (request.mode === "prime" || request.mode === "warm")
       request.cancel(new DOMException("Preparation cancelled", "AbortError"));
   if (worker) worker.postMessage({ id: ++serial, mode: "clear" });
+}
+
+export function resetBellaBackend() {
+  clearKokoroPreviews();
+  for (const request of [...pending.values()])
+    request.cancel(new DOMException("Voice backend changed", "AbortError"));
+  worker?.terminate();
+  worker = null;
+  modelWarmed = false;
 }

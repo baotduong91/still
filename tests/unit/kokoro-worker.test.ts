@@ -154,3 +154,82 @@ it("cold lookahead synthesizes a short full section in one useful inference", as
   });
   expect(messages().some((m) => m.phase === "first_inference")).toBe(true);
 });
+
+it("selects desktop WebGPU fp32 and falls back to q8 when GPU loading fails", async () => {
+  Object.assign(scope.navigator, {
+    gpu: { requestAdapter: async () => ({}) },
+    userAgent: "Desktop Chrome",
+  });
+  fixture.load.mockRejectedValueOnce(new Error("Unsupported GPU"));
+  scope.onmessage({
+    data: { id: 1, text: "A real reflection.", mode: "prime", preferGpu: true },
+  });
+  await vi.waitFor(() =>
+    expect(messages().some((m) => m.type === "primed")).toBe(true),
+  );
+  expect(fixture.load.mock.calls[0][1]).toMatchObject({
+    device: "webgpu",
+    dtype: "fp32",
+  });
+  expect(fixture.load.mock.calls[1][1]).toMatchObject({
+    device: "wasm",
+    dtype: "q8",
+  });
+  expect(messages().find((m) => m.type === "primed").backend).toBe("WASM");
+});
+it("uses two WASM threads only with cross-origin isolation", async () => {
+  vi.resetModules();
+  scope.crossOriginIsolated = true;
+  vi.stubGlobal("SharedArrayBuffer", class {});
+  await import("@/lib/tts/kokoro.worker");
+  expect(fixture.env.backends.onnx.wasm.numThreads).toBe(2);
+});
+it("uses desktop WebGPU for Bella synthesis when the adapter and model succeed", async () => {
+  Object.assign(scope.navigator, {
+    gpu: { requestAdapter: async () => ({}) },
+    userAgent: "Desktop Chrome",
+  });
+  scope.onmessage({
+    data: {
+      id: 1,
+      text: "Ready for quiet reflection.",
+      mode: "prime",
+      preferGpu: true,
+    },
+  });
+  await vi.waitFor(() =>
+    expect(messages().some((m) => m.type === "primed")).toBe(true),
+  );
+  expect(fixture.load.mock.calls[0][1]).toMatchObject({
+    device: "webgpu",
+    dtype: "fp32",
+  });
+  expect(messages().find((m) => m.type === "primed").backend).toBe("WebGPU");
+});
+
+it("recovers a GPU inference failure with Bella WASM without changing voice", async () => {
+  Object.assign(scope.navigator, {
+    gpu: { requestAdapter: async () => ({}) },
+    userAgent: "Desktop Chrome",
+  });
+  fixture.generate.mockRejectedValueOnce(new Error("GPU inference failed"));
+  scope.onmessage({
+    data: {
+      id: 1,
+      text: "Private reflection.",
+      mode: "prime",
+      preferGpu: true,
+    },
+  });
+  await vi.waitFor(() =>
+    expect(messages().some((m) => m.type === "primed")).toBe(true),
+  );
+  expect(fixture.load.mock.calls[1][1]).toMatchObject({
+    device: "wasm",
+    dtype: "q8",
+  });
+  expect(messages().find((m) => m.type === "primed").backend).toBe("WASM");
+  expect(
+    fixture.generate.mock.calls.every((call) => call[1].voice === "af_bella"),
+  ).toBe(true);
+});

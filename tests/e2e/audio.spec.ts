@@ -73,6 +73,21 @@ test.beforeEach(async ({ page }) => {
           return;
         }
         if (data.mode === "prime") {
+          if (!(window as unknown as { primeReady?: boolean }).primeReady) {
+            queueMicrotask(() =>
+              this.dispatchEvent(
+                new MessageEvent("message", {
+                  data: {
+                    id: data.id,
+                    type: "ready",
+                    backend: "WASM",
+                    modelWarmed: true,
+                  },
+                }),
+              ),
+            );
+            return;
+          }
           setTimeout(
             () =>
               this.dispatchEvent(
@@ -193,6 +208,8 @@ test.beforeEach(async ({ page }) => {
     }
     Object.defineProperty(window, "Worker", { value: LocalWorker });
   });
+  await page.goto("/settings");
+  await seedOfflineKokoroAssets(page);
 });
 
 async function seedOfflineKokoroAssets(page: Page) {
@@ -956,6 +973,7 @@ test("Today preloads the next section and reuses its player at the autoplay hand
           body: Buffer.from([0xff, 0xfb, 0x90, 0x00]),
         }),
   );
+  await page.addInitScript(() => Object.assign(window, { primeReady: true }));
   await page.goto("/settings");
   await seedOfflineKokoroAssets(page);
   await page.goto("/today");
@@ -967,7 +985,7 @@ test("Today preloads the next section and reuses its player at the autoplay hand
   const jobs = await page.evaluate(
     () => (window as unknown as { kokoroJobs: { mode?: string }[] }).kokoroJobs,
   );
-  expect(jobs.some((job) => job.mode === "warm")).toBe(false);
+  expect(jobs.some((job) => job.mode === "warm")).toBe(true);
   expect(jobs.filter((job) => job.mode === "prime")).toHaveLength(1);
   await page.evaluate(() => {
     const state = window as unknown as {
@@ -1070,55 +1088,76 @@ test("Today autoplay reads each next section, and unchecking prevents another re
   ).toBe(0);
 });
 
-test("fresh autoplay prepares Bella during Scripture without a Settings download or cloud devotional text", async ({
+test("fresh private listening requires Settings setup without downloading on Today", async ({
   page,
 }) => {
-  const scriptureRequests: unknown[] = [];
-  await page.route("**/api/tts", (route) => {
-    if (route.request().method() === "HEAD")
-      return route.fulfill({ status: 204 });
-    scriptureRequests.push(route.request().postDataJSON());
-    return route.fulfill({
-      contentType: "audio/mpeg",
-      body: Buffer.from([0xff, 0xfb, 0x90, 0x00]),
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.open("still-tts-models", 1);
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction("assets", "readwrite");
+        tx.objectStore("assets").clear();
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onerror = () => reject(tx.error);
+      };
     });
+    await caches.delete("kokoro-voices");
   });
   await page.goto("/today");
-  await page.waitForTimeout(350);
+  await page.getByRole("link", { name: "02 Reflection" }).click();
+  await page.getByRole("button", { name: "Read reflection aloud" }).click();
+  await expect(
+    page.getByRole("link", { name: "Set up private listening" }),
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () => (window as unknown as { kokoroJobs: object[] }).kokoroJobs,
     ),
   ).toEqual([]);
-  await page.getByRole("button", { name: "Play Scripture" }).click();
+});
+
+test("Settings precaches speech runtime and isolated Today still opens offline", async ({
+  page,
+  context,
+}) => {
+  await page.goto("/settings#reading-voice");
+  await page
+    .getByRole("button", { name: "Download on-device voice", exact: true })
+    .click();
   await expect(
-    page.getByRole("button", { name: "Pause Scripture" }),
+    page.getByText("Bella is ready on this device", { exact: false }),
   ).toBeVisible();
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          (
-            window as unknown as { kokoroJobs: { mode?: string }[] }
-          ).kokoroJobs.filter((job) => job.mode === "prime").length,
-      ),
-    )
-    .toBe(1);
-  await expect(page.locator(".today-player")).toHaveAttribute(
-    "data-bella-ready",
-    "true",
-  );
-  const jobs = await page.evaluate(
-    () =>
-      (window as unknown as { kokoroJobs: { mode?: string; text?: string }[] })
-        .kokoroJobs,
-  );
-  expect(jobs.some((job) => job.mode === "warm")).toBe(false);
-  const reflection = (await page
-    .locator("#today-reflection .devotional-prose > p")
-    .first()
-    .textContent())!.trim();
-  expect(jobs[0].text).toBe(reflection);
-  expect(JSON.stringify(scriptureRequests)).not.toContain(reflection);
-  expect(scriptureRequests).toHaveLength(1);
+  expect(
+    await page.evaluate(
+      async () =>
+        !!(await (
+          await caches.open("still-tts-runtime-v1")
+        ).match("/tts/ort-wasm-simd-threaded.jsep.wasm")),
+    ),
+  ).toBe(true);
+  await page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.ready;
+    await new Promise<void>((resolve, reject) => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = (event) =>
+        event.data.ok ? resolve() : reject(new Error(event.data.error));
+      registration.active!.postMessage({ type: "CACHE_OFFLINE" }, [
+        channel.port2,
+      ]);
+    });
+  });
+  await context.setOffline(true);
+  await page.goto("/today");
+  await expect(page.locator(".flow-section")).toHaveCount(4);
+  expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
+  await page.getByRole("link", { name: "02 Reflection" }).click();
+  await page.getByRole("button", { name: "Read reflection aloud" }).click();
+  await expect(
+    page.getByRole("button", { name: "Pause reflection" }),
+  ).toBeVisible();
+  await context.setOffline(false);
 });

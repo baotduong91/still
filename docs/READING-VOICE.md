@@ -143,3 +143,40 @@ On a slow connection or device, it may exceed the length of Scripture. The UI
 shows preparation, and full-section buffering prevents interruptions once Bella
 starts; truly gapless first-ever playback cannot be guaranteed before download
 and synthesis finish. Previously downloaded assets and prepared audio are reused.
+
+### Settings-first setup and desktop acceleration
+
+Download Bella in Settings → Reading voice before private listening. Today never
+starts an uncached model download, including when autoplay is enabled. It links
+to Settings instead. Downloaded models/voice files are retained in IndexedDB and
+Cache Storage; preparation also precaches the matching same-origin ONNX loader
+and WASM runtime using `/tts/manifest.json`. The service worker reuses that cache.
+No personal audio or text is added to the public runtime cache.
+
+The default remains WASM q8 (roughly 90 MB). The Settings checkbox **Prefer desktop
+WebGPU** opts into the larger fp32 model, after an adapter check on desktop.
+Unsupported adapters and GPU load/inference errors fall back to WASM q8 with Bella.
+That fallback can require an additional download if only fp32 is cached; offline
+users can choose their installed device voice explicitly. Mobile uses WASM.
+Backend changes explicitly reset the worker; normal Stop, pause and section
+changes retain it. GPU preparation and speed depend on the browser/device; no
+fixed startup time is promised.
+
+COOP same-origin plus COEP credentialless enable cross-origin isolation where
+supported. Isolated devices with at least four logical cores use two WASM threads;
+others keep one. CORS API calls remain normal; credentialless avoids cookies on
+cross-origin no-CORS resources (including opted-in Scripture usage reporting).
+Today warms downloaded Bella on entry, then primes the immediate next section’s
+real text. Autoplay preloads the following section during playback. Returning
+within the same app session reuses the worker.
+A browser reload/OS eviction still requires loading and compiling cached assets;
+compiled ONNX sessions do not persist across browser restarts.
+
+This supersedes the earlier first-Play download behavior and WASM-only policy.
+
+Verification for this change: 173 unit tests, production build/typecheck, and 20
+browser checks passed (19 audio/runtime scenarios plus the explicit runtime-cache
+and offline isolated Today reload). The two opt-in real-model/live-Edge checks
+were skipped; WebGPU performance has not been measured on physical hardware.
+When upgrading ONNX Runtime, bump `still-tts-runtime-v1` in both the service worker
+and runtime preparation helper so cached loader/WASM files stay matched.

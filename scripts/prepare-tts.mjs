@@ -1,4 +1,4 @@
-import { mkdir, copyFile, readdir, stat } from "node:fs/promises";
+import { mkdir, copyFile, readdir, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 const require = createRequire(import.meta.url);
@@ -18,3 +18,7 @@ for (const name of [
     throw new Error(`Missing ONNX runtime: ${name}`);
 }
 console.log("Prepared same-origin Bella WASM runtime in public/tts.");
+
+await writeFile(path.join(target, "manifest.json"), JSON.stringify([
+  "/tts/ort-wasm-simd-threaded.jsep.mjs", "/tts/ort-wasm-simd-threaded.jsep.wasm"
+]));

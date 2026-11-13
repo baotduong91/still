@@ -21,7 +21,7 @@ env.backends.onnx.wasm!.numThreads =
 env.backends.onnx.wasm!.wasmPaths = `${self.location.origin}/tts/`;
 let model: Promise<KokoroTTS> | null = null;
 let modelWarmed = false;
-const backend = "WASM";
+let backend = "WASM";
 const preparedReadings = new Map<string, ArrayBuffer>();
 let cacheEpoch = 0;
 type Input = {
@@ -30,6 +30,7 @@ type Input = {
   prepare?: boolean;
   mode?: "warm" | "prime" | "clear" | "cancel";
   skipFirst?: boolean;
+  preferGpu?: boolean;
 };
 type Job = {
   input: Input;
@@ -61,11 +62,10 @@ function load(job: Job) {
     const cached = await optimizedModelStored().catch(() => false);
     // Start the small voice download beside model/tokenizer loading, not after.
     const voice = preloadBellaVoice().catch(() => {});
-    const tts = await KokoroTTS.from_pretrained(
-      "onnx-community/Kokoro-82M-v1.0-ONNX",
-      {
-        device: "wasm",
-        dtype: "q8",
+    const create = (device: "wasm" | "webgpu", dtype: "q8" | "fp32") =>
+      KokoroTTS.from_pretrained("onnx-community/Kokoro-82M-v1.0-ONNX", {
+        device,
+        dtype,
         progress_callback: (p) => {
           if (p.status === "progress") {
             const percent = Number.isFinite(p.progress)
@@ -86,8 +86,42 @@ function load(job: Job) {
               "model_load",
             );
         },
-      },
-    );
+      });
+    let tts: KokoroTTS;
+    const navigator = self.navigator as typeof self.navigator & {
+      gpu?: { requestAdapter: () => Promise<unknown> };
+      maxTouchPoints?: number;
+      userAgent?: string;
+      platform?: string;
+    };
+    const mobile =
+      /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent ?? "") ||
+      (navigator.platform === "MacIntel" &&
+        (navigator.maxTouchPoints ?? 0) > 1);
+    if (
+      job.input.preferGpu &&
+      !mobile &&
+      navigator.gpu &&
+      (navigator.hardwareConcurrency ?? 1) >= 4
+    ) {
+      try {
+        if (!(await navigator.gpu.requestAdapter()))
+          throw new Error("No GPU adapter");
+        backend = "WebGPU";
+        tts = await create("webgpu", "fp32");
+      } catch {
+        backend = "WASM";
+        progress(
+          job,
+          "GPU unavailable. Preparing the smaller Bella model…",
+          "model_load",
+        );
+        tts = await create("wasm", "q8");
+      }
+    } else {
+      backend = "WASM";
+      tts = await create("wasm", "q8");
+    }
     await voice;
     return tts;
   })().catch((error) => {
@@ -104,7 +138,29 @@ async function generate(job: Job, tts: KokoroTTS, text: string) {
       : "First Bella synthesis can take 1–3 minutes on desktop…",
     modelWarmed ? "warm_inference" : "first_inference",
   );
-  const result = await tts.generate(text, { voice: "af_bella", speed: 1 });
+  let result;
+  try {
+    result = await tts.generate(text, { voice: "af_bella", speed: 1 });
+  } catch (error) {
+    if (backend !== "WebGPU" || job.cancelled) throw error;
+    try {
+      await tts.model.dispose();
+    } catch {
+      /* Release errors must not prevent WASM recovery. */
+    }
+    backend = "WASM";
+    model = null;
+    modelWarmed = false;
+    job.input.preferGpu = false;
+    progress(
+      job,
+      "GPU reading unavailable. Switching Bella to WASM…",
+      "model_load",
+    );
+    result = await (
+      await load(job)
+    ).generate(text, { voice: "af_bella", speed: 1 });
+  }
   // Cancellation discards this job's result, not the successfully compiled model.
   modelWarmed = true;
   return result;

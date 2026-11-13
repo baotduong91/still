@@ -317,14 +317,9 @@ it("deduplicates next-section preparation and keeps a warmed worker out of the q
   expect(worker.id).toBe(id);
 });
 
-it("an explicit playback lookahead can start a fresh download directly with the next section", async () => {
+it("requires Settings preparation even when lookahead previously allowed downloads", async () => {
   model.cached = false;
   const { primeKokoro } = await import("@/lib/tts/kokoro-client");
-  expect(await primeKokoro("Next reflection.")).toBe(false);
+  expect(await primeKokoro("Next reflection.", true)).toBe(false);
   expect(TestWorker.all).toHaveLength(0);
-  const next = primeKokoro("Next reflection.", true);
-  const worker = TestWorker.all[0];
-  expect(worker.last.mode).toBe("prime");
-  worker.send({ type: "primed", backend: "WASM", wav: new ArrayBuffer(44) });
-  expect(await next).toBe(true);
 });

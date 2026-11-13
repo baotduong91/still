@@ -175,3 +175,20 @@ test("real Edge Scripture starts decoding a streamed MP3 in the Today player", a
   expect(posts).toBe(1);
   await page.getByRole("button", { name: "Stop Scripture" }).click();
 });
+
+test("production enables isolation and serves an offline speech precache manifest", async ({
+  page,
+  request,
+}) => {
+  const response = await request.get("/today");
+  expect(response.headers()["cross-origin-opener-policy"]).toBe("same-origin");
+  expect(response.headers()["cross-origin-embedder-policy"]).toBe(
+    "credentialless",
+  );
+  await page.goto("/today");
+  expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
+  const manifest = await request.get("/tts/manifest.json");
+  expect(await manifest.json()).toContain(
+    "/tts/ort-wasm-simd-threaded.jsep.wasm",
+  );
+});

@@ -2,12 +2,20 @@
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/components/provider";
 import { Button } from "@/components/ui/button";
-import { kokoroAudio } from "@/lib/tts/kokoro-client";
+import { kokoroAudio, resetBellaBackend } from "@/lib/tts/kokoro-client";
 import { readingAudioEvent } from "@/lib/tts/reading";
 import type { SpeechEngine } from "@/lib/tts/shared";
-import { offlineModelStored } from "@/lib/tts/model-cache";
+import {
+  offlineModelStored,
+  prepareSpeechRuntime,
+} from "@/lib/tts/model-cache";
 export function AudioSettings() {
   const { state, update, online } = useApp();
+  const [gpu, setGpu] = useState(false);
+  useEffect(
+    () => setGpu(localStorage.getItem("still-bella-gpu") === "true"),
+    [],
+  );
   const [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
     [canKeepWaiting, setCanKeepWaiting] = useState(false);
@@ -44,16 +52,27 @@ export function AudioSettings() {
         local voice. Personal prayers, journal entries, and notes are excluded.
       </p>
       <p className="field-hint">
-        Bella now uses the smaller, roughly 90 MB model on every device,
-        avoiding the large GPU download and GPU compilation stalls. Today
-        prepares the next section while the current one reads, then plays fully
-        buffered audio without synthesis gaps. For immediate reading without a
-        download, choose an installed device voice; quality depends on your
-        installed voices. Both choices keep reading text on-device. Keep this
-        screen open until Bella is ready; browsers may remove downloads when
-        storage is low. First synthesis can take 1–3 minutes on desktop, even
-        after the download finishes.
+        Download Bella here before private listening. The smaller WASM model is
+        roughly 90 MB. Optional desktop WebGPU uses a larger fp32 download and
+        may prepare faster on supported hardware. Both use Bella. Keep this
+        screen open until ready. First synthesis may take 1–3 minutes;
+        downloaded assets persist while browser storage is retained. Today
+        prepares real section text ahead of playback.
       </p>
+      <label>
+        <input
+          type="checkbox"
+          checked={gpu}
+          disabled={busy}
+          onChange={(e) => {
+            const enabled = e.target.checked;
+            setGpu(enabled);
+            localStorage.setItem("still-bella-gpu", String(enabled));
+            resetBellaBackend();
+          }}
+        />{" "}
+        Prefer desktop WebGPU · larger download; WASM fallback
+      </label>
       <Button
         variant="outline"
         disabled={busy || !online}
@@ -70,6 +89,8 @@ export function AudioSettings() {
             "Preparing Bella. Downloading model files only; no personal text is sent…",
           );
           try {
+            await prepareSpeechRuntime();
+            if (controller.signal.aborted) return;
             const result = await kokoroAudio(
               null,
               setMessage,

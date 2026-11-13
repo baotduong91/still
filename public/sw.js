@@ -1,5 +1,5 @@
 /* Still's offline cache stores public shells and WEB only. Never cache API responses. */
-const CACHE='still-public-v13';
+const CACHE='still-public-v14';
 const PAGES=['/create-image','/read','/today','/journey','/create','/scripture','/chat','/journal','/settings'];
 async function prepareOffline(){
  const cache=await caches.open(CACHE);
@@ -13,6 +13,7 @@ self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys
 self.addEventListener('message',event=>{if(event.data?.type==='CACHE_OFFLINE')event.waitUntil(prepareOffline().then(()=>event.ports[0]?.postMessage({ok:true})).catch(error=>event.ports[0]?.postMessage({ok:false,error:error.message})));});
 self.addEventListener('fetch',event=>{
  const request=event.request,url=new URL(request.url);
+ if(request.method==='GET'&&url.origin===self.location.origin&&url.pathname.startsWith('/tts/')){event.respondWith(caches.open('still-tts-runtime-v1').then(async cache=>{const hit=await cache.match(request);if(hit)return hit;const response=await fetch(request);if(response.ok)await cache.put(request,response.clone());return response;}));return;}
  if(request.method!=='GET'||url.origin!==self.location.origin||url.pathname.startsWith('/api/')||url.pathname.includes('agent.json'))return;
  if(request.mode==='navigate'){event.respondWith(fetch(request).then(async response=>{if(response.ok&&PAGES.includes(url.pathname)){const cache=await caches.open(CACHE);await cache.put(url.pathname,response.clone());}return response;}).catch(async()=>await caches.match(url.pathname)||await caches.match('/offline.html')));return;}
  // RSC responses must not be confused with HTML shells. Offline navigation uses full links.
