@@ -4,30 +4,41 @@ import { useApp } from "@/components/provider";
 import { api } from "@/lib/client/store";
 import type { PassageType, TranslationId } from "@/lib/schemas";
 import { isApiBibleTranslation } from "@/lib/bible/default-translation";
+
 export function usePassage(local: PassageType, requested?: TranslationId) {
   const { state, online, bible } = useApp();
   const translation = requested ?? state.translation;
   const [remote, setRemote] = useState<PassageType | null>(null);
   const signature = local.reference + translation;
+  const wantsLicensed =
+    online &&
+    state.onlineScripture &&
+    isApiBibleTranslation(translation);
+  const hasLicensed =
+    local.source === "api.bible" && local.translation === translation;
+  const [resolving, setResolving] = useState(
+    () => wantsLicensed && !hasLicensed,
+  );
   useEffect(() => {
     let alive = true;
     setRemote(null);
-    if (online && state.onlineScripture && isApiBibleTranslation(translation)) {
-      if (local.source === "api.bible" && local.translation === translation)
-        setRemote(local);
-      else
-        api<{ passage: PassageType }>(
-          `scripture?${new URLSearchParams({ reference: local.reference, translation })}`,
-        )
-          .then((r) => {
-            if (alive) setRemote(r.passage);
-          })
-          .catch(() => {});
-    }
+    const pending = wantsLicensed && !hasLicensed;
+    setResolving(pending);
+    if (!pending) return;
+    api<{ passage: PassageType }>(
+      `scripture?${new URLSearchParams({ reference: local.reference, translation })}`,
+    )
+      .then((r) => {
+        if (alive) setRemote(r.passage);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setResolving(false);
+      });
     return () => {
       alive = false;
     };
-  }, [signature, online, state.onlineScripture]);
+  }, [signature, wantsLicensed, hasLicensed, local.reference, translation]);
   const safeLocal =
     local.source === "api.bible" && (!state.onlineScripture || !online)
       ? (bible?.lookup(local.reference, translation) ?? local)
@@ -66,5 +77,5 @@ export function usePassage(local: PassageType, requested?: TranslationId) {
       }).catch(() => {});
     }
   }, [displayed, state.onlineScripture, online]);
-  return displayed;
+  return { passage: displayed, resolving };
 }

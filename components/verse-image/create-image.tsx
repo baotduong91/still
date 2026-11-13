@@ -71,7 +71,7 @@ function ImageEditor({
   const v = local.verses.find((v) => v.verse === verse) ?? local.verses[0];
   const reference = `${v.book} ${v.chapter}:${v.verse}`;
   const single = bible!.lookup(reference, translation);
-  const passage = usePassage(single, translation);
+  const { passage } = usePassage(single, translation);
   const [format, setFormat] = useState<Format>("story");
   const [style, setStyle] = useState<Style>("classic");
   const [background, setBackground] = useState<Background>("mountains");

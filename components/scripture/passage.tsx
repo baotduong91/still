@@ -12,7 +12,7 @@ export function PassageCard({
   passage: PassageType;
   compact?: boolean;
 }) {
-  const passage = usePassage(localPassage);
+  const { passage } = usePassage(localPassage);
   return (
     <div className={`passage ${compact ? "compact" : ""}`}>
       <div className="eyebrow">

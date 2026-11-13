@@ -20,7 +20,15 @@ import {
 import { ChunkScheduler } from "@/lib/tts/chunk-playback";
 import { offlineModelStored } from "@/lib/tts/model-cache";
 type Status = "idle" | "loading" | "playing" | "paused";
-export function useReadingAudio(payload: ReadingPayload) {
+function playbackIdentity(payload: ReadingPayload) {
+  return payload.kind === "scripture"
+    ? { kind: payload.kind, reference: payload.reference }
+    : payload;
+}
+export function useReadingAudio(
+  payload: ReadingPayload,
+  options?: { licensedTextPending?: boolean },
+) {
   const { state, online } = useApp(),
     id = useId(),
     path = usePathname();
@@ -92,7 +100,13 @@ export function useReadingAudio(payload: ReadingPayload) {
     state.speechEngine,
     online,
   );
-  const signature = JSON.stringify([payload, state.speechEngine, path]);
+  const playbackKey = JSON.stringify([
+    playbackIdentity(payload),
+    state.speechEngine,
+    path,
+  ]);
+  const licensedPending = useRef(options?.licensedTextPending);
+  licensedPending.current = options?.licensedTextPending;
   function stop() {
     generation.current++;
     extendWait.current = null;
@@ -135,7 +149,7 @@ export function useReadingAudio(payload: ReadingPayload) {
       stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signature, id]);
+  }, [playbackKey, id]);
   function startDevice(notice: string) {
     if (!spoken.trim()) return;
     const token = generation.current;
@@ -188,6 +202,11 @@ export function useReadingAudio(payload: ReadingPayload) {
   }
   async function play() {
     if (!spoken.trim()) return;
+    if (licensedPending.current && payload.kind === "scripture") {
+      setStatus("idle");
+      setMessage("Loading licensed Scripture…");
+      return;
+    }
     if (status === "playing") {
       paused.current = true;
       if (device.current) speechSynthesis.pause();
@@ -304,17 +323,17 @@ export function useReadingAudio(payload: ReadingPayload) {
       if (preferredEngine === "edge") {
         setEngine("Edge · Jenny");
         setMessage("Preparing a clear, gentle reading…");
-        try {
-          const cacheKey = JSON.stringify(input);
-          const saved = edgeFiles.current.get(cacheKey);
-          if (saved) {
-            setMessage("");
-            await playBlob(saved);
-            return;
-          }
-          const candidate = new Audio();
-          const canStream =
-            candidate instanceof HTMLMediaElement && supportsMp3Stream();
+        const cacheKey = JSON.stringify(input);
+        const saved = edgeFiles.current.get(cacheKey);
+        if (saved) {
+          setMessage("");
+          await playBlob(saved);
+          return;
+        }
+        const candidate = new Audio();
+        const canStream =
+          candidate instanceof HTMLMediaElement && supportsMp3Stream();
+        async function edgeBuffered() {
           const response = await fetch("/api/tts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -322,7 +341,6 @@ export function useReadingAudio(payload: ReadingPayload) {
               ...input,
               voice: "en-US-JennyNeural",
               rate: 1,
-              ...(canStream ? { stream: true } : {}),
             }),
             signal: controller.signal,
           });
@@ -331,65 +349,105 @@ export function useReadingAudio(payload: ReadingPayload) {
             !response.headers.get("Content-Type")?.includes("audio/")
           )
             throw new Error();
-          if (canStream && alive()) {
-            audio.current = candidate;
-            candidate.playbackRate = speedRef.current;
-            candidate.onended = () => {
-              if (alive()) {
-                setStatus("idle");
-                setCompleted((n) => n + 1);
-              }
-            };
-            candidate.onerror = () => {
-              if (alive() && (started.current || paused.current)) {
-                stop();
-                setMessage(
-                  "The reading was interrupted. Tap Play to retry or use an installed voice.",
-                );
-              }
-            };
-            const file = await streamMp3(
-              response,
-              candidate,
-              controller.signal,
-              {
-                url: (href) => {
-                  url.current = href;
-                },
-                playing: () => {
-                  if (alive()) {
-                    started.current = true;
-                    setMessage("");
-                    setStatus("playing");
-                  }
-                },
-                blocked: () => {
-                  if (alive()) {
-                    paused.current = true;
-                    setStatus("paused");
-                    setMessage("Your audio is ready. Tap Play to listen.");
-                  }
-                },
-              },
-            );
-            if (alive()) {
-              while (edgeFiles.current.size >= 2)
-                edgeFiles.current.delete(
-                  edgeFiles.current.keys().next().value!,
-                );
-              edgeFiles.current.set(cacheKey, file);
-            }
-            return;
-          }
           const blob = await response.blob();
           if (!blob.size) throw new Error();
-          if (alive()) {
-            while (edgeFiles.current.size >= 2)
-              edgeFiles.current.delete(edgeFiles.current.keys().next().value!);
-            edgeFiles.current.set(cacheKey, blob);
-            setMessage("");
-            await playBlob(blob);
+          if (!alive()) return;
+          while (edgeFiles.current.size >= 2)
+            edgeFiles.current.delete(edgeFiles.current.keys().next().value!);
+          edgeFiles.current.set(cacheKey, blob);
+          setMessage("");
+          await playBlob(blob);
+        }
+        function clearEdgeStream() {
+          started.current = false;
+          if (audio.current === candidate) {
+            candidate.pause();
+            candidate.removeAttribute("src");
+            candidate.load();
+            audio.current = null;
           }
+          if (url.current) {
+            URL.revokeObjectURL(url.current);
+            url.current = null;
+          }
+        }
+        try {
+          if (canStream) {
+            try {
+              const response = await fetch("/api/tts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  ...input,
+                  voice: "en-US-JennyNeural",
+                  rate: 1,
+                  stream: true,
+                }),
+                signal: controller.signal,
+              });
+              if (
+                !response.ok ||
+                !response.headers.get("Content-Type")?.includes("audio/")
+              )
+                throw new Error();
+              if (!alive()) return;
+              audio.current = candidate;
+              candidate.playbackRate = speedRef.current;
+              candidate.onended = () => {
+                if (alive()) {
+                  setStatus("idle");
+                  setCompleted((n) => n + 1);
+                }
+              };
+              candidate.onerror = () => {
+                if (alive() && (started.current || paused.current)) {
+                  stop();
+                  setMessage(
+                    "The reading was interrupted. Tap Play to retry or use an installed voice.",
+                  );
+                }
+              };
+              const file = await streamMp3(
+                response,
+                candidate,
+                controller.signal,
+                {
+                  url: (href) => {
+                    url.current = href;
+                  },
+                  playing: () => {
+                    if (alive()) {
+                      started.current = true;
+                      setMessage("");
+                      setStatus("playing");
+                    }
+                  },
+                  blocked: () => {
+                    if (alive()) {
+                      paused.current = true;
+                      setStatus("paused");
+                      setMessage("Your audio is ready. Tap Play to listen.");
+                    }
+                  },
+                },
+              );
+              if (alive()) {
+                while (edgeFiles.current.size >= 2)
+                  edgeFiles.current.delete(
+                    edgeFiles.current.keys().next().value!,
+                  );
+                edgeFiles.current.set(cacheKey, file);
+              }
+              return;
+            } catch {
+              if (!alive()) return;
+              clearEdgeStream();
+              setMessage("Preparing a clear, gentle reading…");
+              await edgeBuffered();
+              return;
+            }
+          }
+          await edgeBuffered();
           return;
         } catch {
           if (!alive()) return;

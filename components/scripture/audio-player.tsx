@@ -37,6 +37,7 @@ export function ReadingControls({
   compact = false,
   minimal = false,
   contextLabel,
+  scripturePending,
   autoplay,
   onAutoplayChange,
 }: {
@@ -45,6 +46,7 @@ export function ReadingControls({
   compact?: boolean;
   minimal?: boolean;
   contextLabel?: string;
+  scripturePending?: boolean;
   autoplay?: boolean;
   onAutoplayChange?: (enabled: boolean) => void;
 }) {
@@ -78,7 +80,7 @@ export function ReadingControls({
         <Button
           variant="outline"
           onClick={play}
-          disabled={empty || status === "loading"}
+          disabled={empty || status === "loading" || scripturePending}
           aria-label={
             status === "playing"
               ? `Pause ${label}`
@@ -169,11 +171,13 @@ export function ReadingControls({
           aria-live="polite"
         >
           {message ||
-            (status === "idle"
-              ? preferredEngine !== "edge"
-                ? "Private reading. This stays on your device."
-                : "Play sends only this Scripture and reference for reading. On-device fallback available."
-              : "")}
+            (scripturePending
+              ? "Loading licensed Scripture…"
+              : status === "idle"
+                ? preferredEngine !== "edge"
+                  ? "Private reading. This stays on your device."
+                  : "Play sends only this Scripture and reference for reading. On-device fallback available."
+                : "")}
         </p>
       )}
     </div>

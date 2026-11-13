@@ -39,7 +39,7 @@ export function DailyFlow({
   onComplete: () => Promise<void>;
 }) {
   const { state, online } = useApp();
-  const passage = usePassage(localPassage);
+  const { passage, resolving: passageResolving } = usePassage(localPassage);
   const [active, setActive] = useState(0);
   const [autoplay, setAutoplay] = useState(true);
   const autoplayTarget = useRef<number | null>(null);
@@ -59,7 +59,9 @@ export function DailyFlow({
     { kind: "prayer", text: day.prayer, title: day.title },
     { kind: "action", text: day.action, title: day.title },
   ];
-  const reader = useReadingAudio(payloads[active]);
+  const reader = useReadingAudio(payloads[active], {
+    licensedTextPending: active === 0 && passageResolving,
+  });
   latestReader.current = reader;
   useEffect(() => {
     const linked = anchors.indexOf(window.location.hash.slice(1));
@@ -401,6 +403,7 @@ export function DailyFlow({
           }}
           reader={playerReader}
           payload={payloads[active]}
+          scripturePending={active === 0 && passageResolving}
           contextLabel={`${String(active + 1).padStart(2, "0")} · ${sections[active]}${active === 0 ? ` · ${passage.translation}` : " · on-device"}`}
         />
       </div>

@@ -417,7 +417,7 @@ function Scripture() {
   } catch {
     preview = bible!.lookup("John 1", state.translation);
   }
-  const displayedPassage = usePassage(preview);
+  const { passage: displayedPassage } = usePassage(preview);
   if (!bible) return <p className="loading">Preparing the Bible…</p>;
   let passage: PassageType;
   try {
