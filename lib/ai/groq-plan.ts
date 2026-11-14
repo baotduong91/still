@@ -69,6 +69,7 @@ async function verified<T>(
   check: (draft: T) => void,
 ): Promise<T> {
   let reason: string | undefined;
+  let fieldIssues: GroqDraftError["issues"] = [];
   let corrections: ReferenceRepair["corrections"] | undefined;
   let validDays: ReferenceRepair["validDays"] = [];
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -86,6 +87,7 @@ async function verified<T>(
               ? {
                   repair: {
                     reason,
+                    fieldIssues,
                     ...(corrections
                       ? { corrections, preserveDays: validDays }
                       : {}),
@@ -119,6 +121,15 @@ async function verified<T>(
       )
         throw error;
       reason = repairReason(error);
+      fieldIssues =
+        error instanceof GroqDraftError
+          ? error.issues
+          : error instanceof z.ZodError
+            ? error.issues.map((issue) => ({
+                path: issue.path.join("."),
+                code: issue.code,
+              }))
+            : [];
       corrections =
         error instanceof ReferenceRepair ? error.corrections : undefined;
       validDays = error instanceof ReferenceRepair ? error.validDays : [];
@@ -128,6 +139,7 @@ async function verified<T>(
         stage,
         attempt: attempt + 1,
         reason,
+        fieldIssues,
         outcome: attempt === 0 ? "repair" : "rejected",
       });
       if (attempt === 1) {
@@ -157,8 +169,7 @@ export async function generateGroqPlan(
     title: z.string().min(5).max(100),
     themes: z
       .array(z.enum(Object.keys(themes) as [string, ...string[]]))
-      .min(1)
-      .max(3),
+      .min(1),
     pace: z.enum(["gentle", "standard"]),
     days: z.array(outlineDay).length(input.days),
   });
@@ -172,7 +183,7 @@ export async function generateGroqPlan(
       count: input.days,
       installedBooks: bible.books(),
       instruction:
-        "Extract only supported themes/pace and design a coherent progressive journey around this exact goal. Themes are metadata, not a restriction to a curated curriculum. Supply consecutive day numbers and distinct titles/objectives. Use canonical references in Book Chapter:Verse-Verse format within one chapter, at most 8 verses per passage. No quotes or reference patterns in commentary. Keep context to 1-2 sentences and bridge to one sentence.",
+        "Extract only supported themes/pace and design a coherent progressive journey around this exact goal. Choose one to three supported themes as metadata, not a restriction to a curated curriculum. Supply consecutive day numbers and distinct titles/objectives. Use canonical references in Book Chapter:Verse-Verse format within one chapter, at most 8 verses per passage. No quotes or reference patterns in commentary. Keep context to 1-2 sentences and bridge to one sentence.",
     },
     (draft) => {
       checkText([draft.title]);
@@ -307,7 +318,9 @@ export async function generateGroqPlan(
       profile: {
         prompt: input.prompt,
         focus: input.prompt,
-        themes: outline.themes,
+        // Theme ranking is metadata, not Scripture verification. Extra valid
+        // themes must not discard an otherwise complete, verified journey.
+        themes: [...new Set(outline.themes)].slice(0, 3),
         pace: outline.pace,
       },
       translation: input.translation,

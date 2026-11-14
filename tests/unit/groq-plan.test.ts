@@ -26,7 +26,10 @@ const input = {
 type Payload = {
   stage: string;
   count?: number;
-  repair?: { reason: string };
+  repair?: {
+    reason: string;
+    fieldIssues?: { path: string; code: string; minimum?: number }[];
+  };
   goal: string;
   days?: {
     number: number;
@@ -99,7 +102,9 @@ function mockModel(
       calls.push(payload);
       expect(body.reasoning_effort).toBe("low");
       expect(body.reasoning_format).toBeUndefined();
-      expect(body.response_format.json_schema.strict).toBe(true);
+      if (payload.repair?.reason === "schema")
+        expect(body.response_format.type).toBe("json_object");
+      else expect(body.response_format.json_schema.strict).toBe(true);
       return (
         override?.(payload, calls.length) ??
         completion(
@@ -429,4 +434,52 @@ it("offers real bounds for invalid starts and keeps verified days during repair"
     },
   });
   expect(plan.days[0].passage.reference).toBe("Psalms 13:1-6");
+});
+
+it("repairs a five-day CSB outline using exact failing field constraints", async () => {
+  let broken = false;
+  const { calls, fetch } = mockModel((payload) => {
+    if (payload.stage !== "outline" || broken) return;
+    broken = true;
+    const draft = outline(5);
+    draft.days[0].objective = "Draw near";
+    return completion(draft);
+  });
+  const plan = await generatePlan({
+    ...input,
+    days: 5,
+    translation: "CSB",
+    prompt:
+      "I want to get to know God deeper in my everyday little moments and in worship, being more obedient every little step",
+  });
+  expect(plan.provider).toBe("groq");
+  expect(plan.days).toHaveLength(5);
+  expect(calls[1].repair?.fieldIssues).toContainEqual({
+    path: "days.0.objective",
+    code: "too_small",
+    minimum: 20,
+  });
+  const body = JSON.parse(fetch.mock.calls[0][1]!.body as string);
+  const day = body.response_format.json_schema.schema.properties.days.items;
+  expect(day.properties.objective.minLength).toBeUndefined();
+  expect(day.properties.objective.description).toContain("minLength: 20");
+  expect(day.required).toContain("reference");
+  expect(day.additionalProperties).toBe(false);
+  expect(body.response_format.json_schema.strict).toBe(true);
+  const bible = await getBible("WEB");
+  expect(plan.days.every((day) => bible.validate(day.passage))).toBe(true);
+});
+
+it("keeps a verified five-day journey when Groq supplies extra valid theme metadata", async () => {
+  const { calls } = mockModel((payload) => {
+    if (payload.stage !== "outline") return;
+    const draft = outline(payload.count);
+    draft.themes = ["prayer", "gratitude", "patience", "forgiveness"];
+    return completion(draft);
+  });
+  const plan = await generatePlan({ ...input, days: 5, translation: "CSB" });
+  expect(plan.provider).toBe("groq");
+  expect(plan.days).toHaveLength(5);
+  expect(plan.profile.themes).toEqual(["prayer", "gratitude", "patience"]);
+  expect(calls.filter((call) => call.stage === "outline")).toHaveLength(1);
 });

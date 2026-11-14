@@ -2,6 +2,7 @@ import { createGroq } from "@ai-sdk/groq";
 import {
   APICallError,
   generateText,
+  jsonSchema,
   NoObjectGeneratedError,
   NoOutputGeneratedError,
   Output,
@@ -15,12 +16,59 @@ import type { ModelProvider } from "./index";
 export const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 export const GROQ_MODEL = "openai/gpt-oss-120b";
 export class GroqDraftError extends AppError {
-  constructor(public reason: "truncated" | "schema" | "validation") {
+  constructor(
+    public reason: "truncated" | "schema" | "validation",
+    public issues: {
+      path: string;
+      code: string;
+      minimum?: number;
+      maximum?: number;
+    }[] = [],
+  ) {
     super(
       "PLAN_GENERATION_FAILED",
       "Groq could not verify this draft after a repair. Please retry. No guided plan was substituted and your saved days are unchanged.",
     );
   }
+}
+// Groq's constrained decoder receives structural constraints only. Prose lengths
+// remain hard application gates, with actionable field-level repair feedback.
+export function groqWireSchema(schema: z.ZodType) {
+  const walk = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(walk);
+    if (!value || typeof value !== "object") return value;
+    const object = value as Record<string, unknown>;
+    const bounds = [
+      "minLength",
+      "maxLength",
+      "minItems",
+      "maxItems",
+      "minimum",
+      "maximum",
+      "exclusiveMinimum",
+      "exclusiveMaximum",
+    ];
+    const result: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(object))
+      if (!bounds.includes(key) && key !== "$schema") result[key] = walk(item);
+    const hints = bounds
+      .filter((key) => key in object)
+      .map((key) => `${key}: ${object[key]}`);
+    if (hints.length)
+      result.description = [object.description, ...hints]
+        .filter(Boolean)
+        .join("; ");
+    return result;
+  };
+  return walk(z.toJSONSchema(schema)) as Parameters<typeof jsonSchema>[0];
+}
+function schemaIssues(error: z.ZodError) {
+  return error.issues.map((issue) => ({
+    path: issue.path.join("."),
+    code: issue.code,
+    ...("minimum" in issue ? { minimum: Number(issue.minimum) } : {}),
+    ...("maximum" in issue ? { maximum: Number(issue.maximum) } : {}),
+  }));
 }
 export class GroqUnavailable extends AppError {
   constructor(public status: Exclude<CloudStatus, "connected">) {
@@ -57,11 +105,29 @@ export function createGroqProvider(
     ]);
   const failed = (error: unknown): never => {
     if (options.signal?.aborted) throw error;
-    if (NoObjectGeneratedError.isInstance(error))
+    if (NoObjectGeneratedError.isInstance(error)) {
+      let cause: unknown = error.cause;
+      let issues: GroqDraftError["issues"] = [];
+      for (let i = 0; i < 5 && cause && typeof cause === "object"; i++) {
+        if (cause instanceof z.ZodError) {
+          issues = schemaIssues(cause);
+          break;
+        }
+        cause = (cause as { cause?: unknown }).cause;
+      }
+      console.warn("[Still Groq schema]", {
+        finishReason: error.finishReason,
+        cause: error.cause instanceof Error ? error.cause.name : "unknown",
+        issues,
+      });
       throw new GroqDraftError(
         error.finishReason === "length" ? "truncated" : "schema",
+        issues,
       );
-    if (error instanceof z.ZodError || NoOutputGeneratedError.isInstance(error))
+    }
+    if (error instanceof z.ZodError)
+      throw new GroqDraftError("schema", schemaIssues(error));
+    if (NoOutputGeneratedError.isInstance(error))
       throw new GroqDraftError("schema");
     if (APICallError.isInstance(error) && error.statusCode === 400) {
       try {
@@ -87,6 +153,7 @@ export function createGroqProvider(
     async generate(schema, system, prompt) {
       const request = JSON.parse(prompt);
       const stage = request.stage;
+      const jsonRepair = request.repair?.reason === "schema";
       const planStage = stage === "outline" || stage === "devotional";
       const outputTokens =
         stage === "goals" || stage === "chat-retrieval"
@@ -104,9 +171,14 @@ export function createGroqProvider(
             model: model(),
             system:
               system +
+              (jsonRepair
+                ? ` Return a JSON object matching this schema exactly: ${JSON.stringify(groqWireSchema(schema))}.`
+                : "") +
               " Keep every field concise. Reflections must be at least 60 characters. Use short passages of at most 8 verses. No extra prose. Never use quotation-mark characters in commentary strings. Put canonical references only in the outline reference field, never in reflection, prayer, or context text.",
             prompt,
-            output: Output.object({ schema }),
+            output: jsonRepair
+              ? Output.json()
+              : Output.object({ schema: jsonSchema(groqWireSchema(schema)) }),
             // GPT-OSS reasoning shares the completion budget with JSON. A
             // length-limited repair gets headroom without replaying all days.
             maxOutputTokens:
@@ -118,7 +190,10 @@ export function createGroqProvider(
             providerOptions: {
               // GPT-OSS rejects reasoning_format. The SDK keeps reasoning
               // separate; only validated final-answer text is ever displayed.
-              groq: { reasoningEffort: "low" },
+              groq: {
+                reasoningEffort: "low",
+                ...(jsonRepair ? { structuredOutputs: false } : {}),
+              },
             },
           });
           const parsed = schema.parse(result.output);

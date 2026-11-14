@@ -7,7 +7,9 @@ import {
   webCorpus,
 } from "./helpers/sanity";
 
+// These API fixtures must reach Playwright routing rather than the installed SW.
 test.use({
+  serviceWorkers: "block",
   viewport: { width: 390, height: 844 },
   stateOverrides: { setupSeen: true },
 });
