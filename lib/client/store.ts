@@ -37,7 +37,7 @@ export type SavedState = {
 };
 export const defaults: SavedState = {
   journeyOnboarding: {},
-  speechEngine: "auto",
+  speechEngine: "paradee",
   pinLock: null,
   setupSeen: false,
   plans: [],
@@ -66,7 +66,7 @@ const database = () => {
   return databasePromise;
 };
 export function mergeSavedState(saved?: Partial<SavedState>): SavedState {
-  return {
+  const merged = {
     ...defaults,
     ...saved,
     journeyOnboarding: {
@@ -74,6 +74,8 @@ export function mergeSavedState(saved?: Partial<SavedState>): SavedState {
       ...saved?.journeyOnboarding,
     },
   };
+  if (merged.speechEngine === "auto") merged.speechEngine = "paradee";
+  return merged;
 }
 export async function readState(): Promise<SavedState> {
   const pending = localStorage.getItem("still-pending-save");

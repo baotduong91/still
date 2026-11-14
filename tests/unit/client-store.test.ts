@@ -1,4 +1,5 @@
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
+import { mergeSavedState } from "@/lib/client/store";
 const fixture = vi.hoisted(() => ({
   saved: undefined as unknown,
   put: vi.fn(),
@@ -20,6 +21,15 @@ beforeEach(() => {
   });
 });
 afterEach(() => vi.unstubAllGlobals());
+it("defaults new state to Paradee and upgrades legacy Auto", () => {
+  expect(mergeSavedState().speechEngine).toBe("paradee");
+  expect(mergeSavedState({ speechEngine: "auto" }).speechEngine).toBe(
+    "paradee",
+  );
+  expect(mergeSavedState({ speechEngine: "kokoro" }).speechEngine).toBe(
+    "kokoro",
+  );
+});
 it("reads a legacy record with new defaults without replacing saved settings", async () => {
   fixture.saved = {
     plans: [{ id: "saved-plan" }],

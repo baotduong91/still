@@ -1,6 +1,6 @@
 import { bellaVoice } from "./kokoro-client";
 import { createLocalVoiceClient } from "./local-voice-client";
-import { offlineModelStored } from "./model-cache";
+import { offlineModelStored, prepareSpeechRuntime } from "./model-cache";
 import { paradeeStored } from "./paradee-model";
 import type { SpeechEngine } from "./shared";
 export const paradeeVoice = createLocalVoiceClient({
@@ -30,4 +30,27 @@ export function privateVoice(preference: SpeechEngine) {
 export function clearPrivatePreviews() {
   bellaVoice.clear();
   paradeeVoice.clear();
+}
+
+type DownloadOptions = {
+  onWaiting?: (message: string) => void;
+  onTimeout?: (extend: () => void) => void;
+};
+
+/** Download the static model + speech runtime only; no reading text leaves the device. */
+export async function downloadPrivateVoice(
+  preference: SpeechEngine,
+  signal: AbortSignal,
+  progress: (message: string) => void = () => {},
+  options?: DownloadOptions,
+) {
+  if (preference === "device") return { stored: true, backend: "" };
+  const voice = privateVoice(preference);
+  if (await voice.stored())
+    return { stored: true, backend: voice.backend() };
+  const [, result] = await Promise.all([
+    prepareSpeechRuntime(),
+    voice.audio(null, progress, signal, undefined, options),
+  ]);
+  return { stored: await voice.stored(), backend: result.backend };
 }

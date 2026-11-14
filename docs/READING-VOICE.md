@@ -22,7 +22,7 @@ Compact controls provide Play/Pause, Stop, 0.8×–1.2× speed, an engine label,
 
 Settings → A voice for the Word → Reading voice engine:
 
-- **Edge + Paradee 1.1 (recommended):** Edge for online Scripture; Paradee’s Heart voice for all other content, offline Scripture, and Edge failures. Existing saved engine preferences are preserved; select this option to switch from Bella.
+- **Edge + Paradee 1.1 (default):** Edge for online Scripture; Paradee’s Heart voice for all other content, offline Scripture, and Edge failures. Today downloads and warms Paradee automatically when you are online. Legacy Auto is treated as Paradee.
 - Auto: Scripture uses Edge online, then Kokoro offline/on failure. Other kinds always stay on-device.
 - Edge: prefer Jenny online for Scripture only, with the same on-device fallback when unavailable. Other kinds always stay on-device.
 - Kokoro: Bella on-device, even when online. It never calls the Edge route.

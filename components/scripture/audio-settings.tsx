@@ -4,9 +4,12 @@ import { useApp } from "@/components/provider";
 import { Button } from "@/components/ui/button";
 import { resetBellaBackend } from "@/lib/tts/kokoro-client";
 import { readingAudioEvent } from "@/lib/tts/reading";
-import { privateVoice, clearPrivatePreviews } from "@/lib/tts/private-voice";
+import {
+  privateVoice,
+  clearPrivatePreviews,
+  downloadPrivateVoice,
+} from "@/lib/tts/private-voice";
 import type { SpeechEngine } from "@/lib/tts/shared";
-import { prepareSpeechRuntime } from "@/lib/tts/model-cache";
 export function AudioSettings() {
   const { state, update, online } = useApp();
   const voice = privateVoice(state.speechEngine);
@@ -113,12 +116,10 @@ export function AudioSettings() {
             `Preparing ${voice.name}. Downloading model files only; no personal text is sent…`,
           );
           try {
-            const runtime = prepareSpeechRuntime();
-            const synthesis = voice.audio(
-              null,
-              setMessage,
+            const result = await downloadPrivateVoice(
+              state.speechEngine,
               controller.signal,
-              undefined,
+              setMessage,
               {
                 onWaiting: setMessage,
                 onTimeout: (extend) => {
@@ -131,9 +132,8 @@ export function AudioSettings() {
                 },
               },
             );
-            const [, result] = await Promise.all([runtime, synthesis]);
             if (!controller.signal.aborted) {
-              if (!(await voice.stored())) {
+              if (!result.stored) {
                 setMessage(
                   `${voice.name} can read now, but this browser could not save its model for offline use. Free some storage and try downloading again.`,
                 );

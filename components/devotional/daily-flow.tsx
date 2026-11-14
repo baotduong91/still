@@ -9,7 +9,11 @@ import { useReadingAudio } from "@/components/scripture/use-reading-audio";
 import { usePassage } from "@/components/scripture/use-passage";
 import { devotionReflectionText, type ReadingPayload } from "@/lib/tts/reading";
 import { verseSpeech } from "@/lib/tts/shared";
-import { privateVoice, clearPrivatePreviews } from "@/lib/tts/private-voice";
+import {
+  privateVoice,
+  clearPrivatePreviews,
+  downloadPrivateVoice,
+} from "@/lib/tts/private-voice";
 import type { PassageType, DayType, PlanType } from "@/lib/schemas";
 import { PracticeWriter } from "./practice-writer";
 import { PrayerWriter } from "./prayer-writer";
@@ -43,6 +47,8 @@ export function DailyFlow({
   const latestReader = useRef<ReturnType<typeof useReadingAudio> | null>(null);
   const [privateReady, setPrivateReady] = useState(false);
   const [needsVoiceDownload, setNeedsVoiceDownload] = useState(false);
+  const [voicePreparing, setVoicePreparing] = useState(false);
+  const voicePrepare = useRef<AbortController | null>(null);
   const refs = useRef<(HTMLElement | null)[]>([]),
     lockScroll = useRef(0),
     consumed = useRef(0);
@@ -161,17 +167,43 @@ export function DailyFlow({
     const timer = setTimeout(async () => {
       if (state.speechEngine === "device") return;
       // Warm the server runtime without sending any verse or personal text.
-      if (online && ["auto", "edge", "paradee"].includes(state.speechEngine))
+      if (
+        online &&
+        ["auto", "edge", "kokoro", "paradee"].includes(state.speechEngine)
+      )
         void fetch("/api/tts", { method: "HEAD", cache: "no-store" }).catch(
           () => {},
         );
-      const stored = await voice.stored().catch(() => false);
+      let stored = await voice.stored().catch(() => false);
+      if (!alive) return;
+      if (!stored && online) {
+        voicePrepare.current?.abort();
+        const controller = new AbortController();
+        voicePrepare.current = controller;
+        setVoicePreparing(true);
+        setNeedsVoiceDownload(true);
+        try {
+          const prepared = await downloadPrivateVoice(
+            state.speechEngine,
+            controller.signal,
+          );
+          stored = prepared.stored;
+        } catch {
+          stored = false;
+        } finally {
+          if (voicePrepare.current === controller) voicePrepare.current = null;
+          if (alive) setVoicePreparing(false);
+        }
+      }
       if (!alive) return;
       setNeedsVoiceDownload(!stored);
+      if (stored) void voice.warm();
     }, 250);
     return () => {
       alive = false;
       clearTimeout(timer);
+      voicePrepare.current?.abort();
+      voicePrepare.current = null;
       latestReader.current?.clearPrepared();
       clearPrivatePreviews();
     };
@@ -303,10 +335,15 @@ export function DailyFlow({
             ))}
           </div>
           <p className="fine-print">{day.interpretation}</p>
-          {needsVoiceDownload && (
+          {voicePreparing && (
+            <p className="fine-print" role="status">
+              Preparing {voice.name} on this device for private listening…
+            </p>
+          )}
+          {needsVoiceDownload && !voicePreparing && (
             <p className="fine-print">
               <Link href="/settings#reading-voice">
-                Download {voice.name} in Settings for faster private reading.
+                Finish setting up {voice.name} in Settings for private reading.
               </Link>
             </p>
           )}
@@ -383,8 +420,14 @@ export function DailyFlow({
         )}
       </section>
       <div className="today-player" data-bella-ready={privateReady}>
+        {voicePreparing && (
+          <p className="reading-context" role="status">
+            Preparing {voice.name} for on-device listening…
+          </p>
+        )}
         {autoplay &&
           needsVoiceDownload &&
+          !voicePreparing &&
           !privateReady &&
           reader.status !== "idle" && (
             <p className="reading-context" role="status">
