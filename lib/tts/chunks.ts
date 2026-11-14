@@ -107,7 +107,7 @@ export function joinAudio(parts: Float32Array[], crossfadeMs = 0) {
   return result;
 }
 export class SpeechInputTooLong extends Error {}
-/** Kokoro's built-in tokenizer otherwise truncates silently at its token limit. */
+/** Long inputs are split before they exceed the on-device speech token limit. */
 export function guardSpeechTokenizer<T extends { tokenizer: unknown }>(tts: T) {
   if (typeof tts.tokenizer !== "function") return;
   tts.tokenizer = new Proxy(tts.tokenizer, {

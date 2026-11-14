@@ -97,7 +97,7 @@ export async function streamMp3(
     return new Blob(parts, { type: "audio/mpeg" });
   } catch (error) {
     // A stream can fail while play() is still pending. Detach it before a local
-    // fallback starts so the late online player cannot speak over Bella.
+    // fallback starts so the late online player cannot speak over Paradee.
     player.pause();
     player.removeAttribute("src");
     player.load();

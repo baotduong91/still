@@ -61,11 +61,7 @@ export function useReadingAudio(
   }
   async function prepareNext(next: ReadingPayload, allowDownload = false) {
     // Lookahead is strictly local; it never requests Edge or another cloud voice.
-    if (
-      !["kokoro", "paradee"].includes(
-        engineForKind(next.kind, state.speechEngine, online),
-      )
-    )
+    if (engineForKind(next.kind, state.speechEngine, online) !== "paradee")
       return false;
     const text = buildSpokenText(next);
     if (nextAudio.current?.text === text) return true;
@@ -513,9 +509,9 @@ export function useReadingAudio(
       setMessage(`Preparing a continuous ${voice.name} reading on-device…`);
       let playbackError: unknown,
         streamed = false;
-      const kokoroPlayback = new ChunkScheduler(speedRef.current, true);
-      scheduler.current = kokoroPlayback;
-      const kokoroOptions = {
+      const localPlayback = new ChunkScheduler(speedRef.current, true);
+      scheduler.current = localPlayback;
+      const localOptions = {
         onWaiting: (text: string) => {
           if (alive() && !started.current) setMessage(text);
         },
@@ -551,7 +547,7 @@ export function useReadingAudio(
               setCanKeepWaiting(false);
               streamed = true;
               setEngine(`${voice.label} · ${backend}`);
-              void kokoroPlayback
+              void localPlayback
                 .append(blob, () => {
                   if (alive()) {
                     setMessage("");
@@ -569,21 +565,21 @@ export function useReadingAudio(
                   }
                 });
             },
-            kokoroOptions,
+            localOptions,
           );
           if (result.blob && alive()) {
             extendWait.current = null;
             setCanKeepWaiting(false);
             setEngine(`${voice.label} · ${result.backend}`);
             setMessage("");
-            kokoroPlayback.stop();
+            localPlayback.stop();
             scheduler.current = null;
             await playBlob(result.blob);
             return;
           }
           if (!streamed) throw new Error("No audio was generated");
           if (playbackError) throw playbackError;
-          await kokoroPlayback.drain();
+          await localPlayback.drain();
           if (alive() && streamed) {
             scheduler.current = null;
             setStatus("idle");

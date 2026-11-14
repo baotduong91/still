@@ -18,7 +18,6 @@ it("keeps Paradee private content on-device and Edge limited to online Scripture
       online ? "edge" : "paradee",
     );
   }
-  expect(engineForKind("devotional", "kokoro", true)).toBe("paradee");
   expect(engineForKind("devotional", "device", true)).toBe("device");
 });
 it("converts eSpeak diphthongs, affricates and flaps to the trained Misaki vocabulary", () => {

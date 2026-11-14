@@ -12,7 +12,7 @@ The provider measures viewport breakpoints with `matchMedia` after hydration and
 
 `deviceProfile` contains a `crypto.randomUUID()` ID, `createdAt`, first `formFactor`, and three-way `starterVariant` (UUID modulo 3). The selected `starterIntent` is saved when the user begins. Copy variants change the welcome sentence only; they are not analytics experiments. No names, locale/timezone, fingerprinting, IP lookup, or device attributes beyond the viewport category are collected. The profile stays in the existing `still-private` IndexedDB state and its localStorage write-ahead record. It is never put into URLs, logs, AWP requests, model calls, or telemetry. The existing explicit local backup export includes it with the rest of the saved state.
 
-There is no extra onboarding network service. The app still fetches its static shell and local WEB corpus on initial installation and registers its existing offline service worker. After installation those files and new starters work offline. Today’s existing text-free TTS warmup and optional, previously downloaded Bella preparation remain separate from onboarding.
+There is no extra onboarding network service. The app still fetches its static shell and local WEB corpus on initial installation and registers its existing offline service worker. After installation those files and new starters work offline. Today’s existing text-free TTS warmup and automatic Paradee preparation remain separate from onboarding.
 
 ## Start fresh
 

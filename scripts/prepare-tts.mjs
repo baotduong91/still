@@ -17,7 +17,7 @@ for (const name of [
   if ((await stat(path.join(target, name))).size === 0)
     throw new Error(`Missing ONNX runtime: ${name}`);
 }
-console.log("Prepared same-origin Bella WASM runtime in public/tts.");
+console.log("Prepared same-origin Paradee WASM runtime in public/tts.");
 
 await writeFile(path.join(target, "manifest.json"), JSON.stringify([
   "/tts/ort-wasm-simd-threaded.jsep.mjs", "/tts/ort-wasm-simd-threaded.jsep.wasm"

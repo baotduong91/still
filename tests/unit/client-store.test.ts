@@ -23,10 +23,10 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 it("defaults new state to Paradee and upgrades legacy Auto", () => {
   expect(mergeSavedState().speechEngine).toBe("paradee");
-  expect(mergeSavedState({ speechEngine: "auto" }).speechEngine).toBe(
+  expect(mergeSavedState({ speechEngine: "auto" as never }).speechEngine).toBe(
     "paradee",
   );
-  expect(mergeSavedState({ speechEngine: "kokoro" }).speechEngine).toBe(
+  expect(mergeSavedState({ speechEngine: "kokoro" as never }).speechEngine).toBe(
     "paradee",
   );
 });

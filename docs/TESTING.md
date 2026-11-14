@@ -13,7 +13,7 @@ npm run test:sanity
 | Offline journey | All four sections stay mounted in order; Continue stays in one document; typed Practice survives reload/completion; participation and completion date persist; a new reference journey can be built offline without a plan API call. |
 | Mobile layout and visual baseline | 390×844 touch viewport; native smooth-scroll samples; headings and player above bottom navigation; primary targets at least 44px; centered controls pass hit testing; horizontal overflow and cumulative layout shift checks; light/dark Axe AA checks; image format/style targets remain usable. |
 | Exact Scripture and fallback | The displayed verse and citation and every captured TTS text/reference match raw WEB corpus records for WEB, unavailable CSB, and unavailable NLT. Missing editions are visibly labelled as WEB fallback. No invented licensed text is used. |
-| Voice routing/responsiveness | Edge for online Auto Scripture; unresolved Edge does not block Continue/scrolling; Bella for reflection/prayer and offline Scripture; Kokoro and device preferences stay explicit; no overlapping readers; prepared media fixture reaches playing within 1.5s. |
+| Voice routing/responsiveness | Edge for online Scripture; unresolved Edge does not block Continue/scrolling; Paradee for reflection/prayer and offline Scripture; device preference stays explicit; no overlapping readers; prepared media fixture reaches playing within 1.5s. |
 | Model modes | Configured cloud/Ollama plan and chat inputs retain their selected provider; cloud requires consent; deterministic generated prose has independently verified WEB citations; failed plan/chat calls show an error and never retry a different provider. |
 | PIN | Today, Journal, Chat, and their sensitive DOM/player are gated; public WEB lookup works while locked; wrong PIN fails and the right PIN restores the saved Practice response. |
 | AWP HTTP surface | Both discovery URLs agree; v0.2 action schemas compile; every declared action rejects invalid input with its advertised status/code/recovery/no-store contract; malformed JSON, invalid verse, missing plan, wrong method, cross-site input, and invalid bearer contracts are exercised. |
@@ -46,7 +46,7 @@ npm run test:e2e
 
 Existing unit and contract tests retain all-action success-schema coverage, server-side owner isolation/idempotency/conflicts, translation provider validation, model Scripture gatekeeping, and the exhaustive kind/preference/connectivity routing matrix. The focused suite complements these tests instead of copying every variation into the browser. Existing `onboarding.spec.ts` continues to test clean-device welcome; the sanity suite deliberately uses a returning user.
 
-Optional live-engine verification (public WEB only; downloads Bella assets):
+Optional live-engine verification (public WEB only; downloads Paradee assets):
 
 ```sh
 TEST_REAL_TTS=1 npm run test:e2e -- audio-runtime.spec.ts

@@ -11,7 +11,7 @@ import { verseSpeech } from "../../lib/tts/shared";
 import { PARADEE_MODEL_URL } from "../../lib/tts/paradee-model";
 import { buildSpokenText, devotionReflectionText } from "../../lib/tts/reading";
 test.use({
-  stateOverrides: { speechEngine: "kokoro" },
+  stateOverrides: { speechEngine: "kokoro" as never },
   launchOptions: { args: ["--mute-audio"] },
 });
 
@@ -149,7 +149,7 @@ test("real Paradee downloads, plays full private sections and reuses its model a
     }),
   );
   await expect(page.locator(".today-player")).toHaveAttribute(
-    "data-bella-ready",
+    "data-voice-ready",
     "true",
     { timeout: 60000 },
   );

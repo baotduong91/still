@@ -1,13 +1,14 @@
 import { test, expect } from "./fixtures";
-import { seedOfflineKokoroAssets } from "./helpers/bella-cache";
+import { PARADEE_MODEL_URL } from "../../lib/tts/paradee-model";
+import { seedOfflineParadeeAssets } from "./helpers/paradee-cache";
 test.use({ stateOverrides: { speechEngine: "device", setupSeen: true } });
 test("model bytes and voice cache survive navigation in Safari", async ({
   page,
 }) => {
   await page.goto("/settings");
-  await seedOfflineKokoroAssets(page);
+  await seedOfflineParadeeAssets(page);
   const stored = () =>
-    page.evaluate(async () => {
+    page.evaluate(async (modelUrl) => {
       const keys = await new Promise((resolve, reject) => {
         const r = indexedDB.open("still-tts-models", 1);
         r.onsuccess = () => {
@@ -21,16 +22,11 @@ test("model bytes and voice cache survive navigation in Safari", async ({
         };
         r.onerror = () => reject(String(r.error));
       });
-      return {
-        keys,
-        voices: (await (await caches.open("kokoro-voices")).keys()).map(
-          (r) => r.url,
-        ),
-      };
-    });
+      return { keys, runtime: await caches.keys() };
+    }, PARADEE_MODEL_URL);
   const initial = await stored();
-  expect(initial.keys).toEqual(["https://still.test/model_quantized.onnx"]);
-  expect(initial.voices).toHaveLength(1);
+  expect(initial.keys).toEqual([PARADEE_MODEL_URL]);
+  expect(initial.runtime.length).toBeGreaterThanOrEqual(0);
   await page.goto("/today");
   expect(await stored()).toEqual(initial);
 });

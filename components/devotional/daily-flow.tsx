@@ -169,7 +169,7 @@ export function DailyFlow({
       // Warm the server runtime without sending any verse or personal text.
       if (
         online &&
-        ["auto", "edge", "kokoro", "paradee"].includes(state.speechEngine)
+        ["edge", "paradee"].includes(state.speechEngine)
       )
         void fetch("/api/tts", { method: "HEAD", cache: "no-store" }).catch(
           () => {},
@@ -425,7 +425,7 @@ export function DailyFlow({
           </p>
         )}
       </section>
-      <div className="today-player" data-bella-ready={privateReady}>
+      <div className="today-player" data-voice-ready={privateReady}>
         {voicePreparing && (
           <p className="reading-context" role="status">
             Preparing {voice.name} for on-device listening…

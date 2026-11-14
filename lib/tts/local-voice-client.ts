@@ -1,20 +1,20 @@
-export const kokoroAutoExtends = 3;
-export const kokoroTimeouts = {
+export const localVoiceAutoExtends = 3;
+export const localVoiceTimeouts = {
   download: 180000,
   model_load: 180000,
   first_inference: 180000,
   warm_inference: 45000,
 };
-export type KokoroPhase = keyof typeof kokoroTimeouts;
+export type LocalVoicePhase = keyof typeof localVoiceTimeouts;
 export class LocalVoiceTimeoutError extends Error {
   constructor(
-    public phase: KokoroPhase,
-    name = "Bella",
+    public phase: LocalVoicePhase,
+    name = "Paradee",
   ) {
     super(
       `${name} needs more time on first use. Keep waiting, or choose a device voice.`,
     );
-    this.name = "KokoroTimeoutError";
+    this.name = "LocalVoiceTimeoutError";
   }
 }
 type Options = {
@@ -65,7 +65,7 @@ export function createLocalVoiceClient(config: {
       id = ++serial;
     return new Promise<{ blob?: Blob; backend: string }>((resolve, reject) => {
       let timer: ReturnType<typeof setTimeout>,
-        phase: KokoroPhase = "model_load",
+        phase: LocalVoicePhase = "model_load",
         phaseKey = "",
         deadline = Infinity,
         lastProgress = "",
@@ -105,14 +105,14 @@ export function createLocalVoiceClient(config: {
         );
       const expired = () => {
         if (settled) return;
-        if (autoExtended < kokoroAutoExtends) {
+        if (autoExtended < localVoiceAutoExtends) {
           autoExtended++;
           waiting = false;
-          deadline = Date.now() + kokoroTimeouts[phase];
+          deadline = Date.now() + localVoiceTimeouts[phase];
           options?.onWaiting?.(
             autoExtended === 1
               ? `${name} is preparing on-device. This can take a few minutes the first time…`
-              : `Still preparing ${name} (${autoExtended + 1}/${kokoroAutoExtends + 1})…`,
+              : `Still preparing ${name} (${autoExtended + 1}/${localVoiceAutoExtends + 1})…`,
           );
           arm();
           return;
@@ -123,7 +123,7 @@ export function createLocalVoiceClient(config: {
             if (settled || !waiting || manualExtended) return;
             waiting = false;
             manualExtended = true;
-            deadline = Date.now() + kokoroTimeouts[phase];
+            deadline = Date.now() + localVoiceTimeouts[phase];
             arm();
           });
           return;
@@ -135,18 +135,18 @@ export function createLocalVoiceClient(config: {
         if (!waiting && !settled)
           timer = setTimeout(
             expired,
-            Math.max(0, Math.min(kokoroTimeouts[phase], deadline - Date.now())),
+            Math.max(0, Math.min(localVoiceTimeouts[phase], deadline - Date.now())),
           );
       };
-      const enter = (next: KokoroPhase, key: string) => {
+      const enter = (next: LocalVoicePhase, key: string) => {
         if (key !== phaseKey) {
           phase = next;
           phaseKey = key;
           // Heartbeats renew liveness, but cannot hide an endlessly running inference.
           deadline = key.startsWith("queued:")
-            ? Date.now() + kokoroTimeouts.first_inference
+            ? Date.now() + localVoiceTimeouts.first_inference
             : /inference/.test(phase)
-              ? Date.now() + kokoroTimeouts[phase]
+              ? Date.now() + localVoiceTimeouts[phase]
               : Infinity;
         }
         arm();
@@ -162,8 +162,8 @@ export function createLocalVoiceClient(config: {
               ? modelWarmed
                 ? "warm_inference"
                 : "first_inference"
-              : data.phase in kokoroTimeouts
-                ? (data.phase as KokoroPhase)
+              : data.phase in localVoiceTimeouts
+                ? (data.phase as LocalVoicePhase)
                 : "model_load";
           const key = `${data.phase}:${data.step ?? ""}`;
           const update = `${key}:${data.message}:${data.loaded}`;

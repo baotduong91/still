@@ -15,12 +15,11 @@ it("keeps every non-Scripture kind on-device for every preference and connectivi
     "interpretation",
   ];
   for (const kind of kinds)
-    for (const preference of ["auto", "edge", "kokoro"] as const)
+    for (const preference of ["paradee", "edge"] as const)
       for (const online of [true, false])
         expect(engineForKind(kind, preference, online)).toBe("paradee");
-  expect(engineForKind("scripture", "auto", true)).toBe("edge");
+  expect(engineForKind("scripture", "paradee", true)).toBe("edge");
   expect(engineForKind("scripture", "edge", true)).toBe("edge");
-  expect(engineForKind("scripture", "kokoro", true)).toBe("edge");
   expect(engineForKind("scripture", "edge", false)).toBe("paradee");
   for (const kind of ["scripture", ...kinds] as const)
     for (const online of [true, false])

@@ -17,7 +17,7 @@ export type DeviceProfile = {
 export type SavedState = {
   deviceProfile?: DeviceProfile;
   journeyOnboarding?: { completedAt?: string; dismissedWelcome?: boolean };
-  speechEngine: "auto" | "edge" | "kokoro" | "paradee" | "device";
+  speechEngine: "paradee" | "edge" | "device";
   pinLock: { salt: string; hash: string; iterations: number } | null;
   setupSeen: boolean;
   plans: PlanType[];
@@ -74,8 +74,8 @@ export function mergeSavedState(saved?: Partial<SavedState>): SavedState {
       ...saved?.journeyOnboarding,
     },
   };
-  if (["auto", "kokoro"].includes(merged.speechEngine))
-    merged.speechEngine = "paradee";
+  const legacy = merged.speechEngine as string;
+  if (legacy === "auto" || legacy === "kokoro") merged.speechEngine = "paradee";
   return merged;
 }
 export async function readState(): Promise<SavedState> {

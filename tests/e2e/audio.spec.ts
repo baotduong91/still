@@ -1,8 +1,8 @@
 import { devotionReflectionText } from "../../lib/tts/reading";
-import { seedOfflineKokoroAssets } from "./helpers/bella-cache";
+import { seedOfflineParadeeAssets } from "./helpers/paradee-cache";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { kokoroAutoExtends, kokoroTimeouts } from "../../lib/tts/kokoro-client";
+import { localVoiceAutoExtends, localVoiceTimeouts } from "../../lib/tts/local-voice-client";
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => {
@@ -32,7 +32,7 @@ test.beforeEach(async ({ page }) => {
     }
     (window as unknown as { activeReaders: number }).activeReaders = 0;
     (window as unknown as { workerReplies: number }).workerReplies = 0;
-    (window as unknown as { kokoroJobs: object[] }).kokoroJobs = [];
+    (window as unknown as { localVoiceJobs: object[] }).localVoiceJobs = [];
     Object.defineProperty(window, "Audio", { value: TestAudio });
     HTMLMediaElement.prototype.play = async function () {
       this.dispatchEvent(new Event("playing"));
@@ -51,7 +51,7 @@ test.beforeEach(async ({ page }) => {
         prepare?: boolean;
       }) {
         if (["cancel", "clear"].includes(data.mode ?? "")) return;
-        (window as unknown as { kokoroJobs: object[] }).kokoroJobs.push({
+        (window as unknown as { localVoiceJobs: object[] }).localVoiceJobs.push({
           mode: data.mode,
           text: data.text ?? null,
           prepare: data.prepare,
@@ -134,7 +134,7 @@ test.beforeEach(async ({ page }) => {
                 phase: "first_inference",
                 step: 1,
                 message:
-                  "First Bella synthesis can take 1–3 minutes on desktop…",
+                  "First Paradee synthesis can take 1–3 minutes on desktop…",
               },
             }),
           );
@@ -211,7 +211,7 @@ test.beforeEach(async ({ page }) => {
     Object.defineProperty(window, "Worker", { value: LocalWorker });
   });
   await page.goto("/settings");
-  await seedOfflineKokoroAssets(page);
+  await seedOfflineParadeeAssets(page);
 });
 
 async function deviceSpy(page: Page) {
@@ -239,7 +239,7 @@ async function deviceSpy(page: Page) {
   });
 }
 
-test("desktop cold Bella may take 45 seconds without switching to Zira", async ({
+test("desktop cold Paradee may take 45 seconds without switching to Zira", async ({
   page,
 }) => {
   await deviceSpy(page);
@@ -254,12 +254,12 @@ test("desktop cold Bella may take 45 seconds without switching to Zira", async (
     Object.assign(window, { slowFirst: true, readingDelay: 45000 }),
   );
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
-  await expect(page.getByRole("status")).toContainText("First Bella synthesis");
+  await expect(page.getByRole("status")).toContainText("First Paradee synthesis");
   await page.clock.fastForward(45001);
   await expect(
     page.getByRole("button", { name: "Pause reflection" }),
   ).toBeVisible();
-  await expect(page.locator(".audio-engine")).toContainText("Kokoro · Bella");
+  await expect(page.locator(".audio-engine")).toContainText("Paradee 1.1 · Heart");
   await page
     .getByRole("button", { name: "Pause reflection", exact: true })
     .click();
@@ -284,7 +284,7 @@ test("desktop cold Bella may take 45 seconds without switching to Zira", async (
   ).toBe(0);
 });
 
-test("after automatic cold-start extensions Keep waiting continues the same Bella job without Zira", async ({
+test("after automatic cold-start extensions Keep waiting continues the same Paradee job without Zira", async ({
   page,
 }) => {
   await deviceSpy(page);
@@ -298,19 +298,19 @@ test("after automatic cold-start extensions Keep waiting continues the same Bell
   await page.clock.install();
   await page.evaluate(
     (readingDelay) => Object.assign(window, { slowFirst: true, readingDelay }),
-    kokoroTimeouts.first_inference * (kokoroAutoExtends + 1) + 60000,
+    localVoiceTimeouts.first_inference * (localVoiceAutoExtends + 1) + 60000,
   );
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
-  await expect(page.getByRole("status")).toContainText("First Bella synthesis");
-  for (let attempt = 0; attempt < kokoroAutoExtends; attempt++) {
-    await page.clock.fastForward(kokoroTimeouts.first_inference + 1);
+  await expect(page.getByRole("status")).toContainText("First Paradee synthesis");
+  for (let attempt = 0; attempt < localVoiceAutoExtends; attempt++) {
+    await page.clock.fastForward(localVoiceTimeouts.first_inference + 1);
     await expect(
       page.getByRole("button", { name: "Keep waiting", exact: true }),
     ).toHaveCount(0);
   }
-  await page.clock.fastForward(kokoroTimeouts.first_inference + 1);
+  await page.clock.fastForward(localVoiceTimeouts.first_inference + 1);
   await expect(page.getByRole("status")).toContainText(
-    "Bella still needs more time",
+    "Paradee still needs more time",
   );
   await expect(
     page.getByRole("button", { name: "Keep waiting", exact: true }),
@@ -333,7 +333,7 @@ test("after automatic cold-start extensions Keep waiting continues the same Bell
   expect(edge).toBe(0);
 });
 
-test("slow Bella switches to Zira only on an explicit device-voice tap and ignores late audio", async ({
+test("slow Paradee switches to Zira only on an explicit device-voice tap and ignores late audio", async ({
   page,
 }) => {
   await deviceSpy(page);
@@ -344,7 +344,7 @@ test("slow Bella switches to Zira only on an explicit device-voice tap and ignor
     Object.assign(window, { slowFirst: true, readingDelay: 240000 }),
   );
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
-  await expect(page.getByRole("status")).toContainText("First Bella synthesis");
+  await expect(page.getByRole("status")).toContainText("First Paradee synthesis");
   await page.clock.fastForward(180001);
   await page
     .getByRole("button", { name: "Use device voice · no download" })
@@ -365,7 +365,7 @@ test("slow Bella switches to Zira only on an explicit device-voice tap and ignor
   ).toBe(0);
 });
 
-test("two hard Bella errors offer a device choice without automatically speaking", async ({
+test("two hard Paradee errors offer a device choice without automatically speaking", async ({
   page,
 }) => {
   await deviceSpy(page);
@@ -374,7 +374,7 @@ test("two hard Bella errors offer a device choice without automatically speaking
   await page.evaluate(() => Object.assign(window, { hardErrors: 2 }));
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
   await expect(page.getByRole("status")).toContainText(
-    "Bella could not load after a retry",
+    "Paradee could not load after a retry",
   );
   expect(
     await page.evaluate(
@@ -455,7 +455,7 @@ test("only Play sends exact Scripture to Edge; controls and navigation stop audi
     ),
   ).toBe(true);
 });
-test("private Kokoro choice does not call Edge and survives reload", async ({
+test("private Paradee choice does not call Edge and survives reload", async ({
   page,
 }) => {
   let edgeCalls = 0;
@@ -465,27 +465,27 @@ test("private Kokoro choice does not call Edge and survives reload", async ({
     return r.abort();
   });
   await page.goto("/settings#reading-voice");
-  await page.getByLabel("Reading voice engine").selectOption("kokoro");
+  await expect(page.getByLabel("Reading voice engine")).toHaveValue("paradee");
   await page.reload();
-  await expect(page.getByLabel("Reading voice engine")).toHaveValue("kokoro");
+  await expect(page.getByLabel("Reading voice engine")).toHaveValue("paradee");
   await page.goto("/today");
   await page.getByRole("button", { name: "Play Scripture" }).click();
   await expect(
     page.getByRole("button", { name: "Pause Scripture" }),
   ).toBeVisible();
   await expect(page.locator(".audio-engine")).toContainText(
-    "Kokoro · Bella · WASM",
+    "Paradee 1.1 · Heart · WASM",
   );
   expect(edgeCalls).toBe(0);
   expect(
     await page.evaluate(() =>
       (
-        window as unknown as { kokoroJobs: { text: string | null }[] }
-      ).kokoroJobs.map((job) => job.text),
+        window as unknown as { localVoiceJobs: { text: string | null }[] }
+      ).localVoiceJobs.map((job) => job.text),
     ),
   ).toContainEqual(expect.stringContaining("\n\nMatthew 6:34"));
 });
-test("Edge failure falls back to local Kokoro with no cloud model request", async ({
+test("Edge failure falls back to local Paradee with no cloud model request", async ({
   page,
 }) => {
   let cloudCalls = 0;
@@ -507,11 +507,11 @@ test("Edge failure falls back to local Kokoro with no cloud model request", asyn
   await expect(
     page.getByRole("button", { name: "Pause Scripture" }),
   ).toBeVisible();
-  await expect(page.locator(".audio-engine")).toContainText("Kokoro");
+  await expect(page.locator(".audio-engine")).toContainText("Paradee");
   expect(cloudCalls).toBe(0);
 });
 
-test("Today curated steps stay local with Auto online and never read personal fields", async ({
+test("Today curated steps stay local with Paradee online and never read personal fields", async ({
   page,
 }) => {
   let edgeCalls = 0;
@@ -534,7 +534,7 @@ test("Today curated steps stay local with Auto online and never read personal fi
       );
       el.querySelectorAll(":scope > p.fine-print").forEach((p) => {
         const text = p.textContent!.trim();
-        if (text && !text.startsWith("Download Bella")) parts.push(text);
+        if (text && !text.startsWith("Download Paradee")) parts.push(text);
       });
       return parts.filter(Boolean).join("\n\n");
     }))!;
@@ -545,8 +545,8 @@ test("Today curated steps stay local with Auto online and never read personal fi
   expect(
     await page.evaluate(() =>
       (
-        window as unknown as { kokoroJobs: { text: string | null }[] }
-      ).kokoroJobs.map((job) => job.text),
+        window as unknown as { localVoiceJobs: { text: string | null }[] }
+      ).localVoiceJobs.map((job) => job.text),
     ),
   ).toContain(reflection);
   await page.getByRole("button", { name: "Pause reflection" }).click();
@@ -578,8 +578,8 @@ test("Today curated steps stay local with Auto online and never read personal fi
   expect(
     await page.evaluate(() =>
       (
-        window as unknown as { kokoroJobs: { text: string | null }[] }
-      ).kokoroJobs.map((job) => job.text),
+        window as unknown as { localVoiceJobs: { text: string | null }[] }
+      ).localVoiceJobs.map((job) => job.text),
     ),
   ).toContain(
     `A prayer inspired by today’s reading. This is not Scripture.\n\n${prayer}`,
@@ -607,8 +607,8 @@ test("Today curated steps stay local with Auto online and never read personal fi
   expect(
     await page.evaluate(() =>
       (
-        window as unknown as { kokoroJobs: { text: string | null }[] }
-      ).kokoroJobs.map((job) => job.text),
+        window as unknown as { localVoiceJobs: { text: string | null }[] }
+      ).localVoiceJobs.map((job) => job.text),
     ),
   ).toContain(action);
   await page.getByRole("button", { name: "Stop action" }).click();
@@ -618,7 +618,7 @@ test("Today curated steps stay local with Auto online and never read personal fi
   ).toHaveCount(0);
   expect(edgeCalls).toBe(0);
   const sent = await page.evaluate(() =>
-    JSON.stringify((window as unknown as { kokoroJobs: object[] }).kokoroJobs),
+    JSON.stringify((window as unknown as { localVoiceJobs: object[] }).localVoiceJobs),
   );
   expect(sent).not.toContain("Private personal prayer must never be spoken.");
   expect(sent).not.toContain("My private typed worry.");
@@ -726,7 +726,7 @@ test("locking the PIN boundary stops a curated reader", async ({ page }) => {
   ).toBe(0);
 });
 
-test("Bella buffers a slow reading before sound and queues segments without gaps", async ({
+test("Paradee buffers a slow reading before sound and queues segments without gaps", async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -962,7 +962,7 @@ test("Today is one vertical flow; finishing audio gently moves to reflection wit
     page.getByRole("button", { name: "Read prayer aloud" }),
   ).toBeVisible();
   await expect(page.locator(".today-player .audio-engine")).toHaveText(
-    "Kokoro · on-device",
+    "Paradee · on-device",
   );
   await page.getByRole("link", { name: "04 Practice" }).click();
   await page
@@ -989,15 +989,15 @@ test("Today preloads the next section and reuses its player at the autoplay hand
   );
   await page.addInitScript(() => Object.assign(window, { primeReady: true }));
   await page.goto("/settings");
-  await seedOfflineKokoroAssets(page);
+  await seedOfflineParadeeAssets(page);
   await page.goto("/today");
   await expect(page.locator(".today-player")).toHaveAttribute(
-    "data-bella-ready",
+    "data-voice-ready",
     "true",
     { timeout: 15000 },
   );
   const jobs = await page.evaluate(
-    () => (window as unknown as { kokoroJobs: { mode?: string }[] }).kokoroJobs,
+    () => (window as unknown as { localVoiceJobs: { mode?: string }[] }).localVoiceJobs,
   );
   // Prime the real section directly; avoid a redundant Ready inference.
   expect(jobs.some((job) => job.mode === "warm")).toBe(false);
@@ -1030,7 +1030,7 @@ test("Today preloads the next section and reuses its player at the autoplay hand
     page.getByRole("button", { name: "Pause reflection" }),
   ).toBeVisible({ timeout: 5000 });
   const jobsAfterAutoplay = await page.evaluate(
-    () => (window as unknown as { kokoroJobs: { mode?: string }[] }).kokoroJobs,
+    () => (window as unknown as { localVoiceJobs: { mode?: string }[] }).localVoiceJobs,
   );
   // The foreground read consumes the preloaded reflection. Only prayer may
   // enqueue new work once reflection starts; no redundant synthesis or warm-up.
@@ -1103,7 +1103,7 @@ test("Today autoplay reads each next section, and unchecking prevents another re
   ).toBe(0);
 });
 
-test("fresh private listening requires Settings setup without downloading on Today", async ({
+test("fresh private listening starts Paradee setup automatically on Today", async ({
   page,
 }) => {
   await page.evaluate(async () => {
@@ -1128,19 +1128,25 @@ test("fresh private listening requires Settings setup without downloading on Tod
           );
       };
     });
-    await caches.delete("kokoro-voices");
   });
   await page.goto("/today");
+  await expect(
+    page.getByText("Preparing Paradee", { exact: false }),
+  ).toBeVisible();
   await page.getByRole("link", { name: "02 Reflection" }).click();
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
-  await expect(
-    page.getByRole("link", { name: "Set up private listening" }),
-  ).toBeVisible();
-  expect(
-    await page.evaluate(
-      () => (window as unknown as { kokoroJobs: object[] }).kokoroJobs,
-    ),
-  ).toEqual([]);
+  await expect
+    .poll(
+      async () =>
+        (
+          await page.evaluate(
+            () =>
+              (window as unknown as { localVoiceJobs: object[] }).localVoiceJobs
+                .length,
+          )
+        ) > 0,
+    )
+    .toBe(true);
 });
 
 test("Settings precaches speech runtime and isolated Today still opens offline", async ({
@@ -1152,7 +1158,7 @@ test("Settings precaches speech runtime and isolated Today still opens offline",
     .getByRole("button", { name: "Download on-device voice", exact: true })
     .click();
   await expect(
-    page.getByText("Bella is ready on this device", { exact: false }),
+    page.getByText("Paradee is ready on this device", { exact: false }),
   ).toBeVisible();
   expect(
     await page.evaluate(

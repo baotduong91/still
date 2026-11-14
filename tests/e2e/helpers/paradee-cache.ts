@@ -1,6 +1,8 @@
 import type { Page } from "@playwright/test";
-export async function seedOfflineKokoroAssets(page: Page) {
-  await page.evaluate(async () => {
+import { PARADEE_MODEL_URL } from "../../../lib/tts/paradee-model";
+
+export async function seedOfflineParadeeAssets(page: Page) {
+  await page.evaluate(async (modelUrl) => {
     await navigator.serviceWorker.ready;
     if (!navigator.serviceWorker.controller)
       await new Promise<void>((resolve) => {
@@ -17,8 +19,8 @@ export async function seedOfflineKokoroAssets(page: Page) {
         const db = req.result;
         const tx = db.transaction("assets", "readwrite");
         tx.objectStore("assets").put(
-          new TextEncoder().encode("model").buffer,
-          "https://still.test/model_quantized.onnx",
+          new TextEncoder().encode("paradee-model").buffer,
+          modelUrl,
         );
         tx.oncomplete = () => {
           db.close();
@@ -36,10 +38,5 @@ export async function seedOfflineKokoroAssets(page: Page) {
       };
       req.onerror = () => reject(req.error);
     });
-    const cache = await caches.open("kokoro-voices");
-    await cache.put(
-      "https://still.test/voices/af_bella.bin",
-      new Response(new Blob(["voice"])),
-    );
-  });
+  }, PARADEE_MODEL_URL);
 }

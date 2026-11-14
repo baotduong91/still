@@ -1,5 +1,5 @@
 import { devotionReflectionText } from "../../lib/tts/reading";
-import { seedOfflineKokoroAssets } from "./helpers/bella-cache";
+import { seedOfflineParadeeAssets } from "./helpers/paradee-cache";
 import { test, expect } from "./fixtures";
 import AxeBuilder from "@axe-core/playwright";
 import { Bible } from "../../lib/bible";
@@ -342,13 +342,13 @@ test("translation changes and missing online editions preserve exact WEB wording
   expect(sent).toHaveLength(3);
 });
 
-test("voice routing stays private and responsive across delayed Edge, Bella, offline, and explicit device preference", async ({
+test("voice routing stays private and responsive across delayed Edge, Paradee, offline, and explicit device preference", async ({
   page,
   context,
   savedPlan,
 }) => {
   await page.goto("/settings");
-  await seedOfflineKokoroAssets(page);
+  await seedOfflineParadeeAssets(page);
   let release!: () => void;
   const held = new Promise<void>((resolve) => {
     release = resolve;
@@ -401,7 +401,7 @@ test("voice routing stays private and responsive across delayed Edge, Bella, off
   expect((await voiceState(page)).active).toBe(1);
   await context.setOffline(true);
   await page.getByRole("link", { name: "01 Scripture" }).click();
-  await expect(page.locator(".audio-engine")).toContainText("Kokoro");
+  await expect(page.locator(".audio-engine")).toContainText("Paradee");
   await page
     .getByRole("button", { name: "Play Scripture", exact: true })
     .click();
@@ -413,7 +413,7 @@ test("voice routing stays private and responsive across delayed Edge, Bella, off
   );
   expect(edgeCalls).toBe(1);
   await context.setOffline(false);
-  for (const preference of ["kokoro", "device"]) {
+  for (const preference of ["paradee", "device"]) {
     await page.goto("/settings");
     await page.getByLabel("Reading voice engine").selectOption(preference);
     await page.goto("/today");
@@ -424,7 +424,7 @@ test("voice routing stays private and responsive across delayed Edge, Bella, off
       page.getByRole("button", { name: "Pause Scripture", exact: true }),
     ).toBeVisible();
     await expect(page.locator(".audio-engine")).toContainText(
-      preference === "device" ? "Device voice" : "Kokoro",
+      preference === "device" ? "Device voice" : "Paradee",
     );
     expect(edgeCalls).toBe(1);
   }

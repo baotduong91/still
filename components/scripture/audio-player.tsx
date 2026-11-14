@@ -168,7 +168,7 @@ export function ReadingControls({
         </Button>
       )}
       {preferredEngine !== "device" &&
-        ((!minimal && ["kokoro", "paradee"].includes(preferredEngine)) ||
+        ((!minimal && preferredEngine === "paradee") ||
           status === "loading" ||
           !!message) && (
           <Button

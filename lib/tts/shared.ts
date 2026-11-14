@@ -1,5 +1,5 @@
 import type { PassageType } from "@/lib/schemas";
-export type SpeechEngine = "auto" | "edge" | "kokoro" | "paradee" | "device";
+export type SpeechEngine = "paradee" | "edge" | "device";
 export function verseSpeech(passage: PassageType) {
   return {
     text: passage.verses.map((verse) => verse.text).join(" "),

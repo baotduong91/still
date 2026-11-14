@@ -5,7 +5,9 @@ import type { PlanType } from "../../lib/schemas";
 // separate onboarding suite uses clean storage and the real welcome flow.
 export const test = base.extend<{
   savedPlan: PlanType;
-  stateOverrides: Partial<SavedState>;
+  stateOverrides: Partial<SavedState> & {
+    speechEngine?: SavedState["speechEngine"] | "auto" | "kokoro";
+  };
 }>({
   stateOverrides: [{}, { option: true }],
   savedPlan: async ({ context }, use) => {
