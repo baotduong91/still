@@ -34,6 +34,8 @@ export type SavedState = {
   onlineScripture: boolean;
   remoteIds: string[];
   outbox: { path: string; body: unknown }[];
+  todayVoiceOn?: boolean;
+  todayAmbientOn?: boolean;
 };
 export const defaults: SavedState = {
   journeyOnboarding: {},
@@ -52,6 +54,8 @@ export const defaults: SavedState = {
   onlineScripture: false,
   remoteIds: [],
   outbox: [],
+  todayVoiceOn: true,
+  todayAmbientOn: false,
 };
 const databasePromise =
   typeof indexedDB !== "undefined"

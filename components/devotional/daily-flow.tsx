@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUpRight, BookOpen, Check, Share2 } from "lucide-react";
 import Link from "@/components/smart-link";
 import { useApp } from "@/components/provider";
 import { Button } from "@/components/ui/button";
-import { ReadingControls } from "@/components/scripture/audio-player";
+import { TodayAudioDock } from "./today-audio-dock";
 import { useReadingAudio } from "@/components/scripture/use-reading-audio";
 import { usePassage } from "@/components/scripture/use-passage";
 import { devotionReflectionText, type ReadingPayload } from "@/lib/tts/reading";
@@ -139,10 +139,10 @@ export function DailyFlow({
     const frame = requestAnimationFrame(() => {
       if (autoplayTarget.current !== active) return;
       autoplayTarget.current = null;
-      void latestReader.current?.play();
+      if (state.todayVoiceOn !== false) void latestReader.current?.play();
     });
     return () => cancelAnimationFrame(frame);
-  }, [active, autoplay]);
+  }, [active, autoplay, state.todayVoiceOn]);
   const playerReader = {
     ...reader,
     stop() {
@@ -426,11 +426,6 @@ export function DailyFlow({
         )}
       </section>
       <div className="today-player" data-voice-ready={privateReady}>
-        {voicePreparing && (
-          <p className="reading-context" role="status">
-            Preparing {voice.name} for on-device listening…
-          </p>
-        )}
         {autoplay &&
           needsVoiceDownload &&
           !voicePreparing &&
@@ -441,8 +436,7 @@ export function DailyFlow({
               reading stays on-device.
             </p>
           )}
-        <ReadingControls
-          minimal
+        <TodayAudioDock
           autoplay={autoplay}
           onAutoplayChange={(enabled) => {
             autoplayTarget.current = null;
@@ -451,6 +445,14 @@ export function DailyFlow({
           reader={playerReader}
           payload={payloads[active]}
           scripturePending={active === 0 && passageResolving}
+          voicePreparing={voicePreparing}
+          sectionTitle={
+            active === 1
+              ? day.title
+              : active === 0
+                ? passage.reference
+                : undefined
+          }
           contextLabel={`${String(active + 1).padStart(2, "0")} · ${sections[active]}${active === 0 ? ` · ${passage.translation}` : " · on-device"}`}
         />
       </div>

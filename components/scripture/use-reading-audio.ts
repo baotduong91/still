@@ -35,6 +35,7 @@ export function useReadingAudio(
     [message, setMessage] = useState(""),
     [speed, setSpeed] = useState(1),
     [completed, setCompleted] = useState(0),
+    [progress, setProgress] = useState(0),
     [canKeepWaiting, setCanKeepWaiting] = useState(false);
   const extendWait = useRef<(() => void) | null>(null);
   const audio = useRef<HTMLAudioElement | null>(null),
@@ -136,6 +137,48 @@ export function useReadingAudio(
     setStatus("idle");
     setEngine("");
     setMessage("");
+    setProgress(0);
+  }
+  function bindProgress(player: HTMLAudioElement) {
+    const sync = () => {
+      if (player.duration && Number.isFinite(player.duration))
+        setProgress(player.currentTime / player.duration);
+    };
+    player.ontimeupdate = sync;
+    player.onloadedmetadata = sync;
+  }
+  function seekBy(seconds: number) {
+    if (device.current || scheduler.current) return;
+    const player = audio.current;
+    if (!player || !Number.isFinite(player.duration)) return;
+    player.currentTime = Math.min(
+      player.duration,
+      Math.max(0, player.currentTime + seconds),
+    );
+    syncProgress(player);
+  }
+  function syncProgress(player: HTMLAudioElement) {
+    if (player.duration && Number.isFinite(player.duration))
+      setProgress(player.currentTime / player.duration);
+  }
+  function restartSection() {
+    if (device.current) {
+      stop();
+      void play();
+      return;
+    }
+    const player = audio.current;
+    if (player && Number.isFinite(player.duration)) {
+      player.currentTime = 0;
+      setProgress(0);
+      if (status === "paused" || status === "playing") {
+        void player.play();
+        setStatus("playing");
+        return;
+      }
+    }
+    stop();
+    void play();
   }
   useEffect(() => {
     if (previousPath.current && path && previousPath.current !== path) stop();
@@ -277,6 +320,7 @@ export function useReadingAudio(
       url.current = ready?.url ?? URL.createObjectURL(blob);
       const player = ready?.player ?? new Audio(url.current);
       audio.current = player;
+      bindProgress(player);
       player.playbackRate = speedRef.current;
       let finish = () => {},
         fail = (_error: Error) => {};
@@ -409,6 +453,7 @@ export function useReadingAudio(
                 throw new Error();
               if (!alive()) return;
               audio.current = candidate;
+              bindProgress(candidate);
               edgeStreamListening = true;
               candidate.playbackRate = speedRef.current;
               candidate.onended = () => {
@@ -625,11 +670,14 @@ export function useReadingAudio(
   return {
     status,
     completed,
+    progress,
     engine,
     message,
     speed,
     play,
     stop,
+    seekBy,
+    restartSection,
     playDevice,
     canKeepWaiting,
     keepWaiting() {
