@@ -26,6 +26,8 @@ import {
   hostedGroqAvailable,
   hostedGroqDefaultState,
   shouldApplyHostedGroqDefault,
+  shouldSyncHostedGroqConsent,
+  syncHostedGroqConsent,
 } from "@/lib/client/hosted-groq";
 import {
   hostedTranslationDefaultState,
@@ -110,7 +112,7 @@ export function Provider({ children }: { children: React.ReactNode }) {
     };
   }, [getBible, update]);
   useEffect(() => {
-    if (!ready || !online) return;
+    if (!ready) return;
     let alive = true;
     fetch("/api/modes")
       .then((r) => (r.ok ? r.json() : null))
@@ -118,8 +120,9 @@ export function Provider({ children }: { children: React.ReactNode }) {
         if (!alive || !status || !hostedGroqAvailable(status)) return;
         recordCloudVendor(status.modes.cloud.vendor);
         void update((s) => {
-          if (!shouldApplyHostedGroqDefault(s)) return s;
-          return hostedGroqDefaultState(s);
+          if (shouldApplyHostedGroqDefault(s)) return hostedGroqDefaultState(s);
+          if (shouldSyncHostedGroqConsent(s, status)) return syncHostedGroqConsent(s);
+          return s;
         }).catch(() => {});
       })
       .catch(() => {});
@@ -128,7 +131,7 @@ export function Provider({ children }: { children: React.ReactNode }) {
     };
   }, [ready, online, update]);
   useEffect(() => {
-    if (!ready || !online) return;
+    if (!ready) return;
     let alive = true;
     api<TranslationsStatus>("translations")
       .then((status) => {

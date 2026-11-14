@@ -276,8 +276,12 @@ export async function generatePlan(
     await Promise.all(
       plan.days.slice(i, i + 3).map(async (day) => {
         const web = day.passage;
-        day.passage = await resolvePassage(web.reference, plan.translation);
-        day.webPassage = web;
+        try {
+          day.passage = await resolvePassage(web.reference, plan.translation);
+          day.webPassage = web;
+        } catch {
+          day.passage = web;
+        }
       }),
     );
   }

@@ -19,6 +19,7 @@ import {
   recordCloudStatus,
 } from "@/lib/client/cloud-status";
 import { groqGuidedPlan } from "@/lib/ai/groq-guided";
+import { alignCloudConsentForGroq } from "@/lib/client/hosted-groq";
 import Link from "@/components/smart-link";
 import { useRouter } from "next/navigation";
 import {
@@ -74,7 +75,7 @@ function Heading({
   );
 }
 function Create() {
-  const { state, bible, getBible, savePlan, online, setError } = useApp();
+  const { state, bible, getBible, savePlan, online, setError, update } = useApp();
   const router = useRouter();
   const [prompt, setPrompt] = useState(""),
     [days, setDays] = useState(7),
@@ -101,21 +102,30 @@ function Create() {
   }, [state.translation]);
   async function generate(e: React.FormEvent) {
     e.preventDefault();
-    if (!bible) return;
+    if (!bible) {
+      setError(
+        "Still is loading Scripture. Wait a moment, then try Begin my journey again.",
+      );
+      return;
+    }
     setBusy(true);
     try {
+      const cloudConsent = await alignCloudConsentForGroq(state, update);
       const input = {
         prompt,
         days,
         translation: journeyTranslation,
-        provider: selectedProvider(state),
+        provider: selectedProvider({
+          provider: state.provider,
+          cloudConsent,
+        }),
       };
       if (online || input.provider === "ollama") {
         try {
           const { plan } = await api<{ plan: PlanType }>(
             "plans/generate",
             input,
-            { cloudConsent: state.cloudConsent },
+            { cloudConsent },
           );
           if (plan.provider === "groq") recordCloudStatus("connected", false);
           await savePlan(plan, true);
@@ -273,7 +283,11 @@ function Create() {
           </p>
         )}
         <Button type="submit" disabled={busy || !bible}>
-          {busy ? "Preparing your journey…" : "Begin my journey"}
+          {busy
+            ? "Preparing your journey…"
+            : !bible
+              ? "Loading Scripture…"
+              : "Begin my journey"}
           <ArrowRight size={17} />
         </Button>
         <p className="fine-print">
@@ -735,12 +749,12 @@ function Chat() {
     [],
   );
   useEffect(() => {
-    if (state.provider !== "cloud" || !online) return;
+    if (state.provider !== "cloud") return;
     let alive = true;
     fetch("/api/modes")
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : null))
       .then((status) => {
-        if (!alive) return;
+        if (!alive || !status) return;
         recordCloudVendor(status.modes.cloud.vendor);
         setGroq(status.modes.cloud.vendor === "groq");
       })
@@ -751,13 +765,20 @@ function Chat() {
   }, [state.provider, online]);
   async function ask(e: React.FormEvent) {
     e.preventDefault();
-    if (!bible) return;
+    if (!bible) {
+      setError("Still is loading Scripture. Wait a moment, then try again.");
+      return;
+    }
     setBusy(true);
     try {
+      const cloudConsent = await alignCloudConsentForGroq(state, update);
       const input = {
         question,
         translation: state.onlineScripture ? state.translation : "WEB",
-        provider: selectedProvider(state),
+        provider: selectedProvider({
+          provider: state.provider,
+          cloudConsent,
+        }),
         history: messages
           .slice(-8)
           .map((m) => ({ question: m.question, answer: m.response.answer })),
@@ -781,7 +802,7 @@ function Chat() {
           setDraft({ text: "", citations: [] });
           response = await readChatStream(
             input,
-            state.cloudConsent,
+            cloudConsent,
             controller.signal,
             (event) => {
               if (controller.signal.aborted) return;
@@ -801,7 +822,7 @@ function Chat() {
           response =
             online || input.provider === "ollama"
               ? await api<ChatType>("chat", input, {
-                  cloudConsent: state.cloudConsent,
+                  cloudConsent,
                 })
               : answerQuestion(input, bible);
           if (!online && input.provider === "cloud")
