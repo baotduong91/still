@@ -12,7 +12,7 @@ export function PassageCard({
   passage: PassageType;
   compact?: boolean;
 }) {
-  const { passage } = usePassage(localPassage);
+  const { passage, resolving } = usePassage(localPassage);
   return (
     <div className={`passage ${compact ? "compact" : ""}`}>
       <div className="eyebrow">
@@ -32,7 +32,7 @@ export function PassageCard({
       {passage.attribution && (
         <p className="translation-notice">{passage.attribution}</p>
       )}
-      <ScriptureAudio passage={passage} />
+      <ScriptureAudio passage={passage} pending={resolving} />
       <div className="passage-actions">
         <Button variant="ghost" size="sm" asChild>
           <Link

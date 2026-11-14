@@ -35,7 +35,7 @@ it("preserves provider text exactly, attribution and cache", async () => {
       new Response(
         JSON.stringify({
           data: {
-            orgId: "JHN.3.16",
+            id: "JHN.3.16",
             bibleId: process.env.API_BIBLE_CSB_ID,
             content: text,
             copyright: "Fixture rights holder",
@@ -70,7 +70,7 @@ it("rejects a misattributed provider verse", async () => {
       new Response(
         JSON.stringify({
           data: {
-            orgId: "JHN.3.17",
+            id: "JHN.3.17",
             bibleId: process.env.API_BIBLE_CSB_ID,
             content: "Mismatched fixture",
             copyright: "Fixture",
@@ -102,7 +102,7 @@ it.each(["CSB", "NLT", "MSG"] as const)(
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       Response.json({
         data: {
-          orgId: "JHN.3.16",
+          id: "JHN.3.16",
           bibleId: id,
           content: text,
           copyright: "Rights fixture",
@@ -123,7 +123,7 @@ it("keeps a grouped MSG span once and expands the citation accurately", async ()
   vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
     Response.json({
       data: {
-        orgId: "JHN.3.16-JHN.3.18",
+        id: "JHN.3.16-JHN.3.18",
         bibleId: process.env.API_BIBLE_MSG_ID,
         content: text,
         copyright: "MSG rights fixture",
@@ -137,6 +137,7 @@ it("keeps a grouped MSG span once and expands the citation accurately", async ()
   expect(passage.reference).toBe("John 3:16-18");
   expect(passage.text).toBe(text);
   expect(passage.verses).toHaveLength(1);
+  expect(passage.verses[0]).toMatchObject({ verse: 16, verseEnd: 18 });
   vi.unstubAllEnvs();
 });
 
@@ -148,11 +149,11 @@ it("resolves a missing MSG group member through chapter metadata", async () => {
       return Response.json({
         data: [{ id: "1TH.5.16-1TH.5.18", orgId: "1TH.5.16-1TH.5.18" }],
       });
-    if (url.searchParams.get("use-org-id") === "true")
+    if (url.pathname.endsWith("/verses/1TH.5.17"))
       return new Response("", { status: 404 });
     return Response.json({
       data: {
-        orgId: "1TH.5.16-1TH.5.18",
+        id: "1TH.5.16-1TH.5.18",
         bibleId: process.env.API_BIBLE_MSG_ID,
         content: "Exact grouped provider fixture.",
         copyright: "Rights",
@@ -165,4 +166,26 @@ it("resolves a missing MSG group member through chapter metadata", async () => {
   expect(passage.reference).toBe("1 Thessalonians 5:16-18");
   expect(passage.text).toBe("Exact grouped provider fixture.");
   vi.unstubAllEnvs();
+});
+
+it("uses printed Psalm numbering instead of the shifted organizational ID", async () => {
+  const f = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const url = new URL(String(input));
+    expect(url.searchParams.get("use-org-id")).toBe("false");
+    return Response.json({
+      data: {
+        id: "PSA.63.8",
+        orgId: "PSA.63.9",
+        bibleId: process.env.API_BIBLE_CSB_ID,
+        content: "Exact printed verse-eight provider fixture.",
+        copyright: "Fixture",
+      },
+      meta: { fumsToken: "fixture" },
+    });
+  });
+  const result = await resolvePassage("Psalms 63:8", "CSB");
+  expect(result.translation).toBe("CSB");
+  expect(result.reference).toBe("Psalms 63:8");
+  expect(result.text).toBe("Exact printed verse-eight provider fixture.");
+  expect(f).toHaveBeenCalledOnce();
 });

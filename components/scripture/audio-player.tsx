@@ -14,21 +14,37 @@ const labels = {
   action: "action",
   interpretation: "interpretation",
 };
-export function ScriptureAudio({ passage }: { passage: PassageType }) {
+export function ScriptureAudio({
+  passage,
+  pending = false,
+}: {
+  passage: PassageType;
+  pending?: boolean;
+}) {
   return (
-    <ReadingAudio payload={{ kind: "scripture", ...verseSpeech(passage) }} />
+    <ReadingAudio
+      payload={{ kind: "scripture", ...verseSpeech(passage) }}
+      pending={pending}
+    />
   );
 }
 export function ReadingAudio({
   payload,
   compact = false,
+  pending = false,
 }: {
+  pending?: boolean;
   payload: ReadingPayload;
   compact?: boolean;
 }) {
-  const reader = useReadingAudio(payload);
+  const reader = useReadingAudio(payload, { licensedTextPending: pending });
   return (
-    <ReadingControls payload={payload} reader={reader} compact={compact} />
+    <ReadingControls
+      payload={payload}
+      reader={reader}
+      compact={compact}
+      scripturePending={pending}
+    />
   );
 }
 export function ReadingControls({
@@ -158,7 +174,7 @@ export function ReadingControls({
           <Button
             className="audio-device-choice"
             variant="ghost"
-            disabled={empty}
+            disabled={empty || scripturePending}
             onClick={playDevice}
           >
             Use device voice · no download

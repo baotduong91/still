@@ -373,6 +373,14 @@ describe("Groq grounded sentence streaming", () => {
       )
         events.push(step.value);
       expect(events.some((e) => e.type === "text")).toBe(true);
+      const rendered = events
+        .filter((e) => e.type === "text")
+        .map((e) => (e.type === "text" ? e.text : ""))
+        .join("");
+      expect(rendered).not.toMatch(/[“”"]|John 3:16/);
+      const final = events.at(-1);
+      if (final?.type === "result")
+        expect(final.response.answer).toBe(rendered.trim());
       expect(events.at(-1)).toMatchObject({
         type: "result",
         response: { provider: "groq" },

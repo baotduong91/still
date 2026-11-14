@@ -1,3 +1,5 @@
+import { devotionReflectionText } from "../../lib/tts/reading";
+import { seedOfflineKokoroAssets } from "./helpers/bella-cache";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
 import { kokoroAutoExtends, kokoroTimeouts } from "../../lib/tts/kokoro-client";
@@ -212,34 +214,6 @@ test.beforeEach(async ({ page }) => {
   await seedOfflineKokoroAssets(page);
 });
 
-async function seedOfflineKokoroAssets(page: Page) {
-  await page.evaluate(async () => {
-    await new Promise<void>((resolve, reject) => {
-      const req = indexedDB.open("still-tts-models", 1);
-      req.onupgradeneeded = () => req.result.createObjectStore("assets");
-      req.onsuccess = () => {
-        const db = req.result;
-        const tx = db.transaction("assets", "readwrite");
-        tx.objectStore("assets").put(
-          new Blob(["model"]),
-          "https://still.test/model_quantized.onnx",
-        );
-        tx.oncomplete = () => {
-          db.close();
-          resolve();
-        };
-        tx.onerror = () => reject(tx.error);
-      };
-      req.onerror = () => reject(req.error);
-    });
-    const cache = await caches.open("kokoro-voices");
-    await cache.put(
-      "https://still.test/voices/af_bella.bin",
-      new Response(new Blob(["voice"])),
-    );
-  });
-}
-
 async function deviceSpy(page: Page) {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.addInitScript(() => {
@@ -286,6 +260,23 @@ test("desktop cold Bella may take 45 seconds without switching to Zira", async (
     page.getByRole("button", { name: "Pause reflection" }),
   ).toBeVisible();
   await expect(page.locator(".audio-engine")).toContainText("Kokoro · Bella");
+  await page
+    .getByRole("button", { name: "Pause reflection", exact: true })
+    .click();
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { activeReaders: number }).activeReaders,
+    ),
+  ).toBe(0);
+  await page
+    .getByRole("button", { name: "Read reflection aloud", exact: true })
+    .click();
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { activeReaders: number }).activeReaders,
+    ),
+  ).toBe(1);
+
   expect(
     await page.evaluate(
       () => (window as unknown as { deviceCalls: number }).deviceCalls,
@@ -298,7 +289,7 @@ test("after automatic cold-start extensions Keep waiting continues the same Bell
 }) => {
   await deviceSpy(page);
   let edge = 0;
-  await page.route("**/api/tts", (r) => {
+  await page.context().route("**/api/tts", (r) => {
     if (r.request().method() === "POST") edge++;
     return r.fulfill({ status: 204 });
   });
@@ -403,7 +394,19 @@ test("only Play sends exact Scripture to Edge; controls and navigation stop audi
   page,
 }) => {
   let sent: { text: string; reference: string } | null = null;
-  await page.route("**/api/tts", (route) => {
+  // WebKit may omit POST bodies from routed requests controlled by a service worker.
+  // Capture the browser fetch input as well, so the byte assertion stays meaningful.
+  await page.addInitScript(() => {
+    const original = window.fetch;
+    window.fetch = function (input, init) {
+      if (String(input) === "/api/tts" && init?.method === "POST")
+        Object.assign(window, {
+          capturedScripture: JSON.parse(String(init.body)),
+        });
+      return original.call(this, input, init);
+    };
+  });
+  await page.context().route("**/api/tts", (route) => {
     if (route.request().method() === "HEAD")
       return route.fulfill({ status: 204 });
     sent = route.request().postDataJSON();
@@ -425,6 +428,14 @@ test("only Play sends exact Scripture to Edge; controls and navigation stop audi
   await expect(
     page.getByRole("button", { name: "Pause Scripture" }),
   ).toBeVisible();
+  sent ??= await page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          capturedScripture: { text: string; reference: string };
+        }
+      ).capturedScripture,
+  );
   expect(sent!.text).toBe(exact);
   expect(sent!.reference).toBe("Matthew 6:34");
   await page.getByLabel("Reading speed").selectOption("1.2");
@@ -448,7 +459,7 @@ test("private Kokoro choice does not call Edge and survives reload", async ({
   page,
 }) => {
   let edgeCalls = 0;
-  await page.route("**/api/tts", (r) => {
+  await page.context().route("**/api/tts", (r) => {
     if (r.request().method() === "HEAD") return r.fulfill({ status: 204 });
     edgeCalls++;
     return r.abort();
@@ -478,7 +489,7 @@ test("Edge failure falls back to local Kokoro with no cloud model request", asyn
   page,
 }) => {
   let cloudCalls = 0;
-  await page.route("**/api/tts", (r) =>
+  await page.context().route("**/api/tts", (r) =>
     r.request().method() === "HEAD"
       ? r.fulfill({ status: 204 })
       : r.fulfill({
@@ -487,7 +498,7 @@ test("Edge failure falls back to local Kokoro with no cloud model request", asyn
           body: '{"error":"Unavailable"}',
         }),
   );
-  await page.route("**/api/ai", (r) => {
+  await page.context().route("**/api/ai", (r) => {
     cloudCalls++;
     return r.abort();
   });
@@ -504,7 +515,7 @@ test("Today curated steps stay local with Auto online and never read personal fi
   page,
 }) => {
   let edgeCalls = 0;
-  await page.route("**/api/tts", (route) => {
+  await page.context().route("**/api/tts", (route) => {
     if (route.request().method() === "HEAD")
       return route.fulfill({ status: 204 });
     edgeCalls++;
@@ -644,7 +655,7 @@ test("chat interpretation is local and starting a Scripture citation stops it", 
   page,
 }) => {
   let edgeCalls = 0;
-  await page.route("**/api/tts", (route) => {
+  await page.context().route("**/api/tts", (route) => {
     if (route.request().method() === "HEAD")
       return route.fulfill({ status: 204 });
     edgeCalls++;
@@ -831,10 +842,11 @@ test("Bella buffers a slow reading before sound and queues segments without gaps
 });
 
 test("installed device voice is immediate and never invokes Edge or a model worker", async ({
+  savedPlan,
   page,
 }) => {
   let edgeCalls = 0;
-  await page.route("**/api/tts", (r) => {
+  await page.context().route("**/api/tts", (r) => {
     if (r.request().method() === "HEAD") return r.fulfill({ status: 204 });
     edgeCalls++;
     return r.abort();
@@ -882,14 +894,7 @@ test("installed device voice is immediate and never invokes Edge or a model work
     await page.evaluate(
       () => (window as unknown as { deviceReading: string }).deviceReading,
     ),
-  ).toBe(
-    (await page
-      .locator(
-        "#today-reflection .devotional-prose > p:not(.eyebrow):not(.fine-print)",
-      )
-      .first()
-      .textContent())!.trim(),
-  );
+  ).toBe(devotionReflectionText(savedPlan.days[0]));
   expect(
     await page.evaluate(
       () => (window as unknown as { workerReplies: number }).workerReplies,
@@ -901,7 +906,7 @@ test("installed device voice is immediate and never invokes Edge or a model work
 test("Today is one vertical flow; finishing audio gently moves to reflection without autoplay", async ({
   page,
 }) => {
-  await page.route("**/api/tts", (route) =>
+  await page.context().route("**/api/tts", (route) =>
     route.request().method() === "HEAD"
       ? route.fulfill({ status: 204 })
       : route.fulfill({
@@ -974,7 +979,7 @@ test("Today is one vertical flow; finishing audio gently moves to reflection wit
 test("Today preloads the next section and reuses its player at the autoplay handoff", async ({
   page,
 }) => {
-  await page.route("**/api/tts", (route) =>
+  await page.context().route("**/api/tts", (route) =>
     route.request().method() === "HEAD"
       ? route.fulfill({ status: 204 })
       : route.fulfill({
@@ -1044,7 +1049,7 @@ test("Today preloads the next section and reuses its player at the autoplay hand
 test("Today autoplay reads each next section, and unchecking prevents another reading", async ({
   page,
 }) => {
-  await page.route("**/api/tts", (route) =>
+  await page.context().route("**/api/tts", (route) =>
     route.request().method() === "HEAD"
       ? route.fulfill({ status: 204 })
       : route.fulfill({
@@ -1111,7 +1116,15 @@ test("fresh private listening requires Settings setup without downloading on Tod
           db.close();
           resolve();
         };
-        tx.onerror = () => reject(tx.error);
+        tx.onerror = (event) =>
+          reject(
+            new Error(
+              "Model seed: " +
+                ((event.target as IDBRequest).error?.message ??
+                  tx.error?.message ??
+                  "unknown"),
+            ),
+          );
       };
     });
     await caches.delete("kokoro-voices");

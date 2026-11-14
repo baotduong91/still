@@ -80,15 +80,14 @@ function Create() {
     [days, setDays] = useState(7),
     [busy, setBusy] = useState(false),
     [available, setAvailable] = useState<TranslationId[]>(["WEB"]),
-    [journeyTranslation, setJourneyTranslation] =
-      useState<TranslationId>(state.translation);
+    [journeyTranslation, setJourneyTranslation] = useState<TranslationId>(
+      state.translation,
+    );
   const journeyTranslationTouched = useRef(false);
   useEffect(() => {
     api<TranslationsStatus>("translations")
       .then((r) => {
-        const ids = r.translations
-          .filter((t) => t.available)
-          .map((t) => t.id);
+        const ids = r.translations.filter((t) => t.available).map((t) => t.id);
         setAvailable(ids);
         if (journeyTranslationTouched.current) return;
         const preferred = ids.includes(r.default)
@@ -229,9 +228,7 @@ function Create() {
             >
               {Object.entries(translationNames)
                 .filter(([id]) => available.includes(id as TranslationId))
-                .sort(([a], [b]) =>
-                  a === "WEB" ? -1 : b === "WEB" ? 1 : 0,
-                )
+                .sort(([a], [b]) => (a === "WEB" ? -1 : b === "WEB" ? 1 : 0))
                 .map(([id, name]) => (
                   <option value={id} key={id}>
                     {id} — {name}
@@ -389,6 +386,7 @@ function Journey() {
 }
 function Scripture() {
   const { state, update, bible, setError } = useApp();
+  const [readerOffset, setReaderOffset] = useState(0);
   const [query, setQuery] = useState("John 1"),
     [reference, setReference] = useState("John 1"),
     [results, setResults] = useState<PassageType[] | null>(null),
@@ -417,7 +415,25 @@ function Scripture() {
   } catch {
     preview = bible!.lookup("John 1", state.translation);
   }
-  const { passage: displayedPassage } = usePassage(preview);
+  // Licensed reading is requested in bounded pages, including the initial chapter.
+  // John 1 has 51 verses and otherwise always trips the provider's 40-verse cap.
+  const paged =
+    state.onlineScripture &&
+    ["CSB", "NLT", "MSG"].includes(state.translation) &&
+    preview.verses.length > 20;
+  const readerPage = paged
+    ? Math.min(readerOffset, Math.floor((preview.verses.length - 1) / 20) * 20)
+    : 0;
+  const pageVerses = paged
+    ? preview.verses.slice(readerPage, readerPage + 20)
+    : preview.verses;
+  const pageReference = paged
+    ? `${pageVerses[0].book} ${pageVerses[0].chapter}:${pageVerses[0].verse}-${pageVerses.at(-1)!.verse}`
+    : preview.reference;
+  const pagePassage = paged
+    ? bible!.lookup(pageReference, state.translation)
+    : preview;
+  const { passage: displayedPassage, resolving } = usePassage(pagePassage);
   if (!bible) return <p className="loading">Preparing the Bible…</p>;
   let passage: PassageType;
   try {
@@ -434,6 +450,7 @@ function Scripture() {
     try {
       if (/\d/.test(query)) {
         const p = bible!.lookup(query, state.translation);
+        setReaderOffset(0);
         setReference(p.reference);
         setResults(null);
       } else {
@@ -457,6 +474,7 @@ function Scripture() {
   function navigate(ref: string) {
     try {
       bible!.lookup(ref, state.translation);
+      setReaderOffset(0);
       setReference(ref);
       setQuery(ref);
       setResults(null);
@@ -545,7 +563,38 @@ function Scripture() {
               {verseView ? "Chapter view" : "Verse view"}
             </Button>
           </div>
-          <article className="reader-paper">
+          {paged && (
+            <div className="reader-pagination" aria-label="Passage pages">
+              <Button
+                variant="ghost"
+                disabled={readerPage === 0}
+                onClick={() => {
+                  setReaderOffset(readerPage - 20);
+                  setSelected(null);
+                }}
+              >
+                Previous verses
+              </Button>
+              <span>{pageReference}</span>
+              <Button
+                variant="ghost"
+                disabled={readerPage + 20 >= preview.verses.length}
+                onClick={() => {
+                  setReaderOffset(readerPage + 20);
+                  setSelected(null);
+                }}
+              >
+                Next verses
+              </Button>
+            </div>
+          )}
+          {resolving && (
+            <p role="status" className="translation-notice">
+              Loading {state.translation}… Exact WEB text remains available
+              below.
+            </p>
+          )}
+          <article className="reader-paper" aria-busy={resolving}>
             <p className="eyebrow">
               {passage.translation} · {translationNames[passage.translation]}
             </p>
@@ -561,7 +610,7 @@ function Scripture() {
             {verseView ? (
               <div className="verses">
                 {passage.verses.map((v) => {
-                  const ref = `${book} ${chapter}:${v.verse}`;
+                  const ref = `${book} ${chapter}:${v.verse}${v.verseEnd && v.verseEnd > v.verse ? `-${v.verseEnd}` : ""}`;
                   const key = `${passage.translation}:${ref}`;
                   return (
                     <div
@@ -582,6 +631,7 @@ function Scripture() {
                         {selected === key && (
                           <div className="verse-tools">
                             <ScriptureAudio
+                              pending={resolving}
                               passage={{
                                 ...passage,
                                 reference: ref,

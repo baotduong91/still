@@ -102,7 +102,7 @@ export async function installVoiceHarness(page: Page) {
           return;
         }
         if (input.mode === "clear") return;
-        if (input.text && !input.mode) state.localText.push(input.text);
+        if (input.text && (!input.mode || input.mode === "prime")) state.localText.push(input.text);
         const timer = setTimeout(() => {
           this.timers.delete(input.id);
           this.dispatchEvent(

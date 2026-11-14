@@ -53,3 +53,12 @@ TEST_REAL_TTS=1 npm run test:e2e -- audio-runtime.spec.ts
 ```
 
 Playwright failure artifacts include the screenshot, trace, and error context. This suite does not modify production application behavior or require a deployment.
+
+
+### Safari engine checks
+
+Install with `npx playwright install webkit`, then run
+`STILL_WEBKIT=1 npm run test:e2e -- --project=webkit accessibility.spec.ts audio.spec.ts groq.spec.ts translation-startup.spec.ts storage-safari.spec.ts`.
+WebKit automation complements, but does not replace, testing the macOS Add to Dock
+app. Use separate output directories if running independent test invocations;
+prefer one invocation at a time to avoid shared-server/trace interference.

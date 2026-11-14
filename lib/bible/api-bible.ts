@@ -10,12 +10,12 @@ const cache = new Map<
     text: string;
     copyright: string;
     token: string;
-    orgId: string;
+    id: string;
   }
 >();
 const pending = new Map<
   string,
-  Promise<{ text: string; copyright: string; token: string; orgId: string }>
+  Promise<{ text: string; copyright: string; token: string; id: string }>
 >();
 const codes =
   "GEN EXO LEV NUM DEU JOS JDG RUT 1SA 2SA 1KI 2KI 1CH 2CH EZR NEH EST JOB PSA PRO ECC SNG ISA JER LAM EZK DAN HOS JOL AMO OBA JON MIC NAM HAB ZEP HAG ZEC MAL MAT MRK LUK JHN ACT ROM 1CO 2CO GAL EPH PHP COL 1TH 2TH 1TI 2TI TIT PHM HEB JAS 1PE 2PE 1JN 2JN 3JN JUD REV".split(
@@ -37,10 +37,10 @@ export function apiBibleEnabled(id: TranslationId) {
     process.env.API_BIBLE_NONCOMMERCIAL === "true"
   );
 }
-export function verseSpan(orgId: string, requested: string) {
+export function verseSpan(id: string, requested: string) {
   const item = requested.match(/^([A-Z0-9]{3})\.(\d+)\.(\d+)$/);
   if (!item) return null;
-  const span = orgId.match(
+  const span = id.match(
     /^([A-Z0-9]{3})\.(\d+)\.(\d+)(?:-([A-Z0-9]{3})\.(\d+)\.(\d+))?$/,
   );
   if (
@@ -58,7 +58,7 @@ export function verseSpan(orgId: string, requested: string) {
 }
 const responseSchema = z.object({
   data: z.object({
-    orgId: z.string(),
+    id: z.string(),
     bibleId: z.string(),
     content: z.string().min(1),
     copyright: z.string().min(1),
@@ -87,6 +87,8 @@ export async function resolvePassage(
       throw new Error(
         "Choose a shorter passage (40 verses or fewer). No bulk download is supported.",
       );
+    // WEB uses printed English numbering, not API.Bible's organizational
+    // versification (which counts Psalm headings). Retrieve and validate edition IDs.
     const books = local.books();
     const id = apiBibleId(translation)!;
     const key = process.env.API_BIBLE_KEY!;
@@ -98,7 +100,7 @@ export async function resolvePassage(
       last = fallback.verses.at(-1)!.verse;
     const verseIdFor = (verse: (typeof fallback.verses)[number]) =>
       `${codes[books.findIndex((b) => b.book === verse.book)]}.${verse.chapter}.${verse.verse}`;
-    for (const verse of fallback.verses) {
+    const retrieve = async (verse: PassageType["verses"][number]) => {
       const verseId = `${codes[books.findIndex((b) => b.book === verse.book)]}.${verse.chapter}.${verse.verse}`;
       const cacheKey = createHash("sha256")
         .update(key + id + verseId)
@@ -119,7 +121,7 @@ export async function resolvePassage(
               "include-titles": "false",
               "include-verse-numbers": "false",
               "include-chapter-numbers": "false",
-              "use-org-id": "true",
+              "use-org-id": "false",
             }))
               url.searchParams.set(k, v);
             let response = await fetch(url, {
@@ -142,14 +144,10 @@ export async function resolvePassage(
               if (metadata.ok) {
                 const list = z
                   .object({
-                    data: z.array(
-                      z.object({ id: z.string(), orgId: z.string() }),
-                    ),
+                    data: z.array(z.object({ id: z.string() })),
                   })
                   .parse(await metadata.json());
-                const group = list.data.find((v) =>
-                  verseSpan(v.orgId, verseId),
-                );
+                const group = list.data.find((v) => verseSpan(v.id, verseId));
                 if (group) {
                   const groupUrl = new URL(url);
                   groupUrl.pathname = `/v1/bibles/${encodeURIComponent(id)}/verses/${encodeURIComponent(group.id)}`;
@@ -168,16 +166,16 @@ export async function resolvePassage(
               );
             const parsed = responseSchema.parse(await response.json());
             if (
-              !verseSpan(parsed.data.orgId, verseId) ||
+              !verseSpan(parsed.data.id, verseId) ||
               parsed.data.bibleId !== id ||
               /[<>]/.test(parsed.data.content)
             )
               throw new Error(
-                `API.Bible returned an unexpected verse span (${parsed.data.orgId}); exact citation validation failed.`,
+                `API.Bible returned an unexpected verse span (${parsed.data.id}); exact citation validation failed.`,
               );
             const value = {
               text: parsed.data.content,
-              orgId: parsed.data.orgId,
+              id: parsed.data.id,
               copyright: parsed.data.copyright,
               token: parsed.meta.fumsToken,
             };
@@ -198,7 +196,21 @@ export async function resolvePassage(
           pending.delete(cacheKey);
         }
       }
-      const span = verseSpan(item.orgId, verseIdFor(verse));
+      return item;
+    };
+    // Bound parallelism: a chapter page must not wait for twenty serial requests,
+    // nor burst all requests at once against the licensed provider's quota.
+    const items: Awaited<ReturnType<typeof retrieve>>[] = [];
+    for (let offset = 0; offset < fallback.verses.length; offset += 3) {
+      items.push(
+        ...(await Promise.all(
+          fallback.verses.slice(offset, offset + 3).map(retrieve),
+        )),
+      );
+    }
+    for (const [index, verse] of fallback.verses.entries()) {
+      const item = items[index];
+      const span = verseSpan(item.id, verseIdFor(verse));
       if (!span)
         throw new Error("API.Bible verse identity could not be verified.");
       const exactSpan = local.lookup(
@@ -209,14 +221,19 @@ export async function resolvePassage(
         throw new Error("Provider span exceeds reading limit.");
       first = Math.min(first, span.start);
       last = Math.max(last, span.end);
-      if (spans.has(item.orgId)) {
-        if (spans.get(item.orgId) !== item.text)
+      if (spans.has(item.id)) {
+        if (spans.get(item.id) !== item.text)
           throw new Error("Provider span text mismatch.");
       } else {
         if (verses.some((v) => v.verse >= span.start && v.verse <= span.end))
           throw new Error("Provider spans overlap ambiguously.");
-        spans.set(item.orgId, item.text);
-        verses.push({ ...verse, verse: span.start, text: item.text });
+        spans.set(item.id, item.text);
+        verses.push({
+          ...verse,
+          verse: span.start,
+          ...(span.end > span.start ? { verseEnd: span.end } : {}),
+          text: item.text,
+        });
       }
       tokens.push(item.token);
       attribution.add(item.copyright);
@@ -225,6 +242,7 @@ export async function resolvePassage(
       ...fallback,
       translation,
       requestedReference: fallback.reference,
+      citationScheme: "edition",
       reference:
         first === fallback.verses[0].verse &&
         last === fallback.verses.at(-1)!.verse

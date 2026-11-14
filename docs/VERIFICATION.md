@@ -113,3 +113,21 @@ The previous production release reproduced the reported guided fallback for a sy
 - Deterministic regression tests additionally exercise truncated JSON, Groq's JSON-validation HTTP error, short reflections, quoted model Scripture, wrong day numbers, duplicate practices, invented references, short token-window waits, daily quota limits, and cancellation. Truncated repairs receive extra completion headroom and retain already verified batches.
 
 These successful samples verify the repaired path against real Groq; they do not guarantee every future prompt or eliminate upstream quotas. Exhausted repairs and long quota waits retain an honestly labelled guided fallback. No user journals, prayers, Practice responses, or saved personal plans were used in live verification.
+
+
+## November 13 audit — release held
+
+Production build, typecheck, 185 unit tests pass. Chromium full run: 54 passed,
+2 opt-in live-audio tests skipped; the five failing PIN/device checks all passed
+after rebuilding with the PIN setup fix and updating the full-reflection assertion.
+Mobile dark screenshot was reviewed and updated for the existing Autoplay control.
+
+WebKit: both accessibility/layout scenarios pass; cold Bella, timeout extension,
+explicit device choice, hard-error handling, exact Edge payload/control behavior,
+and private preference have passing isolated runs. Full Safari verification remains
+incomplete: with an active service worker the Edge-failure mock can receive real
+successful Edge audio rather than the injected HTTP 503. Page/context routing alone
+did not reliably resolve this. Blocking service workers disrupts this WebKit fixture's
+seeded model cache. Do not mark the complete Safari suite green or release based on
+these partial runs. Separate deterministic transport mocks from real offline-cache
+integration in a follow-up harness fix. No release or Git push was performed.

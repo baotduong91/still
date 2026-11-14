@@ -26,7 +26,7 @@ import { offlineModelStored } from "@/lib/tts/model-cache";
 type Status = "idle" | "loading" | "playing" | "paused";
 function playbackIdentity(payload: ReadingPayload) {
   return payload.kind === "scripture"
-    ? { kind: payload.kind, reference: payload.reference }
+    ? { kind: payload.kind, reference: payload.reference, text: payload.text }
     : payload;
 }
 export function useReadingAudio(
@@ -124,6 +124,8 @@ export function useReadingAudio(
     scheduler.current?.stop();
     scheduler.current = null;
     if (audio.current) {
+      audio.current.onended = null;
+      audio.current.onerror = null;
       audio.current.pause();
       audio.current.removeAttribute("src");
       audio.current.load();
@@ -160,7 +162,11 @@ export function useReadingAudio(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playbackKey, id]);
   function startDevice(notice: string) {
-    if (!spoken.trim()) return;
+    if (
+      !spoken.trim() ||
+      (licensedPending.current && payload.kind === "scripture")
+    )
+      return;
     const token = generation.current;
     const voices =
       window.speechSynthesis
@@ -210,7 +216,7 @@ export function useReadingAudio(
     );
   }
   async function play() {
-    if (!spoken.trim()) return;
+    if (!spoken.trim() || status === "loading") return;
     if (licensedPending.current && payload.kind === "scripture") {
       setStatus("idle");
       setMessage("Loading licensed Scripture…");
@@ -266,6 +272,8 @@ export function useReadingAudio(
         });
       if (!alive()) return;
       if (audio.current) {
+        audio.current.onended = null;
+        audio.current.onerror = null;
         audio.current.pause();
         audio.current.removeAttribute("src");
       }
@@ -570,6 +578,8 @@ export function useReadingAudio(
             setCanKeepWaiting(false);
             setEngine(`Kokoro · Bella · ${result.backend}`);
             setMessage("");
+            kokoroPlayback.stop();
+            scheduler.current = null;
             await playBlob(result.blob);
             return;
           }

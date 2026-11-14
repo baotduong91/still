@@ -22,7 +22,7 @@ const response = {
   citations: [new Bible(webCorpus).lookup(todayReference)],
 };
 test.beforeEach(async ({ page }) => {
-  await page.route(/\/api\/modes(?:\?.*)?$/, (route) =>
+  await page.context().route(/\/api\/modes(?:\?.*)?$/, (route) =>
     route.fulfill({
       json: {
         modes: {
@@ -47,7 +47,7 @@ test("choosing Guided keeps Groq off; choosing Custom streams commentary beside 
     provider: string;
     question: string;
   }[] = [];
-  await page.route("**/api/chat/stream", (route) => {
+  await page.context().route("**/api/chat/stream", (route) => {
     const input = route.request().postDataJSON();
     calls.push({
       consent: route.request().headers()["x-still-cloud-consent"],
@@ -124,7 +124,7 @@ test("Groq rate limiting labels the guided response and never breaks a saved day
   page,
   savedPlan,
 }) => {
-  await page.route("**/api/chat/stream", (route) =>
+  await page.context().route("**/api/chat/stream", (route) =>
     route.fulfill({
       contentType: "application/x-ndjson",
       body:
@@ -139,7 +139,7 @@ test("Groq rate limiting labels the guided response and never breaks a saved day
           .join("\n") + "\n",
     }),
   );
-  await page.route("**/api/awp/plans/generate", (route) =>
+  await page.context().route("**/api/awp/plans/generate", (route) =>
     route.fulfill({
       headers: {
         "X-Still-Cloud-Status": "rate-limited",
@@ -208,7 +208,7 @@ test("a custom seven-day journey clears an earlier fallback and persists every d
     );
   });
   const calls: unknown[] = [];
-  await page.route("**/api/awp/plans/generate", (route) => {
+  await page.context().route("**/api/awp/plans/generate", (route) => {
     expect(route.request().headers()["x-still-cloud-consent"]).toBe("true");
     calls.push(route.request().postDataJSON());
     return route.fulfill({

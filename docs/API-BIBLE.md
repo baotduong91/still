@@ -57,3 +57,19 @@ Vercel production requires API_BIBLE_KEY, API_BIBLE_NONCOMMERCIAL=true, and the
 edition IDs API_BIBLE_CSB_ID, API_BIBLE_NLT_ID, API_BIBLE_MSG_ID. Your key must be
 entitled to each edition; an environment variable alone does not grant a license.
 The default remains CSB when configured; explicit WEB selection is respected.
+
+
+## Printed references and chapter reading
+
+Requests use translation-specific `id` values (`use-org-id=false`). WEB and the
+reader use printed English references; API.Bible `orgId` can count Psalm headings
+and must not be treated as a printed verse number. Responses are checked against
+the requested edition ID, including containing spans for MSG. Grouped verses retain
+their complete citation when read aloud or shared. See
+https://docs.api.bible/resources/referencing-verses/.
+
+The Scripture reader pages online editions in 20-verse sections, including its
+initial John 1 view. This avoids the 40-verse provider limit without bulk chapter
+embedding. Requests run at most three verse fetches concurrently per passage and
+retain the existing bounded cache. Older saved online passages are refreshed
+when opened online; WEB remains the offline fallback.

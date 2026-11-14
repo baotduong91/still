@@ -33,8 +33,6 @@ import {
   type TranslationsStatus,
 } from "@/lib/client/hosted-translation";
 import type { PlanType, TranslationId } from "@/lib/schemas";
-import { warmKokoro } from "@/lib/tts/kokoro-client";
-import { offlineModelStored } from "@/lib/tts/model-cache";
 type AppContext = {
   state: SavedState;
   update: (fn: (old: SavedState) => SavedState) => Promise<void>;
@@ -58,9 +56,11 @@ export function Provider({ children }: { children: React.ReactNode }) {
   const update = useCallback(async (fn: (old: SavedState) => SavedState) => {
     const next = fn(latest.current);
     latest.current = next;
+    // Controlled inputs must reflect the event immediately. Waiting for IndexedDB
+    // lets React restore a checkbox's previous value before the save completes.
+    setState(next);
     try {
       await writeState(next);
-      if (latest.current === next) setState(next);
     } catch {
       setError(
         "Your browser could not save this change. Export your data before closing.",
@@ -118,8 +118,6 @@ export function Provider({ children }: { children: React.ReactNode }) {
         if (!alive || !status || !hostedGroqAvailable(status)) return;
         recordCloudVendor(status.modes.cloud.vendor);
         void update((s) => {
-          if (s.provider === "ollama")
-            return hostedGroqDefaultState({ ...s, guidePreferenceSet: false });
           if (!shouldApplyHostedGroqDefault(s)) return s;
           return hostedGroqDefaultState(s);
         }).catch(() => {});
@@ -130,7 +128,7 @@ export function Provider({ children }: { children: React.ReactNode }) {
     };
   }, [ready, online, update]);
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || !online) return;
     let alive = true;
     api<TranslationsStatus>("translations")
       .then((status) => {
@@ -144,7 +142,7 @@ export function Provider({ children }: { children: React.ReactNode }) {
     return () => {
       alive = false;
     };
-  }, [ready, update]);
+  }, [ready, online, update]);
   useEffect(() => {
     if (!ready || state.deviceProfile) return;
     let timer: ReturnType<typeof setTimeout>;
@@ -203,17 +201,6 @@ export function Provider({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener("online", sync);
       window.removeEventListener("offline", sync);
-    };
-  }, []);
-  useEffect(() => {
-    let alive = true;
-    void offlineModelStored()
-      .then((stored) => {
-        if (alive && stored && navigator.onLine) void warmKokoro();
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
     };
   }, []);
   useEffect(() => {

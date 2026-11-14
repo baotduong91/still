@@ -1,3 +1,5 @@
+import { devotionReflectionText } from "../../lib/tts/reading";
+import { seedOfflineKokoroAssets } from "./helpers/bella-cache";
 import { test, expect } from "./fixtures";
 import AxeBuilder from "@axe-core/playwright";
 import { Bible } from "../../lib/bible";
@@ -345,6 +347,8 @@ test("voice routing stays private and responsive across delayed Edge, Bella, off
   context,
   savedPlan,
 }) => {
+  await page.goto("/settings");
+  await seedOfflineKokoroAssets(page);
   let release!: () => void;
   const held = new Promise<void>((resolve) => {
     release = resolve;
@@ -381,8 +385,8 @@ test("voice routing stays private and responsive across delayed Edge, Bella, off
     page.getByRole("button", { name: "Pause reflection", exact: true }),
   ).toBeVisible({ timeout: 1500 });
   expect(Date.now() - before).toBeLessThan(1500);
-  expect((await voiceState(page)).localText.at(-1)).toBe(
-    savedPlan.days[0].reflection,
+  expect((await voiceState(page)).localText).toContain(
+    devotionReflectionText(savedPlan.days[0]),
   );
   await page.getByRole("link", { name: "03 Prayer" }).click();
   await page

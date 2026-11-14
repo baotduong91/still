@@ -9,39 +9,40 @@ export function usePassage(local: PassageType, requested?: TranslationId) {
   const { state, online, bible } = useApp();
   const translation = requested ?? state.translation;
   const [remote, setRemote] = useState<PassageType | null>(null);
-  const signature = local.reference + translation;
+  const reference = local.requestedReference ?? local.reference;
+  const signature = reference + translation;
   const wantsLicensed =
-    online &&
-    state.onlineScripture &&
-    isApiBibleTranslation(translation);
+    online && state.onlineScripture && isApiBibleTranslation(translation);
   const hasLicensed =
-    local.source === "api.bible" && local.translation === translation;
-  const [resolving, setResolving] = useState(
-    () => wantsLicensed && !hasLicensed,
-  );
+    local.source === "api.bible" &&
+    local.translation === translation &&
+    local.citationScheme === "edition";
+  const [settled, setSettled] = useState<string | null>(null);
+  const resolving = wantsLicensed && !hasLicensed && settled !== signature;
   useEffect(() => {
     let alive = true;
     setRemote(null);
     const pending = wantsLicensed && !hasLicensed;
-    setResolving(pending);
+
     if (!pending) return;
     api<{ passage: PassageType }>(
-      `scripture?${new URLSearchParams({ reference: local.reference, translation })}`,
+      `scripture?${new URLSearchParams({ reference, translation })}`,
     )
       .then((r) => {
         if (alive) setRemote(r.passage);
       })
       .catch(() => {})
       .finally(() => {
-        if (alive) setResolving(false);
+        if (alive) setSettled(signature);
       });
     return () => {
       alive = false;
     };
-  }, [signature, wantsLicensed, hasLicensed, local.reference, translation]);
+  }, [signature, wantsLicensed, hasLicensed, reference, translation]);
   const safeLocal =
-    local.source === "api.bible" && (!state.onlineScripture || !online)
-      ? (bible?.lookup(local.reference, translation) ?? local)
+    local.source === "api.bible" &&
+    (!state.onlineScripture || !online || !hasLicensed)
+      ? (bible?.lookup(reference, translation) ?? local)
       : local;
   const displayed =
     (remote?.requestedReference ?? remote?.reference) ===

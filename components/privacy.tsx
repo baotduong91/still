@@ -58,8 +58,14 @@ export function PrivacyProvider({ children }: { children: React.ReactNode }) {
   };
   const enable = async (pin: string) => {
     const record = await createPin(pin);
-    await update((s) => ({ ...s, pinLock: record }));
+    // Keep the setup screen mounted when the PIN record becomes visible.
     setUnlocked(true);
+    try {
+      await update((s) => ({ ...s, pinLock: record }));
+    } catch (error) {
+      setUnlocked(false);
+      throw error;
+    }
   };
   return (
     <Context.Provider

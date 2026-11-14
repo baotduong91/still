@@ -10,7 +10,11 @@ export const modelCache = {
   async match(key: string) {
     const db = await database();
     try {
-      const blob = (await db.get("assets", key)) as Blob | undefined;
+      // ArrayBuffers avoid WebKit's Blob/File IndexedDB serialization failure.
+      // Retain support for model downloads saved by previous versions.
+      const stored = (await db.get("assets", key)) as
+        Blob | ArrayBuffer | undefined;
+      const blob = stored instanceof ArrayBuffer ? new Blob([stored]) : stored;
       return blob
         ? new Response(blob, {
             headers: {
@@ -24,10 +28,10 @@ export const modelCache = {
     }
   },
   async put(key: string, response: Response) {
-    const blob = await response.blob();
+    const bytes = await response.arrayBuffer();
     const db = await database();
     try {
-      await db.put("assets", blob, key);
+      await db.put("assets", bytes, key);
     } finally {
       db.close();
     }

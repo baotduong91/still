@@ -5,11 +5,13 @@ export const Verse = z.object({
   book: z.string(),
   chapter: z.number().int().positive(),
   verse: z.number().int().positive(),
+  verseEnd: z.number().int().positive().optional(),
   text: z.string(),
 });
 export const Passage = z.object({
   reference: z.string(),
   requestedReference: z.string().optional(),
+  citationScheme: z.literal("edition").optional(),
   requestedTranslation: Translation,
   translation: Translation,
   fallback: z.boolean(),

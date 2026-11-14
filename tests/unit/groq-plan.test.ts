@@ -376,7 +376,7 @@ it.each(["CSB", "NLT", "MSG"] as const)(
         const orgId = new URL(String(url)).pathname.split("/").at(-1)!;
         return Response.json({
           data: {
-            orgId,
+            id: orgId,
             bibleId: id,
             content: `Exact licensed fixture for ${orgId}.`,
             copyright: "Rights fixture",

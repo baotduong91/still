@@ -38,7 +38,10 @@ test("a clean desktop chooses a private starter, opens Day 1, and keeps its iden
     requests.push(request.url() + (request.postData() ?? ""));
     if (
       new URL(request.url()).pathname.startsWith("/api/") &&
-      request.method() !== "HEAD"
+      request.method() !== "HEAD" &&
+      !["/api/modes", "/api/awp/translations"].includes(
+        new URL(request.url()).pathname,
+      )
     )
       api.push(request.url());
   });

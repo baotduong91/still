@@ -61,16 +61,20 @@ export async function* streamGroqChat(
       while ((match = /[.!?](?:\s+|$)|\n{2,}/.exec(pending))) {
         const end = match.index + match[0].length;
         const sentence = pending.slice(0, end);
-        validateCommentary(answer + sentence, true);
-        answer += sentence;
+        const checked =
+          validateCommentary(sentence, true) +
+          (sentence.endsWith(" ") || sentence.endsWith("\n") ? " " : "");
+        validateCommentary(answer + checked);
+        answer += checked;
         pending = pending.slice(end);
-        yield { type: "text", text: sentence };
+        yield { type: "text", text: checked };
       }
     }
     if (pending) {
-      validateCommentary(answer + pending, true);
-      answer += pending;
-      yield { type: "text", text: pending };
+      const checked = validateCommentary(pending, true);
+      validateCommentary(answer + checked);
+      answer += checked;
+      yield { type: "text", text: checked };
     }
     const validatedAnswer = z.string().min(20).max(8000).parse(answer.trim());
     yield {
@@ -87,8 +91,7 @@ export async function* streamGroqChat(
     };
   } catch (error) {
     if (options.signal?.aborted) return;
-    const groqCloud =
-      input.provider === "cloud" && cloudVendor() === "groq";
+    const groqCloud = input.provider === "cloud" && cloudVendor() === "groq";
     const recoverable =
       groqCloud &&
       (error instanceof GroqUnavailable ||

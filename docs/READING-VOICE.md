@@ -196,3 +196,16 @@ The worker accepts `crossfadeMs` for explicit callers. Default is 0 (lossless
 concatenation); enabling overlap may affect adjacent phonemes and is not applied
 automatically to Scripture. Cancellation discards incomplete audio. Existing
 heartbeat/budget handling and GPU/WASM recovery remain active.
+
+
+### Safari and Dock web apps
+
+New model cache writes store ArrayBuffers instead of Blobs to avoid WebKit's
+IndexedDB Blob/File serialization error. Older Blob downloads remain readable.
+Complete Bella WAV playback clears the chunk scheduler before starting, so
+Pause/Resume controls target the actual media element. Device voice no longer
+triggers an unrelated app-wide Bella warm-up. Today keeps section lookahead.
+
+Scripture playback is gated during translation loading; changes to the retrieved
+text cancel stale playback. Edge Scripture uses buffered MP3, including standalone
+Safari apps, and retains the explicit tap-to-play message if Safari blocks playback.
