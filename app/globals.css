@@ -1859,21 +1859,42 @@ html[data-theme="dark"] .image-maker {
   min-height: 48px;
   white-space: normal;
 }
-.flow-verse {
+/* Today's hero: paint a dark shell first, then image + scrim on pseudo-layers so
+   docked Safari does not flash var(--paper) while mountain-hush.jpg decodes. */
+.flow-section.flow-verse {
   min-height: calc(100svh - 150px);
   color: #f3f1e6;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(22, 38, 31, 0.72),
-      rgba(18, 34, 27, 0.72) 50%,
-      rgba(16, 30, 24, 0.93)
-    ),
-    url("/backgrounds/mountain-hush.jpg") center 65% / cover;
+  background-color: #16261f;
+  background-image: none;
   justify-content: space-between;
   border-color: #405448;
   position: relative;
   overflow: hidden;
+  isolation: isolate;
+}
+.flow-section.flow-verse::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: url("/backgrounds/mountain-hush.jpg") center 65% / cover no-repeat;
+}
+.flow-section.flow-verse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(22, 38, 31, 0.72),
+    rgba(18, 34, 27, 0.72) 50%,
+    rgba(16, 30, 24, 0.93)
+  );
+}
+.flow-section.flow-verse > * {
+  position: relative;
+  z-index: 2;
 }
 .flow-verse-top {
   display: flex;

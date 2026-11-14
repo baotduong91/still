@@ -23,6 +23,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link
+          rel="preload"
+          as="image"
+          href="/backgrounds/mountain-hush.jpg"
+          type="image/jpeg"
+        />
+      </head>
       <body>
         <Provider>
           <PrivacyProvider>
