@@ -2,15 +2,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/components/provider";
 import { Button } from "@/components/ui/button";
-import { kokoroAudio, resetBellaBackend } from "@/lib/tts/kokoro-client";
+import { resetBellaBackend } from "@/lib/tts/kokoro-client";
 import { readingAudioEvent } from "@/lib/tts/reading";
+import { privateVoice, clearPrivatePreviews } from "@/lib/tts/private-voice";
 import type { SpeechEngine } from "@/lib/tts/shared";
-import {
-  offlineModelStored,
-  prepareSpeechRuntime,
-} from "@/lib/tts/model-cache";
+import { prepareSpeechRuntime } from "@/lib/tts/model-cache";
 export function AudioSettings() {
   const { state, update, online } = useApp();
+  const voice = privateVoice(state.speechEngine);
   const [gpu, setGpu] = useState(false);
   useEffect(
     () => setGpu(localStorage.getItem("still-bella-gpu") === "true"),
@@ -29,13 +28,22 @@ export function AudioSettings() {
       <select
         id="speech-engine"
         value={state.speechEngine}
-        onChange={(e) =>
+        disabled={busy}
+        onChange={(e) => {
+          window.dispatchEvent(
+            new CustomEvent(readingAudioEvent, { detail: "voice-change" }),
+          );
+          clearPrivatePreviews();
+          setMessage("");
           void update((s) => ({
             ...s,
             speechEngine: e.target.value as SpeechEngine,
-          }))
-        }
+          }));
+        }}
       >
+        <option value="paradee">
+          Edge + Paradee 1.1 · Heart · recommended
+        </option>
         <option value="auto">Auto · Edge online, Kokoro offline</option>
         <option value="edge">Edge · Jenny · online preferred</option>
         <option value="kokoro">Kokoro · Bella · private, on-device</option>
@@ -45,34 +53,50 @@ export function AudioSettings() {
       </select>
       <p className="field-hint">
         Auto and Edge send only the displayed Scripture and its reference to
-        Microsoft when you tap Play. If unavailable, they try Kokoro. An
-        installed device voice is used only when you choose it. Kokoro never
+        Microsoft when you tap Play. Paradee mode also uses Edge for online
+        Scripture, and Heart for all private reading or offline Scripture. If
+        Edge is unavailable, the selected on-device voice is used. An installed
+        device voice is used only when you choose it. Neither Paradee nor Kokoro
         sends your text to a server. Reflections, plan prayers, actions, and
-        chat interpretation are read only on-device with Kokoro or an installed
-        local voice. Personal prayers, journal entries, and notes are excluded.
+        chat interpretation are read only on-device with Paradee, Kokoro, or an
+        installed local voice. Personal prayers, journal entries, and notes are
+        excluded.
       </p>
-      <p className="field-hint">
-        Download Bella here before private listening. The smaller WASM model is
-        roughly 90 MB. Optional desktop WebGPU uses a larger fp32 download and
-        may prepare faster on supported hardware. Both use Bella. Keep this
-        screen open until ready. First synthesis may take 1–3 minutes;
-        downloaded assets persist while browser storage is retained. Today
-        prepares real section text ahead of playback.
-      </p>
-      <label>
-        <input
-          type="checkbox"
-          checked={gpu}
-          disabled={busy}
-          onChange={(e) => {
-            const enabled = e.target.checked;
-            setGpu(enabled);
-            localStorage.setItem("still-bella-gpu", String(enabled));
-            resetBellaBackend();
-          }}
-        />{" "}
-        Prefer desktop WebGPU · larger download; WASM fallback
-      </label>
+      {state.speechEngine === "paradee" ? (
+        <p className="field-hint">
+          Download Paradee 1.1 here before private listening. Heart is a warm US
+          female voice distilled from Kokoro, with an 8.5 MB model plus the
+          shared speech runtime. It sounds different from Bella and needs no
+          GPU. Keep this screen open until ready; saved assets work offline
+          while browser storage is retained. Today prepares the next section
+          locally.
+        </p>
+      ) : (
+        <p className="field-hint">
+          Download Bella here before private listening. The smaller WASM model
+          is roughly 90 MB. Optional desktop WebGPU uses a larger fp32 download
+          and may prepare faster on supported hardware. Both use Bella. Keep
+          this screen open until ready. First synthesis may take 1–3 minutes;
+          downloaded assets persist while browser storage is retained. Today
+          prepares real section text ahead of playback.
+        </p>
+      )}
+      {state.speechEngine !== "paradee" && (
+        <label>
+          <input
+            type="checkbox"
+            checked={gpu}
+            disabled={busy}
+            onChange={(e) => {
+              const enabled = e.target.checked;
+              setGpu(enabled);
+              localStorage.setItem("still-bella-gpu", String(enabled));
+              resetBellaBackend();
+            }}
+          />{" "}
+          Prefer desktop WebGPU · larger download; WASM fallback
+        </label>
+      )}
       <Button
         variant="outline"
         disabled={busy || !online}
@@ -86,12 +110,11 @@ export function AudioSettings() {
           setCanKeepWaiting(false);
           extendWait.current = null;
           setMessage(
-            "Preparing Bella. Downloading model files only; no personal text is sent…",
+            `Preparing ${voice.name}. Downloading model files only; no personal text is sent…`,
           );
           try {
-            await prepareSpeechRuntime();
-            if (controller.signal.aborted) return;
-            const result = await kokoroAudio(
+            const runtime = prepareSpeechRuntime();
+            const synthesis = voice.audio(
               null,
               setMessage,
               controller.signal,
@@ -103,21 +126,22 @@ export function AudioSettings() {
                   extendWait.current = extend;
                   setCanKeepWaiting(true);
                   setMessage(
-                    "Bella still needs more time. Keep waiting, or cancel and try again later.",
+                    `${voice.name} still needs more time. Keep waiting, or cancel and try again later.`,
                   );
                 },
               },
             );
+            const [, result] = await Promise.all([runtime, synthesis]);
             if (!controller.signal.aborted) {
-              if (!(await offlineModelStored())) {
+              if (!(await voice.stored())) {
                 setMessage(
-                  "Bella can read now, but this browser could not save its model for offline use. Free some storage and try downloading again.",
+                  `${voice.name} can read now, but this browser could not save its model for offline use. Free some storage and try downloading again.`,
                 );
                 return;
               }
               await navigator.storage?.persist?.().catch(() => false);
               setMessage(
-                `Bella is ready on this device · ${result.backend}. Model and voice files are cached for offline use while browser storage is retained.`,
+                `${voice.name} is ready on this device · ${result.backend}. Model and voice files are cached for offline use while browser storage is retained.`,
               );
             }
           } catch {
@@ -126,9 +150,12 @@ export function AudioSettings() {
                 "The on-device download did not finish. Check your connection and free space, then try again.",
               );
           } finally {
-            extendWait.current = null;
-            setCanKeepWaiting(false);
-            if (!controller.signal.aborted) setBusy(false);
+            if (abort.current === controller) {
+              extendWait.current = null;
+              setCanKeepWaiting(false);
+              setBusy(false);
+            }
+            controller.abort();
           }
         }}
       >
@@ -141,7 +168,9 @@ export function AudioSettings() {
             extendWait.current?.();
             extendWait.current = null;
             setCanKeepWaiting(false);
-            setMessage("Still preparing Bella’s first synthesis on-device…");
+            setMessage(
+              `Still preparing ${voice.name}’s first synthesis on-device…`,
+            );
           }}
         >
           Keep waiting

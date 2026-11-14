@@ -33,6 +33,8 @@
     "lucide-react": "^0.468.0",
     "next": "16.4.6",
     "node-edge-tts": "1.2.12",
+    "onnxruntime-web": "1.22.0-dev.20250409-89f8206ba4",
+    "phonemizer": "1.2.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tailwind-merge": "^3.0.0",

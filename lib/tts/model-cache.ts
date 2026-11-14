@@ -7,6 +7,14 @@ const database = () =>
     },
   });
 export const modelCache = {
+  async has(key: string) {
+    const db = await database();
+    try {
+      return (await db.getKey("assets", key)) !== undefined;
+    } finally {
+      db.close();
+    }
+  },
   async match(key: string) {
     const db = await database();
     try {

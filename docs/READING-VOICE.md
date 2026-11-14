@@ -6,11 +6,11 @@ Still’s optional listen controls complement screen readers; they do not replac
 
 | Kind | Source and placement | Spoken text | Edge eligibility |
 | --- | --- | --- | --- |
-| `scripture` | Retrieved `PassageType`: Today Scripture, passage/verse tools, public WEB reader, Create Image, chat citations | Exact retrieved verse text followed by its reference | Auto/Edge online only, after Play |
-| `devotional` | Today Reflection: reflection, both questions, and interpretation (as shown in the section) | Validated plan copy, guided or generated | Never; Kokoro then installed local voice |
-| `prayer` | Today Prayer: `day.prayer`, after plan validation | “A prayer inspired by today’s reading. This is not Scripture.” followed by the plan prayer | Never; Kokoro then installed local voice |
-| `action` | Today Practice: fixed `day.action` copy | Validated plan action, guided or generated | Never; Kokoro then installed local voice |
-| `interpretation` | Successful cited chat response’s `interpretation` block | Interpretation only, separate from answer/citations | Never; Kokoro then installed local voice |
+| `scripture` | Retrieved `PassageType`: Today Scripture, passage/verse tools, public WEB reader, Create Image, chat citations | Exact retrieved verse text followed by its reference | Auto/Edge/Paradee online only, after Play |
+| `devotional` | Today Reflection: reflection, both questions, and interpretation (as shown in the section) | Validated plan copy, guided or generated | Never; selected Paradee/Kokoro, or explicitly chosen local voice |
+| `prayer` | Today Prayer: `day.prayer`, after plan validation | “A prayer inspired by today’s reading. This is not Scripture.” followed by the plan prayer | Never; selected Paradee/Kokoro, or explicitly chosen local voice |
+| `action` | Today Practice: fixed `day.action` copy | Validated plan action, guided or generated | Never; selected Paradee/Kokoro, or explicitly chosen local voice |
+| `interpretation` | Successful cited chat response’s `interpretation` block | Interpretation only, separate from answer/citations | Never; selected Paradee/Kokoro, or explicitly chosen local voice |
 
 `ReadingPayload` is `{ kind, text, reference?, title? }`. `buildSpokenText` centralizes trimming and the prayer prefix while preserving the existing Scripture `readingText` behavior exactly. Titles are not spoken, and non-Scripture references are not added to speech. `engineForKind` is the client privacy gate: only `scripture` may reach Edge. Selecting Edge in Settings does not override the on-device rule for other content. The TTS API still accepts only text/reference and voice controls; this feature does not add devotional request kinds to it. The optional `stream` flag enables progressive MP3 delivery.
 
@@ -22,6 +22,7 @@ Compact controls provide Play/Pause, Stop, 0.8×–1.2× speed, an engine label,
 
 Settings → A voice for the Word → Reading voice engine:
 
+- **Edge + Paradee 1.1 (recommended):** Edge for online Scripture; Paradee’s Heart voice for all other content, offline Scripture, and Edge failures. Existing saved engine preferences are preserved; select this option to switch from Bella.
 - Auto: Scripture uses Edge online, then Kokoro offline/on failure. Other kinds always stay on-device.
 - Edge: prefer Jenny online for Scripture only, with the same on-device fallback when unavailable. Other kinds always stay on-device.
 - Kokoro: Bella on-device, even when online. It never calls the Edge route.
@@ -31,181 +32,106 @@ Edge sends only the Scripture text and reference after Play, through the Still s
 
 ## Prepare offline reading
 
-1. While online, choose Download for offline in Settings to save the PWA and WEB.
-2. Under A voice for the Word, choose Download on-device voice. Keep the screen open until Bella is ready: after download, first synthesis can take 1–3 minutes on desktop. Keep waiting extends a slow preparation once; Cancel stops that request and retains downloaded files.
-3. Choose Kokoro for private on-device reading, or leave Auto selected for automatic offline use.
+1. In Settings, choose **Download for offline** to save the PWA and WEB.
+2. Under **Reading voice engine**, choose **Edge + Paradee 1.1 · Heart · recommended**.
+3. Choose **Download on-device voice** and keep Settings open until it reports ready.
 
-Bella uses the q8 WASM model (roughly 90 MB) on all devices. This replaces the earlier roughly 330 MB fp32 WebGPU path, avoiding its large download and unpredictable GPU compilation. A previous full-size model is not used by the optimized reader; prepare the smaller model once while online. The same Bella voice is retained. We favor this predictable mobile path over adding another large model or moving private text to a server. The upstream [model card](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX) documents the model variants.
+No API key, account, server inference, or GPU is needed for Paradee. Its pinned
+int8 model is about **8.5 MB**, plus the shared ONNX runtime and bundled
+phonemizer. Downloads contact Hugging Face for static model files only. The host
+can see download metadata; reading text is never included. Existing Bella files
+are retained so switching back does not require another model download.
 
-Download progress is per file. Cached files say “Loading downloaded Bella” rather than suggesting a fresh download. Model/tokenizer blobs stay in `still-tts-models` IndexedDB; the Bella voice and same-origin worker/WASM files remain cached separately. Settings only claims offline readiness after finding the optimized q8 model and voice. Browser eviction or clearing storage can require downloading again.
+Paradee 1.1 is distilled from Kokoro’s **af_heart**, not af_bella. It is a warm US
+English female voice with a different timbre; Bella remains available via Auto,
+Edge, or the explicit Kokoro option. Paradee runs WASM with one thread, or two
+when cross-origin isolated with at least four logical cores. Bella uses WASM q8
+(about 92 MB); its optional desktop WebGPU fp32 download is substantially larger.
+Neither engine silently switches to a device or cloud voice on timeout.
 
-Cold playback uses a modest first segment (up to about 22 words, often ending at a sentence) so the first sound arrives quickly; warmed playback uses larger segments, and passages under about 58 words are usually read as one continuous segment to avoid mid-sentence pauses. Every word and punctuation mark is retained. While one segment plays, the worker synthesizes the next; the player schedules segments back-to-back with Web Audio when buffers are ready, supports pause/resume, and cancels on Stop, step change, navigation, or PIN locking. Generated audio stays in memory and is not persisted.
+Model bytes are stored as ArrayBuffers in IndexedDB for WebKit compatibility.
+Settings caches the matching same-origin WASM/loader while loading the model in
+parallel, then verifies synthesis with “Ready.” Before reporting offline readiness,
+model persistence is checked. Browser eviction or clearing storage requires setup
+again. Today does not download an unprepared model, including with autoplay on.
 
-Bella has separate budgets: **120 seconds without download progress**, **120 seconds without model-load progress**, **180 seconds for the first successful synthesis in a worker session**, and **45 seconds per subsequent synthesis chunk**. The first ONNX/WASM synthesis can take **1–3 minutes on desktop**, even when all model files have already downloaded. Settings preparation and Today’s cached-model warmup both run one `generate("Ready.")` to compile those paths before reporting ready. The worker remembers successful compilation for its entire lifetime; Stop and section changes do not discard it. WASM stays q8; two threads are used only when the browser is cross-origin isolated and has at least four logical cores. Ordinary non-isolated hosted pages keep one thread.
+Today primes the actual next section while Scripture is visible, and looks one
+section ahead during autoplay. It retains the worker and prepared audio throughout
+the app session. Reloading requires loading/compiling saved assets again. Both
+workers join all PCM parts into **one WAV per reading**, so there are no chunk
+decoding gaps. Segments are at most 96 words / 600 characters on warmed Bella and
+all Paradee readings. Inputs exceeding 510 phoneme tokens are split at word
+boundaries and retried without truncation. All original text is retained in order.
+No overlap/crossfade is applied by default. Generated audio stays in memory only.
 
-While a job is queued, downloading, loading, or generating, the worker sends a heartbeat every five seconds. A heartbeat renews the liveness watchdog even if its message text is unchanged. Separate inference deadlines apply; long queued work is not charged as warm inference.
+Paradee requires eSpeak-to-Misaki conversion before tokenization; raw eSpeak
+phonemes are incompatible with its training. The vendored upstream conversion,
+Kokoro punctuation-preserving phonemizer and exact v1.1 vocabulary are attributed
+under `lib/tts/vendor`. Model revision is pinned to
+`330617ad1f097b4f6b02c103e54b39006c090b45`; v1.1 has only Heart and a specific
+`input_ids` + `speed` → 24 kHz `waveform` contract. Do not silently upgrade it to a
+later multi-voice model with different inputs.
 
-After Bella’s files are saved, the app **warms** the WASM model in the background (app launch and before Play when possible). A session flag remembers successful compile in this browser tab so the next Play reuses the worker when still open.
+The shared local client has separate 180-second download/model-load/first-inference
+budgets and a 45-second warm-inference budget. Workers send a heartbeat every five
+seconds, and queued jobs do not count as warm inference. Slow jobs automatically
+extend up to three times before offering **Keep waiting** once. A timeout cancels
+the current job without terminating the worker; it never chooses a system voice.
+Genuine synthesis errors retry once before offering a choice. **Use device voice**
+or the Device preference requires an installed English voice (`localService`).
 
-Before any sound, **Play once** keeps preparing: the client **automatically extends** the same job several times (several minutes total on first synthesis) and updates status text—no repeated Play taps for each timeout window. After those automatic extensions, **Keep waiting** offers one more manual extension on the same job. Device voice requires an explicit button tap or the persistent Device voice preference; a timeout never silently switches to a system voice. A genuine worker/model error is retried once before showing an explicit choice. A failure after sound starts stops the partial reading and offers a restart instead of repeating words automatically.
+Cancellation is cooperative: an in-flight ONNX call finishes in its serial queue,
+but cancelled work cannot play, repopulate previews, or synthesize subsequent
+chunks. Stop, section/translation/engine changes, navigation and PIN unmount stop
+playback. Clearing preparation preserves compiled models; unrecoverable worker
+errors or an explicit Bella backend change can reset them.
 
-Cancellation is cooperative: ONNX cannot safely interrupt an in-flight native generate. Stop/timeout/clear marks the individual job cancelled immediately, removes its listeners/timers, and suppresses late audio/cache writes and subsequent chunks. The single serial worker queue finishes that native call before running another, so generations never overlap. Only an unrecoverable worker error terminates the worker. Clearing Today’s previews cancels pending warm/prime jobs without cancelling an unrelated active read. Installed fallback voices must have `localService=true`; OS cloud voices remain excluded. When no local voice exists, the app explains how to install one. Devotional text never goes to Edge.
-
-
-Kokoro model downloads contact Hugging Face for static assets; the host can see download metadata, but reading text is never sent for inference. Inference and WAV generation run on-device. Static model and voice files are cached, not personal text or generated audio.
-
-On iPhone, a browser may require a second Play tap after audio finishes preparing. Still keeps the prepared audio and shows “Your audio is ready. Tap Play to listen.” Pause/Resume and rate changes use the same audio without another network synthesis request. With the device speech fallback, changing speed stops the current utterance; Play starts it again at the selected speed.
+Safari may require a second Play tap after asynchronous preparation. Prepared
+audio remains available with “Your audio is ready. Tap Play to listen.” Pause,
+resume and speed changes reuse the same media element. Complete WAV playback does
+not leave an inactive chunk scheduler intercepting pause/resume. Edge Scripture
+uses buffered MP3, including Dock web apps. Translation loading gates Scripture
+playback, and changing retrieved text cancels stale audio.
 
 ## Development and verification
 
-`npm install`, then `npm run dev` or `npm run build`. Predev/prebuild copies and validates the matching ONNX runtime WASM/MJS files in generated, ignored `public/tts/`. `vercel.json` explicitly selects `npm run build` so dashboard commands that directly invoke `next build` cannot skip this preparation. The production smoke test checks `/tts/ort-wasm-simd-threaded.jsep.mjs` and the WASM magic bytes at `/tts/ort-wasm-simd-threaded.jsep.wasm`; the worker’s `wasmPaths` always uses its own origin. No model is included in the repository or production function bundle. The model downloads only on explicit preparation or when Play needs Kokoro. WEB retrieval, citation validation, AWP actions, and model-provider choices remain separate from speech.
+`npm install`, then `npm run dev` or `npm run build`. Predev/prebuild copies and validates the matching ONNX runtime WASM/MJS files in generated, ignored `public/tts/`. `vercel.json` explicitly selects `npm run build` so dashboard commands that directly invoke `next build` cannot skip this preparation. The production smoke test checks `/tts/ort-wasm-simd-threaded.jsep.mjs` and the WASM magic bytes at `/tts/ort-wasm-simd-threaded.jsep.wasm`; the worker’s `wasmPaths` always uses its own origin. No model is included in the repository or production function bundle. Models download only on explicit Settings preparation (or Bella backend recovery); Today never starts an uncached download. WEB retrieval, citation validation, AWP actions, and model-provider choices remain separate from speech.
 
-Unit checks assert exact Scripture input, `buildSpokenText` behavior, the full kind/preference/connectivity routing matrix, and API validation/errors. Browser fixtures cover tap-only Scripture network access, private Today and chat playback with Auto online, prayer prefix and personal-field exclusion, step/payload changes, the global reader mutex, PIN unmount, engine preference, and local fallback. An optional real-inference test downloads the model and checks offline reload:
+Unit tests cover exact Scripture input, routing/privacy, Misaki conversion,
+phoneme limits, same-origin runtime selection, one-WAV output, cancellation,
+lookahead reuse, and the shared watchdog lifecycle. Real-model browser checks are
+opt-in to avoid downloads on every test run:
 
 ```bash
+npm run typecheck
+npm test
 npm run build
+TEST_REAL_PARADEE=1 STILL_WEBKIT=1 npm run test:e2e -- paradee.spec.ts
+# Optional existing Bella check:
 TEST_REAL_TTS=1 npm run test:e2e -- audio-runtime.spec.ts
 ```
 
-Sources: [Kokoro.js](https://github.com/hexgrad/kokoro/tree/main/kokoro.js), [node-edge-tts](https://github.com/SchneeHertz/node-edge-tts).
+The real Paradee test exercises Settings download, full Today reflection, exact
+worker input, and prayer synthesis after an offline reload with real ONNX and
+phonemization in Chromium and WebKit. Benchmark times depend on device/network;
+upstream Python CPU results are not promises of browser startup time.
 
+Sources and licensing: [Paradee 1.1 model](https://huggingface.co/sahilmahendrakar/Paradee-8M-v1.1),
+[Paradee browser conversion](https://github.com/sahilmahendrakar/paradee/blob/main/web/misaki.js),
+[Kokoro.js](https://github.com/hexgrad/kokoro/tree/main/kokoro.js),
+[node-edge-tts](https://github.com/SchneeHertz/node-edge-tts).
+Paradee/Kokoro are Apache-2.0; bundled source notices/licenses are retained.
+The already-installed ONNX runtime and phonemizer are now pinned direct dependencies.
+When upgrading ONNX, bump `still-tts-runtime-v1` in both the service worker and
+preparation helper to avoid mixing cached loader/WASM versions.
 
-## Continuous Today journey and readiness
+### Local warm-up measurements
 
-Today renders Verse → Reflection → Prayer → Practice as one vertical page, with a mountain-backed verse card and a single minimal fixed player above mobile navigation. Section links and Continue controls scroll within the page and respect reduced motion. Passive viewport tracking selects the current section; changing sections cancels the previous reading. Natural completion scrolls toward the next section; with Autoplay next section enabled (the default), it then starts that section’s reading. Personal prayer and typed Practice fields stay mounted while scrolling; only the plan's fixed day copy can be narrated. PIN locking and navigation still unmount/cancel the reader.
-
-Shortly after Today’s first paint, a deferred task warms already downloaded Bella assets. It never initiates a model download on page load. The first segment of each app-owned reflection, plan prayer, and fixed action is prepared on-device and held in a bounded in-memory cache. Play can consume that segment synchronously, while the worker generates the remaining segments. Nothing is spoken during preparation. This memory cache is cleared when Today exits. Cold devices still need an explicit download/first-use setup; an installed local voice remains available immediately.
-
-For online Scripture, Today sends a text-free HEAD request to warm the Next.js runtime. Only Play sends the exact displayed text/reference in a POST. With `stream:true`, the server returns MP3 bytes as soon as the first audio chunk arrives. Browsers supporting MediaSource `audio/mpeg` append those bytes progressively; other browsers retain buffered MP3 playback. Successfully played Scripture audio is cached only in the reader’s memory for immediate replay and is cleared on unmount. No new persistent personal audio cache is introduced. Network and cold-start latency cannot be eliminated, so the player keeps its quiet loading state and explicit device-voice fallback.
-
-Tests cover four simultaneously mounted sections, typed response retention across scrolling, active-section engine selection, natural-completion scrolling with Autoplay next section (on by default), Today Bella warm plus prime before Play, autoplay reusing preloaded Kokoro audio while preparing only the next section, whole-section Web Audio buffering for gapless Bella playback, private text staying off Edge, first-byte MP3 delivery, and reuse of complete prepared Bella readings. The opt-in real-runtime checks also measure warm Today latency and decode an actual Edge MP3 with browser output muted.
-
-Production diagnosis (November 11, 2026): deployment `56acd22` served both runtime URLs as 404. Its Vercel build log directly ran Prisma and `next build`, bypassing `npm run prebuild`. The committed build configuration fixes that omission for the next deployment; production needs this commit deployed before those URLs change. After deploying, check both runtime URLs return 200 (or 206 for a range request), not an HTML 404.
-
-### Continuous Today listening
-
-Today’s player has an **Autoplay next section** checkbox (on by default).
-After a reading finishes, Today scrolls to the next section; when checked it
-starts that section after the scroll. The sequence ends at Practice and never
-completes the day or submits a personal response. Turning autoplay off prevents
-further automatic readings. Manual scrolling selects a section without starting
-it. Browser audio restrictions may still require tapping Play.
-
-Bella now prepares **complete sections**, not just their opening words, while
-Today is open and the model is already downloaded. Up to four prepared readings
-stay in memory and are cleared when the flow changes or unmounts; personal audio
-is not uploaded or persisted. Foreground playback reuses that complete audio.
-Uncached Bella readings buffer every segment before starting, so slow WASM
-inference does not interrupt the voice every few words. The loading UI and Stop
-remain available. This trades initial preparation time for uninterrupted reading;
-it does not make slow-device inference instant. Download Bella in Settings first
-and allow Today to prepare while reading the verse for the fastest start.
-
-Scripture still uses Edge online according to the selected engine. Reflection,
-prayer and practice stay on-device. No automatic device-voice substitution was
-added, and the exact retrieved Scripture text is unchanged.
-
-### Next-section lookahead
-
-Today prepares the reflection as soon as it opens with an already downloaded
-Bella model. With autoplay enabled, starting each subsequent reading prepares
-its immediate successor. This gives synthesis the whole current reading as a
-head start rather than waiting for the last few words. Later sections are not
-queued ahead of that successor. Identical preparation requests share one task;
-a compiled worker skips redundant warm-up jobs.
-
-Prepared audio is loaded into an HTML audio player before the handoff. Playback
-reuses that player and skips model-cache checks; scrolling and the next reading
-start together, without the previous fixed 750 ms delay. Preloaded media is
-released on day changes, navigation, engine changes, and PIN unmount. Preparation is local only and sends no personal text to Edge. Uncached
-assets may download after Play with autoplay enabled, as described below. A cold model or synthesis slower than the current reading
-can still require waiting; this is near-continuous playback when ready, not a
-sample-accurate gapless guarantee across browser audio engines.
-
-### First-use download overlap
-
-With autoplay enabled, tapping Play on Today starts preparing the next Bella
-section while Scripture plays. This also works before a Settings download:
-only model/voice assets are fetched; devotional text stays in the worker.
-Simply opening Today still does not download an uncached model. Offline and
-Device voice choices do not trigger an automatic download.
-
-Preparation now compiles using the actual next reflection instead of an extra
-throwaway “Ready.” inference. Cold lookahead uses the larger sentence-sized
-batches because it buffers the whole section, avoiding tiny startup inferences. Settings preparation still uses “Ready.” to verify
-the standalone download. Bella’s voice asset is prefetched in parallel with the
-q8 model/tokenizer and reused through kokoro-js’s voice cache. A failed prefetch
-is not cached, and normal voice loading remains available. The existing q8 model
-and af_bella voice are unchanged; no quality tradeoff or extra model is introduced.
-
-The initial model transfer is still roughly 90 MB plus runtime/voice assets.
-On a slow connection or device, it may exceed the length of Scripture. The UI
-shows preparation, and full-section buffering prevents interruptions once Bella
-starts; truly gapless first-ever playback cannot be guaranteed before download
-and synthesis finish. Previously downloaded assets and prepared audio are reused.
-
-### Settings-first setup and desktop acceleration
-
-Download Bella in Settings → Reading voice before private listening. Today never
-starts an uncached model download, including when autoplay is enabled. It links
-to Settings instead. Downloaded models/voice files are retained in IndexedDB and
-Cache Storage; preparation also precaches the matching same-origin ONNX loader
-and WASM runtime using `/tts/manifest.json`. The service worker reuses that cache.
-No personal audio or text is added to the public runtime cache.
-
-The default remains WASM q8 (roughly 90 MB). The Settings checkbox **Prefer desktop
-WebGPU** opts into the larger fp32 model, after an adapter check on desktop.
-Unsupported adapters and GPU load/inference errors fall back to WASM q8 with Bella.
-That fallback can require an additional download if only fp32 is cached; offline
-users can choose their installed device voice explicitly. Mobile uses WASM.
-Backend changes explicitly reset the worker; normal Stop, pause and section
-changes retain it. GPU preparation and speed depend on the browser/device; no
-fixed startup time is promised.
-
-COOP same-origin plus COEP credentialless enable cross-origin isolation where
-supported. Isolated devices with at least four logical cores use two WASM threads;
-others keep one. CORS API calls remain normal; credentialless avoids cookies on
-cross-origin no-CORS resources (including opted-in Scripture usage reporting).
-Today warms downloaded Bella on entry, then primes the immediate next section’s
-real text. Autoplay preloads the following section during playback. Returning
-within the same app session reuses the worker.
-A browser reload/OS eviction still requires loading and compiling cached assets;
-compiled ONNX sessions do not persist across browser restarts.
-
-This supersedes the earlier first-Play download behavior and WASM-only policy.
-
-Verification for this change: 173 unit tests, production build/typecheck, and 20
-browser checks passed (19 audio/runtime scenarios plus the explicit runtime-cache
-and offline isolated Today reload). The two opt-in real-model/live-Edge checks
-were skipped; WebGPU performance has not been measured on physical hardware.
-When upgrading ONNX Runtime, bump `still-tts-runtime-v1` in both the service worker
-and runtime preparation helper so cached loader/WASM files stay matched.
-
-### One-file Bella playback
-
-Warmed and lookahead readings use up to 96 words / 600 characters per segment;
-short daily reflections commonly fit in one segment. Kokoro tokenization runs
-without silent truncation: input over the guarded 510-token budget is split
-again at word boundaries before inference. All original text remains in order.
-Cold readings keep smaller inference segments, but every foreground or prime
-job joins PCM in the worker and transfers exactly one WAV for playback. This
-avoids per-part decoding/scheduling and reuses complete readings in memory.
-
-`joinAudio(parts, crossfadeMs)` optionally overlaps up to 10 ms at each seam.
-The worker accepts `crossfadeMs` for explicit callers. Default is 0 (lossless
-concatenation); enabling overlap may affect adjacent phonemes and is not applied
-automatically to Scripture. Cancellation discards incomplete audio. Existing
-heartbeat/budget handling and GPU/WASM recovery remain active.
-
-
-### Safari and Dock web apps
-
-New model cache writes store ArrayBuffers instead of Blobs to avoid WebKit's
-IndexedDB Blob/File serialization error. Older Blob downloads remain readable.
-Complete Bella WAV playback clears the chunk scheduler before starting, so
-Pause/Resume controls target the actual media element. Device voice no longer
-triggers an unrelated app-wide Bella warm-up. Today keeps section lookahead.
-
-Scripture playback is gated during translation loading; changes to the retrieved
-text cancel stale playback. Edge Scripture uses buffered MP3, including standalone
-Safari apps, and retains the explicit tap-to-play message if Safari blocks playback.
+On the development Mac, production-build tests with real ONNX inference in
+Chromium and WebKit measured initial Settings preparation around 1.8 seconds,
+cold reflection playback around 2.4–2.6 seconds, and offline reload/prayer playback
+around 2.4–3.6 seconds. Network cache conditions and hardware affect these times.
+The automated prepared reflection-to-prayer handoff measured 9 ms / 36 ms from a
+simulated media-ended event to the next playing state. This checks buffer/player
+reuse and absence of another foreground synthesis; it is not an acoustic latency
+measurement or a guarantee against OS/browser audio scheduling delays.

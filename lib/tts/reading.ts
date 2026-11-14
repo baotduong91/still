@@ -11,7 +11,9 @@ export type ReadingPayload = {
 };
 
 /** Matches Today reflection section: prose, questions, and closing line. */
-export function devotionReflectionText(day: Pick<DayType, "reflection" | "questions" | "interpretation">) {
+export function devotionReflectionText(
+  day: Pick<DayType, "reflection" | "questions" | "interpretation">,
+) {
   return [day.reflection, ...day.questions, day.interpretation]
     .map((part) => part.trim())
     .filter(Boolean)
@@ -34,7 +36,11 @@ export function engineForKind(
   online: boolean,
 ) {
   if (preference === "device") return "device";
-  return kind === "scripture" ? firstEngine(preference, online) : "kokoro";
+  return kind === "scripture"
+    ? firstEngine(preference, online)
+    : preference === "paradee"
+      ? "paradee"
+      : "kokoro";
 }
 
 export const readingAudioEvent = "still-reading-audio";

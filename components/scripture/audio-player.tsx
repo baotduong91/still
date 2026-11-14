@@ -154,12 +154,14 @@ export function ReadingControls({
           {engine ||
             (preferredEngine === "device"
               ? "Device voice · installed"
-              : preferredEngine === "kokoro"
-                ? "Kokoro · on-device"
-                : "Edge · online")}
+              : preferredEngine === "paradee"
+                ? "Paradee 1.1 · Heart · on-device"
+                : preferredEngine === "kokoro"
+                  ? "Kokoro · on-device"
+                  : "Edge · online")}
         </span>
       </div>
-      {message.includes("Download Bella in Settings") && (
+      {/Download (Bella|Paradee) in Settings/.test(message) && (
         <Link href="/settings#reading-voice">Set up private listening</Link>
       )}
       {canKeepWaiting && (
@@ -168,7 +170,7 @@ export function ReadingControls({
         </Button>
       )}
       {preferredEngine !== "device" &&
-        ((!minimal && preferredEngine === "kokoro") ||
+        ((!minimal && ["kokoro", "paradee"].includes(preferredEngine)) ||
           status === "loading" ||
           !!message) && (
           <Button

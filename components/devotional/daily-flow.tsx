@@ -7,13 +7,9 @@ import { Button } from "@/components/ui/button";
 import { ReadingControls } from "@/components/scripture/audio-player";
 import { useReadingAudio } from "@/components/scripture/use-reading-audio";
 import { usePassage } from "@/components/scripture/use-passage";
-import {
-  devotionReflectionText,
-  type ReadingPayload,
-} from "@/lib/tts/reading";
+import { devotionReflectionText, type ReadingPayload } from "@/lib/tts/reading";
 import { verseSpeech } from "@/lib/tts/shared";
-import { offlineModelStored } from "@/lib/tts/model-cache";
-import { clearKokoroPreviews, warmKokoro } from "@/lib/tts/kokoro-client";
+import { privateVoice, clearPrivatePreviews } from "@/lib/tts/private-voice";
 import type { PassageType, DayType, PlanType } from "@/lib/schemas";
 import { PracticeWriter } from "./practice-writer";
 import { PrayerWriter } from "./prayer-writer";
@@ -39,13 +35,14 @@ export function DailyFlow({
   onComplete: () => Promise<void>;
 }) {
   const { state, online } = useApp();
+  const voice = privateVoice(state.speechEngine);
   const { passage, resolving: passageResolving } = usePassage(localPassage);
   const [active, setActive] = useState(0);
   const [autoplay, setAutoplay] = useState(true);
   const autoplayTarget = useRef<number | null>(null);
   const latestReader = useRef<ReturnType<typeof useReadingAudio> | null>(null);
-  const [bellaReady, setBellaReady] = useState(false);
-  const [needsBellaDownload, setNeedsBellaDownload] = useState(false);
+  const [privateReady, setPrivateReady] = useState(false);
+  const [needsVoiceDownload, setNeedsVoiceDownload] = useState(false);
   const refs = useRef<(HTMLElement | null)[]>([]),
     lockScroll = useRef(0),
     consumed = useRef(0);
@@ -159,24 +156,24 @@ export function DailyFlow({
   ]);
   useEffect(() => {
     let alive = true;
-    setBellaReady(false);
-    setNeedsBellaDownload(false);
+    setPrivateReady(false);
+    setNeedsVoiceDownload(false);
     const timer = setTimeout(async () => {
       if (state.speechEngine === "device") return;
       // Warm the server runtime without sending any verse or personal text.
-      if (online && ["auto", "edge"].includes(state.speechEngine))
+      if (online && ["auto", "edge", "paradee"].includes(state.speechEngine))
         void fetch("/api/tts", { method: "HEAD", cache: "no-store" }).catch(
           () => {},
         );
-      const stored = await offlineModelStored().catch(() => false);
+      const stored = await voice.stored().catch(() => false);
       if (!alive) return;
-      setNeedsBellaDownload(!stored);
+      setNeedsVoiceDownload(!stored);
     }, 250);
     return () => {
       alive = false;
       clearTimeout(timer);
       latestReader.current?.clearPrepared();
-      clearKokoroPreviews();
+      clearPrivatePreviews();
     };
     // Only app-owned day copy is primed, using previously downloaded model files.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -187,16 +184,17 @@ export function DailyFlow({
     if (active >= 3 || state.speechEngine === "device") return;
     if (active > 0 && (!autoplay || reader.status !== "playing")) return;
     let alive = true;
-    setBellaReady(false);
+    setPrivateReady(false);
     void (async () => {
-      const stored = await offlineModelStored().catch(() => false);
+      const stored = await voice.stored().catch(() => false);
       if (!stored) return;
-      await warmKokoro().catch(() => false);
       if (!alive) return;
       const ready =
-        (await latestReader.current?.prepareNext(payloads[active + 1], false)) ??
-        false;
-      if (alive) setBellaReady(ready);
+        (await latestReader.current?.prepareNext(
+          payloads[active + 1],
+          false,
+        )) ?? false;
+      if (alive) setPrivateReady(ready);
     })();
     return () => {
       alive = false;
@@ -305,10 +303,10 @@ export function DailyFlow({
             ))}
           </div>
           <p className="fine-print">{day.interpretation}</p>
-          {needsBellaDownload && (
+          {needsVoiceDownload && (
             <p className="fine-print">
               <Link href="/settings#reading-voice">
-                Download Bella in Settings for faster private reading.
+                Download {voice.name} in Settings for faster private reading.
               </Link>
             </p>
           )}
@@ -384,14 +382,14 @@ export function DailyFlow({
           </p>
         )}
       </section>
-      <div className="today-player" data-bella-ready={bellaReady}>
+      <div className="today-player" data-bella-ready={privateReady}>
         {autoplay &&
-          needsBellaDownload &&
-          !bellaReady &&
+          needsVoiceDownload &&
+          !privateReady &&
           reader.status !== "idle" && (
             <p className="reading-context" role="status">
-              Set up Bella in Settings for private listening. Your reading stays
-              on-device.
+              Set up {voice.name} in Settings for private listening. Your
+              reading stays on-device.
             </p>
           )}
         <ReadingControls

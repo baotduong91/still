@@ -999,7 +999,8 @@ test("Today preloads the next section and reuses its player at the autoplay hand
   const jobs = await page.evaluate(
     () => (window as unknown as { kokoroJobs: { mode?: string }[] }).kokoroJobs,
   );
-  expect(jobs.some((job) => job.mode === "warm")).toBe(true);
+  // Prime the real section directly; avoid a redundant Ready inference.
+  expect(jobs.some((job) => job.mode === "warm")).toBe(false);
   expect(jobs.filter((job) => job.mode === "prime")).toHaveLength(1);
   await page.evaluate(() => {
     const state = window as unknown as {

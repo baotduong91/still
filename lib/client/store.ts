@@ -17,7 +17,7 @@ export type DeviceProfile = {
 export type SavedState = {
   deviceProfile?: DeviceProfile;
   journeyOnboarding?: { completedAt?: string; dismissedWelcome?: boolean };
-  speechEngine: "auto" | "edge" | "kokoro" | "device";
+  speechEngine: "auto" | "edge" | "kokoro" | "paradee" | "device";
   pinLock: { salt: string; hash: string; iterations: number } | null;
   setupSeen: boolean;
   plans: PlanType[];
