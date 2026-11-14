@@ -27,7 +27,7 @@ it("defaults new state to Paradee and upgrades legacy Auto", () => {
     "paradee",
   );
   expect(mergeSavedState({ speechEngine: "kokoro" }).speechEngine).toBe(
-    "kokoro",
+    "paradee",
   );
 });
 it("reads a legacy record with new defaults without replacing saved settings", async () => {

@@ -82,8 +82,8 @@ it("sends the exact retrieved Scripture to TTS with its citation separately", as
 });
 it("never routes a private or offline reading to Edge", () => {
   for (const preference of ["auto", "edge", "kokoro"] as const)
-    expect(firstEngine(preference, false)).toBe("kokoro");
-  expect(firstEngine("kokoro", true)).toBe("kokoro");
+    expect(firstEngine(preference, false)).toBe("paradee");
+  expect(firstEngine("kokoro", true)).toBe("edge");
   expect(firstEngine("auto", true)).toBe("edge");
 });
 it("rejects unsupported voices and rates before sending text", async () => {

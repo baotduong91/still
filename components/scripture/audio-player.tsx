@@ -156,12 +156,10 @@ export function ReadingControls({
               ? "Device voice · installed"
               : preferredEngine === "paradee"
                 ? "Paradee 1.1 · Heart · on-device"
-                : preferredEngine === "kokoro"
-                  ? "Kokoro · on-device"
-                  : "Edge · online")}
+                : "Edge · online")}
         </span>
       </div>
-      {/Download (Bella|Paradee) in Settings/.test(message) && (
+      {/Download Paradee in Settings/.test(message) && (
         <Link href="/settings#reading-voice">Set up private listening</Link>
       )}
       {canKeepWaiting && (

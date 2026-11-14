@@ -1,36 +1,43 @@
 import { test, expect } from "./fixtures";
 import { Bible, type Corpus } from "../../lib/bible";
 import { readFileSync } from "node:fs";
-const corpus = JSON.parse(readFileSync(new URL("../../public/bibles/WEB.json", import.meta.url), "utf8"));
+const corpus = JSON.parse(
+  readFileSync(
+    new URL("../../public/bibles/WEB.json", import.meta.url),
+    "utf8",
+  ),
+);
 import { verseSpeech } from "../../lib/tts/shared";
 import { PARADEE_MODEL_URL } from "../../lib/tts/paradee-model";
 import { buildSpokenText, devotionReflectionText } from "../../lib/tts/reading";
 test.use({
-  stateOverrides: { speechEngine: "paradee" },
+  stateOverrides: { speechEngine: "kokoro" },
   launchOptions: { args: ["--mute-audio"] },
 });
 
-test("Paradee requires explicit setup and does not download on Today", async ({
+test("Today automatically starts Paradee setup and migrates a saved voice selection", async ({
   page,
 }) => {
-  const models: string[] = [];
-  page.on("request", (r) => {
-    if (/huggingface|paradee.*onnx/.test(r.url())) models.push(r.url());
-  });
+  await page.route("**/Paradee-8M-v1.1/**", (route) =>
+    route.fulfill({ status: 503, body: "Offline fixture" }),
+  );
+  const download = page.waitForRequest((r) =>
+    r.url().includes("Paradee-8M-v1.1"),
+  );
   await page.goto("/today");
-  await page.getByRole("link", { name: "02 Reflection" }).click();
-  await page.getByRole("button", { name: "Read reflection aloud" }).click();
+  await download;
   await expect(
-    page.getByText("Download Paradee in Settings → Reading voice", {
-      exact: false,
-    }),
+    page.getByRole("heading", { name: "Scripture for today" }),
   ).toBeVisible();
-  expect(models).toEqual([]);
   await page.goto("/settings#reading-voice");
   await expect(page.getByLabel("Reading voice engine")).toHaveValue("paradee");
   await expect(
-    page.getByText("Heart is a warm US female", { exact: false }),
-  ).toBeVisible();
+    page.getByLabel("Reading voice engine").locator("option"),
+  ).toHaveText([
+    "Edge + Paradee 1.1 · Heart · recommended",
+    "Edge · Jenny · online preferred",
+    "Device voice · instant · no model download",
+  ]);
 });
 
 test("real Paradee downloads, plays full private sections and reuses its model after offline reload", async ({

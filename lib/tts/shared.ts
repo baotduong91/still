@@ -10,7 +10,6 @@ export function readingText(input: { text: string; reference?: string }) {
   return input.reference ? `${input.text}\n\n${input.reference}` : input.text;
 }
 export function firstEngine(preference: SpeechEngine, online: boolean) {
-  if (preference === "paradee") return online ? "edge" : "paradee";
   if (preference === "device") return "device";
-  return preference === "kokoro" || !online ? "kokoro" : "edge";
+  return online ? "edge" : "paradee";
 }

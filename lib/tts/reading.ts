@@ -36,11 +36,7 @@ export function engineForKind(
   online: boolean,
 ) {
   if (preference === "device") return "device";
-  return kind === "scripture"
-    ? firstEngine(preference, online)
-    : preference === "paradee"
-      ? "paradee"
-      : "kokoro";
+  return kind === "scripture" ? firstEngine(preference, online) : "paradee";
 }
 
 export const readingAudioEvent = "still-reading-audio";

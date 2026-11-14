@@ -197,7 +197,13 @@ export function DailyFlow({
       }
       if (!alive) return;
       setNeedsVoiceDownload(!stored);
-      if (stored) void voice.warm();
+      if (stored) {
+        const ready = await latestReader.current?.prepareNext(
+          payloads[1],
+          false,
+        );
+        if (alive) setPrivateReady(!!ready);
+      }
     }, 250);
     return () => {
       alive = false;

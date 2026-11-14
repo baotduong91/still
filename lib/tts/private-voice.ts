@@ -1,6 +1,5 @@
-import { bellaVoice } from "./kokoro-client";
 import { createLocalVoiceClient } from "./local-voice-client";
-import { offlineModelStored, prepareSpeechRuntime } from "./model-cache";
+import { prepareSpeechRuntime } from "./model-cache";
 import { paradeeStored } from "./paradee-model";
 import type { SpeechEngine } from "./shared";
 export const paradeeVoice = createLocalVoiceClient({
@@ -13,22 +12,14 @@ export const paradeeVoice = createLocalVoiceClient({
     }),
 });
 export function privateVoice(preference: SpeechEngine) {
-  return preference === "paradee"
-    ? {
-        ...paradeeVoice,
-        name: "Paradee",
-        label: "Paradee 1.1 · Heart",
-        stored: paradeeStored,
-      }
-    : {
-        ...bellaVoice,
-        name: "Bella",
-        label: "Kokoro · Bella",
-        stored: offlineModelStored,
-      };
+  return {
+    ...paradeeVoice,
+    name: "Paradee",
+    label: "Paradee 1.1 · Heart",
+    stored: paradeeStored,
+  };
 }
 export function clearPrivatePreviews() {
-  bellaVoice.clear();
   paradeeVoice.clear();
 }
 
@@ -46,8 +37,7 @@ export async function downloadPrivateVoice(
 ) {
   if (preference === "device") return { stored: true, backend: "" };
   const voice = privateVoice(preference);
-  if (await voice.stored())
-    return { stored: true, backend: voice.backend() };
+  if (await voice.stored()) return { stored: true, backend: voice.backend() };
   const [, result] = await Promise.all([
     prepareSpeechRuntime(),
     voice.audio(null, progress, signal, undefined, options),

@@ -74,7 +74,8 @@ export function mergeSavedState(saved?: Partial<SavedState>): SavedState {
       ...saved?.journeyOnboarding,
     },
   };
-  if (merged.speechEngine === "auto") merged.speechEngine = "paradee";
+  if (["auto", "kokoro"].includes(merged.speechEngine))
+    merged.speechEngine = "paradee";
   return merged;
 }
 export async function readState(): Promise<SavedState> {

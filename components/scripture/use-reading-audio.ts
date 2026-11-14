@@ -13,7 +13,7 @@ import {
   supportsMp3Stream,
   streamMp3,
 } from "@/lib/tts/edge-stream";
-import { KokoroTimeoutError } from "@/lib/tts/kokoro-client";
+import { LocalVoiceTimeoutError } from "@/lib/tts/local-voice-client";
 import { privateVoice } from "@/lib/tts/private-voice";
 import { ChunkScheduler } from "@/lib/tts/chunk-playback";
 type Status = "idle" | "loading" | "playing" | "paused";
@@ -596,7 +596,7 @@ export function useReadingAudio(
           const hadSound = started.current || streamed;
           if (
             !hadSound &&
-            !(error instanceof KokoroTimeoutError) &&
+            !(error instanceof LocalVoiceTimeoutError) &&
             attempt === 0
           ) {
             setMessage(
@@ -611,7 +611,7 @@ export function useReadingAudio(
             );
           else
             setMessage(
-              error instanceof KokoroTimeoutError
+              error instanceof LocalVoiceTimeoutError
                 ? `${voice.name} could not finish in time. Tap Play once more to continue on-device, or choose Use device voice.`
                 : `${voice.name} could not load after a retry. Tap Play to try ${voice.name} again, or choose Use device voice. Your text stays on-device.`,
             );

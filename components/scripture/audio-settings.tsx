@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/components/provider";
 import { Button } from "@/components/ui/button";
-import { resetBellaBackend } from "@/lib/tts/kokoro-client";
 import { readingAudioEvent } from "@/lib/tts/reading";
 import {
   privateVoice,
@@ -13,11 +12,6 @@ import type { SpeechEngine } from "@/lib/tts/shared";
 export function AudioSettings() {
   const { state, update, online } = useApp();
   const voice = privateVoice(state.speechEngine);
-  const [gpu, setGpu] = useState(false);
-  useEffect(
-    () => setGpu(localStorage.getItem("still-bella-gpu") === "true"),
-    [],
-  );
   const [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false),
     [canKeepWaiting, setCanKeepWaiting] = useState(false);
@@ -47,59 +41,23 @@ export function AudioSettings() {
         <option value="paradee">
           Edge + Paradee 1.1 · Heart · recommended
         </option>
-        <option value="auto">Auto · Edge online, Kokoro offline</option>
         <option value="edge">Edge · Jenny · online preferred</option>
-        <option value="kokoro">Kokoro · Bella · private, on-device</option>
         <option value="device">
           Device voice · instant · no model download
         </option>
       </select>
       <p className="field-hint">
-        Auto and Edge send only the displayed Scripture and its reference to
-        Microsoft when you tap Play. Paradee mode also uses Edge for online
-        Scripture, and Heart for all private reading or offline Scripture. If
-        Edge is unavailable, the selected on-device voice is used. An installed
-        device voice is used only when you choose it. Neither Paradee nor Kokoro
-        sends your text to a server. Reflections, plan prayers, actions, and
-        chat interpretation are read only on-device with Paradee, Kokoro, or an
-        installed local voice. Personal prayers, journal entries, and notes are
-        excluded.
+        Online Scripture uses Edge after you tap Play. Reflections, prayers,
+        practice prompts and offline Scripture use Paradee 1.1 · Heart entirely
+        on-device. Your private reading text is never sent to a server. Device
+        voice is used only when you choose it.
       </p>
-      {state.speechEngine === "paradee" ? (
-        <p className="field-hint">
-          Download Paradee 1.1 here before private listening. Heart is a warm US
-          female voice distilled from Kokoro, with an 8.5 MB model plus the
-          shared speech runtime. It sounds different from Bella and needs no
-          GPU. Keep this screen open until ready; saved assets work offline
-          while browser storage is retained. Today prepares the next section
-          locally.
-        </p>
-      ) : (
-        <p className="field-hint">
-          Download Bella here before private listening. The smaller WASM model
-          is roughly 90 MB. Optional desktop WebGPU uses a larger fp32 download
-          and may prepare faster on supported hardware. Both use Bella. Keep
-          this screen open until ready. First synthesis may take 1–3 minutes;
-          downloaded assets persist while browser storage is retained. Today
-          prepares real section text ahead of playback.
-        </p>
-      )}
-      {state.speechEngine !== "paradee" && (
-        <label>
-          <input
-            type="checkbox"
-            checked={gpu}
-            disabled={busy}
-            onChange={(e) => {
-              const enabled = e.target.checked;
-              setGpu(enabled);
-              localStorage.setItem("still-bella-gpu", String(enabled));
-              resetBellaBackend();
-            }}
-          />{" "}
-          Prefer desktop WebGPU · larger download; WASM fallback
-        </label>
-      )}
+      <p className="field-hint">
+        Today automatically downloads the 8.5 MB Paradee model and shared speech
+        runtime while online, then prepares the next section in the background.
+        You can also prepare it here. Saved files work offline while browser
+        storage is retained. No GPU or account is required.
+      </p>
       <Button
         variant="outline"
         disabled={busy || !online}
