@@ -1,5 +1,8 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { streamMp3 } from "@/lib/tts/edge-stream";
+import {
+  preferEdgeBuffering,
+  streamMp3,
+} from "@/lib/tts/edge-stream";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -62,4 +65,8 @@ it("detaches a failed online stream before local fallback, even while play is pe
   expect(player.removeAttribute).toHaveBeenCalledWith("src");
   expect(cancel).toHaveBeenCalledOnce();
   expect(playing).not.toHaveBeenCalled();
+});
+
+it("always prefers buffering for Scripture", () => {
+  expect(preferEdgeBuffering("scripture")).toBe(true);
 });

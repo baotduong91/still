@@ -6,6 +6,18 @@ export function supportsMp3Stream() {
     MediaSource.isTypeSupported("audio/mpeg")
   );
 }
+
+/** Buffered Edge is more reliable for short Scripture and docked / standalone web apps. */
+export function preferEdgeBuffering(kind?: string) {
+  if (kind === "scripture") return true;
+  if (typeof window === "undefined") return false;
+  try {
+    if (window.matchMedia("(display-mode: standalone)").matches) return true;
+  } catch {
+    // matchMedia unavailable
+  }
+  return (navigator as Navigator & { standalone?: boolean }).standalone === true;
+}
 function waitFor(target: EventTarget, event: string, signal: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
     const cleanup = () => {

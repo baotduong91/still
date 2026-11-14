@@ -8,7 +8,11 @@ import {
   readingAudioEvent,
   type ReadingPayload,
 } from "@/lib/tts/reading";
-import { supportsMp3Stream, streamMp3 } from "@/lib/tts/edge-stream";
+import {
+  preferEdgeBuffering,
+  supportsMp3Stream,
+  streamMp3,
+} from "@/lib/tts/edge-stream";
 import {
   bellaSessionPrepared,
   bellaBackend,
@@ -103,8 +107,8 @@ export function useReadingAudio(
   const playbackKey = JSON.stringify([
     playbackIdentity(payload),
     state.speechEngine,
-    path,
   ]);
+  const previousPath = useRef(path);
   const licensedPending = useRef(options?.licensedTextPending);
   licensedPending.current = options?.licensedTextPending;
   function stop() {
@@ -137,6 +141,11 @@ export function useReadingAudio(
     setEngine("");
     setMessage("");
   }
+  useEffect(() => {
+    if (previousPath.current && path && previousPath.current !== path) stop();
+    previousPath.current = path;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path]);
   useEffect(() => {
     // Populate installed voices early without speaking or sending any text.
     window.speechSynthesis?.getVoices();
@@ -332,7 +341,10 @@ export function useReadingAudio(
         }
         const candidate = new Audio();
         const canStream =
-          candidate instanceof HTMLMediaElement && supportsMp3Stream();
+          candidate instanceof HTMLMediaElement &&
+          supportsMp3Stream() &&
+          !preferEdgeBuffering(payload.kind);
+        let edgeStreamListening = false;
         async function edgeBuffered() {
           const response = await fetch("/api/tts", {
             method: "POST",
@@ -359,6 +371,9 @@ export function useReadingAudio(
           await playBlob(blob);
         }
         function clearEdgeStream() {
+          edgeStreamListening = false;
+          candidate.onended = null;
+          candidate.onerror = null;
           started.current = false;
           if (audio.current === candidate) {
             candidate.pause();
@@ -392,20 +407,24 @@ export function useReadingAudio(
                 throw new Error();
               if (!alive()) return;
               audio.current = candidate;
+              edgeStreamListening = true;
               candidate.playbackRate = speedRef.current;
               candidate.onended = () => {
-                if (alive()) {
-                  setStatus("idle");
-                  setCompleted((n) => n + 1);
-                }
+                if (!edgeStreamListening || !alive()) return;
+                setStatus("idle");
+                setCompleted((n) => n + 1);
               };
               candidate.onerror = () => {
-                if (alive() && (started.current || paused.current)) {
-                  stop();
-                  setMessage(
-                    "The reading was interrupted. Tap Play to retry or use an installed voice.",
-                  );
-                }
+                if (
+                  !edgeStreamListening ||
+                  !alive() ||
+                  !(started.current || paused.current)
+                )
+                  return;
+                stop();
+                setMessage(
+                  "The reading was interrupted. Tap Play to retry or use an installed voice.",
+                );
               };
               const file = await streamMp3(
                 response,
