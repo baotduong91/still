@@ -1,35 +1,50 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   setAmbientVolume,
   startAmbientLoop,
   stopAmbientLoop,
 } from "@/lib/audio/ambient-player";
-const ACTIVE_VOLUME = 0.3;
-const DUCKED_VOLUME = 0.16;
+const ACTIVE_VOLUME = 0.6;
+const DUCKED_VOLUME = 0.4;
 export function useAmbientAudio(
   enabled: boolean,
   voiceActive: boolean,
   volumeScale = 1,
 ) {
+  const [error, setError] = useState("");
   useEffect(() => {
     if (!enabled) {
+      setError("");
       // Keep the same source through the brief idle frame between sections.
       const timer = setTimeout(stopAmbientLoop, 180);
       return () => clearTimeout(timer);
     }
     const volume = (voiceActive ? DUCKED_VOLUME : ACTIVE_VOLUME) * volumeScale;
-    void startAmbientLoop(volume).catch(() => {});
+    let alive = true;
+    setError("");
+    const start = () =>
+      startAmbientLoop(volume).catch(() => {
+        if (alive)
+          setError("Music could not start. Tap the music button to try again.");
+      });
+    void start();
     setAmbientVolume(volume);
     const resume = () => {
-      if (document.visibilityState === "visible")
-        void startAmbientLoop(volume).catch(() => {});
+      if (document.visibilityState === "visible") void start();
     };
     document.addEventListener("visibilitychange", resume);
-    return () => document.removeEventListener("visibilitychange", resume);
+    return () => {
+      alive = false;
+      document.removeEventListener("visibilitychange", resume);
+    };
   }, [enabled, voiceActive, volumeScale]);
   useEffect(() => () => stopAmbientLoop(), []);
+  return error;
 }
-export async function primeAmbientFromGesture(enabled: boolean) {
-  if (enabled) await startAmbientLoop(DUCKED_VOLUME).catch(() => {});
+export async function primeAmbientFromGesture(
+  enabled: boolean,
+  volumeScale = 1,
+) {
+  if (enabled) await startAmbientLoop(DUCKED_VOLUME * volumeScale);
 }

@@ -54,7 +54,23 @@ export function TodayAudioDock({
     voiceOn && (reader.status === "playing" || reader.status === "loading");
   const [musicOnlyPlaying, setMusicOnlyPlaying] = useState(false);
   const playing = voiceOn ? reader.status === "playing" : musicOnlyPlaying;
-  useAmbientAudio(ambientOn && (voiceActive || musicOnlyPlaying), voiceActive);
+  const musicError = useAmbientAudio(
+    ambientOn && (voiceActive || musicOnlyPlaying),
+    voiceActive,
+    Math.max(0, Math.min(1, state.todayMusicLevel ?? 0.5)) / 0.5,
+  );
+  const [musicNotice, setMusicNotice] = useState("");
+  function startMusic() {
+    setMusicNotice("");
+    void primeAmbientFromGesture(
+      true,
+      Math.max(0, Math.min(1, state.todayMusicLevel ?? 0.5)) / 0.5,
+    ).catch(() =>
+      setMusicNotice(
+        "Music could not start. Tap the music button to try again.",
+      ),
+    );
+  }
 
   const {
     status,
@@ -78,13 +94,14 @@ export function TodayAudioDock({
   async function transport() {
     if (!voiceOn) {
       setMusicOnlyPlaying(!musicOnlyPlaying);
-      if (!musicOnlyPlaying) void primeAmbientFromGesture(ambientOn);
+      if (!musicOnlyPlaying && ambientOn) startMusic();
       else stopAmbientLoop();
       return;
     }
     // Unlock Web Audio inside the gesture, but never wait for music decoding
     // before starting narration. The bed joins as soon as it is decoded.
-    if (!playing && ambientOn) void primeAmbientFromGesture(true);
+    setMusicOnlyPlaying(false);
+    if (!playing && ambientOn) startMusic();
     await play();
   }
 
@@ -211,9 +228,11 @@ export function TodayAudioDock({
           onClick={() => {
             const next = !ambientOn;
             void update((s) => ({ ...s, todayAmbientOn: next }));
-            if (next && (voiceActive || !voiceOn)) {
-              if (!voiceOn) setMusicOnlyPlaying(true);
-              void primeAmbientFromGesture(true);
+            if (next) {
+              setMusicOnlyPlaying(!voiceActive);
+              startMusic();
+            } else {
+              setMusicNotice("");
             }
             if (!next) {
               setMusicOnlyPlaying(false);
@@ -233,9 +252,9 @@ export function TodayAudioDock({
               ? "Paradee 1.1 · Heart · on-device"
               : "Edge · online")}
       </span>
-      {!!(message || voicePreparing) && (
+      {!!(message || musicError || musicNotice || voicePreparing) && (
         <p className="audio-status" role="status">
-          {message || "Preparing private voice…"}
+          {message || musicError || musicNotice || "Preparing private voice…"}
         </p>
       )}
     </div>

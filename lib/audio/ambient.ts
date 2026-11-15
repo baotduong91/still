@@ -1,5 +1,5 @@
 /** Default on-device loop (32s, cross-faded). Replace with CC0 assets per `public/audio/ambient/README.md`. */
-export const defaultAmbientLoop = "/audio/ambient/stillness-loop.mp3";
+export const defaultAmbientLoop = "/audio/ambient/stillness-v3.mp3";
 
 export const ambientAttribution = {
   bundled: "Still generated stillness bed (replaceable)",

@@ -1,6 +1,9 @@
 import { test, expect } from "./fixtures";
 import { installVoiceHarness } from "./helpers/sanity";
-test.use({ stateOverrides: { speechEngine: "device", setupSeen: true } });
+test.use({
+  serviceWorkers: "block",
+  stateOverrides: { speechEngine: "device", setupSeen: true },
+});
 test("dock fits desktop, mobile and short landscape in both themes", async ({
   page,
 }) => {
@@ -11,6 +14,8 @@ test("dock fits desktop, mobile and short landscape in both themes", async ({
     await page.goto("/today");
     for (const viewport of [
       { width: 1440, height: 900 },
+      { width: 1100, height: 800 },
+      { width: 980, height: 800 },
       { width: 390, height: 844 },
       { width: 320, height: 568 },
       { width: 844, height: 390 },
@@ -19,6 +24,10 @@ test("dock fits desktop, mobile and short landscape in both themes", async ({
       const dock = page.locator(".today-player");
       await expect(dock).toBeVisible();
       const rect = (await dock.boundingBox())!;
+      const column = (await page.locator(".daily-flow").boundingBox())!;
+      expect(
+        Math.abs(rect.x + rect.width / 2 - column.x - column.width / 2),
+      ).toBeLessThan(2);
       expect(rect.x).toBeGreaterThanOrEqual(0);
       expect(rect.x + rect.width).toBeLessThanOrEqual(viewport.width);
       expect(rect.height).toBeLessThan(viewport.width > 720 ? 120 : 170);
@@ -43,7 +52,13 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
 }) => {
   await installVoiceHarness(page);
   await page.addInitScript(() => {
-    const state = { starts: 0, stops: 0, loops: [] as boolean[], fetches: 0 };
+    const state = {
+      starts: 0,
+      rms: 0,
+      stops: 0,
+      loops: [] as boolean[],
+      fetches: 0,
+    };
     Object.assign(window, { ambientTest: state });
     const original = AudioContext.prototype.createBufferSource;
     AudioContext.prototype.createBufferSource = function () {
@@ -52,6 +67,10 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
         stop = source.stop.bind(source);
       source.start = (...args) => {
         state.starts++;
+        const pcm = source.buffer!.getChannelData(0);
+        state.rms = Math.sqrt(
+          pcm.reduce((sum, value) => sum + value * value, 0) / pcm.length,
+        );
         state.loops.push(source.loop);
         source.playbackRate.value = 16;
         start(...args);
@@ -65,7 +84,7 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
   });
   let downloads = 0;
   page.on("request", (request) => {
-    if (request.url().includes("stillness-loop.mp3")) downloads++;
+    if (request.url().includes("stillness-v3.mp3")) downloads++;
   });
   await page.goto("/today");
   await page.getByRole("button", { name: "Turn background music on" }).click();
@@ -127,6 +146,12 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
       ),
     )
     .toBe(2);
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { ambientTest: { rms: number } }).ambientTest.rms,
+    ),
+  ).toBeGreaterThan(0.05);
   expect(downloads).toBeGreaterThan(0);
   await page.getByRole("button", { name: "Turn background music on" }).click();
   await expect
@@ -138,6 +163,7 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
       ),
     )
     .toBe(3);
+  await page.getByRole("button", { name: "Leave immersive view" }).click();
   await page.locator('a[href="/journal"]').first().click();
   await expect
     .poll(() =>
@@ -148,4 +174,76 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
       ),
     )
     .toBe(3);
+});
+
+test("an unavailable music asset reports a quiet error without blocking narration", async ({
+  page,
+}) => {
+  await installVoiceHarness(page);
+  await page.route("**/stillness-v3.mp3", (route) =>
+    route.fulfill({ status: 503, body: "Unavailable" }),
+  );
+  await page.goto("/today");
+  await page.getByRole("button", { name: "Turn background music on" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Music could not start" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Play Scripture", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Pause Scripture", exact: true }),
+  ).toBeVisible();
+});
+
+test("music has an audible output signal while the online-voice audio element plays", async ({
+  page,
+}) => {
+  const { wavBytes } = await import("../../lib/tts/chunks");
+  const samples = Float32Array.from(
+    { length: 24000 * 12 },
+    (_, i) => Math.sin((i / 24000) * 2 * Math.PI * 370) * 0.18,
+  );
+  await page.route("**/api/tts", (route) =>
+    route.request().method() === "HEAD"
+      ? route.fulfill({ status: 204 })
+      : route.fulfill({
+          contentType: "audio/wav",
+          body: Buffer.from(wavBytes(samples)),
+        }),
+  );
+  await page.route("**/huggingface.co/**", (route) => route.abort());
+  await page.addInitScript(() => {
+    const original = AudioContext.prototype.createGain;
+    AudioContext.prototype.createGain = function () {
+      const gain = original.call(this),
+        meter = this.createAnalyser();
+      meter.fftSize = 2048;
+      gain.connect(meter);
+      Object.assign(window, { mixMeter: meter });
+      return gain;
+    };
+  });
+  await page.goto("/settings");
+  await page.getByLabel("Reading voice engine").selectOption("edge");
+  await page.goto("/today");
+  await page.getByRole("button", { name: "Turn background music on" }).click();
+  await page
+    .getByRole("button", { name: "Play Scripture", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Pause Scripture", exact: true }),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const meter = (window as unknown as { mixMeter: AnalyserNode })
+          .mixMeter;
+        if (!meter || meter.context.state !== "running") return 0;
+        const pcm = new Float32Array(meter.fftSize);
+        meter.getFloatTimeDomainData(pcm);
+        return Math.sqrt(pcm.reduce((sum, x) => sum + x * x, 0) / pcm.length);
+      }),
+    )
+    .toBeGreaterThan(0.025);
 });

@@ -1,7 +1,17 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUpRight, BookOpen, Check, Share2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUpRight,
+  BookOpen,
+  Check,
+  Share2,
+  X,
+  MoreHorizontal,
+  Maximize2,
+} from "lucide-react";
 import Link from "@/components/smart-link";
+import { usePrivacy } from "@/components/privacy";
 import { useApp } from "@/components/provider";
 import { Button } from "@/components/ui/button";
 import { TodayAudioDock } from "./today-audio-dock";
@@ -38,10 +48,16 @@ export function DailyFlow({
   busy: boolean;
   onComplete: () => Promise<void>;
 }) {
-  const { state, online } = useApp();
+  const { state, online, update } = useApp();
+  const { lock } = usePrivacy();
   const voice = privateVoice(state.speechEngine);
   const { passage, resolving: passageResolving } = usePassage(localPassage);
   const [active, setActive] = useState(0);
+  const [immersive, setImmersive] = useState(true);
+  useEffect(() => {
+    document.body.classList.toggle("still-listening", immersive);
+    return () => document.body.classList.remove("still-listening");
+  }, [immersive]);
   const [autoplay, setAutoplay] = useState(true);
   const autoplayTarget = useRef<number | null>(null);
   const latestReader = useRef<ReturnType<typeof useReadingAudio> | null>(null);
@@ -167,10 +183,7 @@ export function DailyFlow({
     const timer = setTimeout(async () => {
       if (state.speechEngine === "device") return;
       // Warm the server runtime without sending any verse or personal text.
-      if (
-        online &&
-        ["edge", "paradee"].includes(state.speechEngine)
-      )
+      if (online && ["edge", "paradee"].includes(state.speechEngine))
         void fetch("/api/tts", { method: "HEAD", cache: "no-store" }).catch(
           () => {},
         );
@@ -252,7 +265,70 @@ export function DailyFlow({
     );
   }
   return (
-    <div className="daily-flow">
+    <div
+      className={`daily-flow${immersive ? " is-immersive" : ""}`}
+      data-section={active}
+    >
+      {immersive ? (
+        <>
+          <div className="still-scene" aria-hidden="true">
+            <div className="still-scene-landscape" />
+            <div className="still-scene-glow" />
+            <div className="still-scene-dust" />
+          </div>
+          <header className="listening-header">
+            <button
+              type="button"
+              aria-label="Leave immersive view"
+              onClick={() => setImmersive(false)}
+            >
+              <X size={22} />
+            </button>
+            <span>
+              STILL · DAY {day.number} OF {plan.days.length}
+            </span>
+            <details className="listening-menu">
+              <summary aria-label="Listening options">
+                <MoreHorizontal size={22} />
+              </summary>
+              <div>
+                <Link href="/journey">My journey</Link>
+                <Link href="/journal">Journal</Link>
+                <Link href="/settings#reading-voice">Voice settings</Link>
+                <label className="music-level-control">
+                  Music level
+                  <input
+                    type="range"
+                    aria-label="Background music level"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={state.todayMusicLevel ?? 0.5}
+                    onChange={(event) => {
+                      const level = Number(event.target.value);
+                      void update((s) => ({ ...s, todayMusicLevel: level }));
+                    }}
+                  />
+                </label>
+                {state.pinLock && (
+                  <button type="button" onClick={lock}>
+                    Lock personal content
+                  </button>
+                )}
+              </div>
+            </details>
+          </header>
+        </>
+      ) : (
+        <button
+          className="enter-listening"
+          type="button"
+          onClick={() => setImmersive(true)}
+        >
+          <Maximize2 size={16} /> Focus view
+        </button>
+      )}
+
       <nav className="flow-index" aria-label="Daily rhythm">
         {sections.map((label, i) => (
           <a

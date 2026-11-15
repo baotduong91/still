@@ -2644,3 +2644,112 @@ html[data-theme="dark"] .image-maker {
   .today-corner-toggle.is-on { background: color-mix(in srgb, var(--sage) 16%, var(--paper)); color: var(--ink); border-color: var(--sage); }
   .today-skip, .today-restart { color: var(--ink); }
 }
+
+/* Immersive daily listening: one landscape, one continuous reading surface. */
+.still-listening .main-shell { --ink: #faf5e8; --muted: #c6c9c3; --sage: #e7c47d; --line: #ffffff26; --paper: #172d36; --sand: #263940; color: var(--ink); }
+.still-listening .topbar, .still-listening .page-footer { display: none; }
+.still-listening .today-page { max-width: none; padding: 0 40px 240px; }
+.still-listening .today-columns { display: grid; grid-template-columns: minmax(0, 760px); justify-content: center; gap: 40px; }
+.still-listening .today-aside { position: static; }
+.still-listening .daily-flow { position: relative; isolation: isolate; }
+.still-scene { position: fixed; inset: 0 0 0 236px; z-index: -1; overflow: hidden; pointer-events: none; background: #112d3c; }
+.still-scene-landscape { position: absolute; inset: -5%; background: linear-gradient(#071d2a30, #06192640), url('/backgrounds/still-dawn.svg') center / cover; animation: still-landscape-drift 55s ease-in-out infinite alternate; transition: filter 2s; }
+.is-immersive[data-section="1"] .still-scene-landscape { filter: hue-rotate(-8deg) saturate(.85); }
+.is-immersive[data-section="2"] .still-scene-landscape { filter: hue-rotate(10deg) brightness(.86); }
+.is-immersive[data-section="3"] .still-scene-landscape { filter: hue-rotate(-14deg) brightness(1.08); }
+.still-scene-glow { position: absolute; inset: -20%; background: radial-gradient(ellipse at 75% 55%, #e2a65030, transparent 50%); animation: still-glow-drift 28s ease-in-out infinite alternate; }
+.still-scene-dust { position: absolute; inset: -30%; opacity: .35; background-image: radial-gradient(circle at 15% 25%, #f8d98a 1px, transparent 2px), radial-gradient(circle at 70% 60%, #f8d98a 1px, transparent 2px), radial-gradient(circle at 40% 80%, #f8d98a 1px, transparent 2px); background-size: 240px 370px, 380px 550px, 450px 720px; animation: still-dust-drift 45s linear infinite; }
+@keyframes still-landscape-drift { from { transform: scale(1.02) translate3d(-1%, 0, 0); } to { transform: scale(1.09) translate3d(1%, -1%, 0); } }
+@keyframes still-glow-drift { to { transform: translate3d(-8%, 3%, 0); opacity: .6; } }
+@keyframes still-dust-drift { to { transform: translate3d(15px, -90px, 0); } }
+.listening-header { position: relative; z-index: 45; display: flex; justify-content: space-between; align-items: center; height: 84px; padding-top: env(safe-area-inset-top, 0px); }
+.listening-header > span { font: 10px/1.4 Arial, sans-serif; letter-spacing: 2px; color: #e9d7aa; }
+.listening-header button, .listening-menu summary { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: #0b1927b8; border: 1px solid #ffffff20; color: #f8f3e8; cursor: pointer; list-style: none; }
+.listening-menu summary::-webkit-details-marker { display: none; }
+.listening-menu { position: relative; }
+.listening-menu > div { position: absolute; right: 0; top: 56px; min-width: 180px; padding: 8px; border: 1px solid #ffffff26; border-radius: 16px; background: #132a35; box-shadow: 0 10px 35px #06131c66; }
+.listening-menu a { display: flex; align-items: center; min-height: 44px; padding: 8px 12px; color: #f8f3e8; }
+.enter-listening { display: flex; gap: 8px; align-items: center; min-height: 44px; color: var(--sage); background: none; border: 0; cursor: pointer; }
+.is-immersive .flow-index { border-bottom: 1px solid #ffffff1a; }
+.is-immersive .flow-index a { color: #d2d4cb; }
+.is-immersive .flow-index a[aria-current] { color: #efcc85; border-color: #efcc85; }
+.is-immersive .flow-section { background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 64px 40px; margin-bottom: 0; min-height: 80svh; overflow: visible; color: #faf5e8; }
+.is-immersive .flow-section::before, .is-immersive .flow-section::after { display: none; }
+.is-immersive .flow-section.flow-verse { background: transparent; border: 0; min-height: calc(100svh - 110px); justify-content: center; }
+.is-immersive .flow-verse-top { color: #d4cdbb; font-size: 9px; }
+.is-immersive .flow-verse-copy { display: flex; flex-direction: column; padding: 52px 0 30px; max-width: 650px; text-align: center; }
+.is-immersive .flow-verse h2 { order: 0; color: #e9c47d; margin-bottom: 32px; letter-spacing: 2px; }
+.is-immersive .flow-verse blockquote { order: 1; font: italic 400 clamp(29px, 4vw, 43px)/1.65 Georgia, serif; text-shadow: 0 2px 20px #05172435; }
+.is-immersive .flow-verse .eyebrow { order: 2; color: #eee5cf; font: 20px/1.5 Georgia, serif; margin: 26px 0 8px; text-transform: none; letter-spacing: 0; }
+.is-immersive .flow-verse-credit { order: 3; color: #c7ceca; font-size: 10px; margin: 0; }
+.is-immersive .flow-translation-notice { order: 4; }
+.is-immersive .flow-verse-bottom { justify-content: center; color: #dedbca; }
+.is-immersive .flow-section-label { color: #e9c47d; letter-spacing: 2px; }
+.is-immersive .devotional-prose { color: #faf5e8; }
+.is-immersive .devotional-prose h2 { font: 400 clamp(28px, 4vw, 38px)/1.3 Georgia, serif; color: #faf5e8; text-align: center; margin-bottom: 36px; }
+.is-immersive .devotional-prose > p { font-size: 20px; line-height: 1.9; }
+.is-immersive .question-box { background: #0d273b66; border: 1px solid #ffffff1a; border-radius: 18px; }
+.is-immersive .fine-print, .is-immersive .flow-section .fine-print { color: #c6ccc7; }
+.is-immersive .flow-section textarea { background: #0b2333b3; color: #faf5e8; border-color: #ffffff40; }
+.still-listening .today-player { left: 260px; right: 24px; bottom: 12px; max-width: 780px; color: #faf5e8; border: 1px solid #ffffff14; background: #0a1e2eee; box-shadow: 0 12px 40px #04142055; }
+.still-listening .today-player .today-audio-dock { color: #faf5e8; }
+.still-listening .today-player .reading-context { color: #c8d1ce; }
+.still-listening .today-corner-toggle { background: #102432cc; border-color: #ffffff26; color: #a5aaa5; }
+.still-listening .today-corner-toggle.is-on { background: #182e39; border-color: #e4c38355; color: #e9c47d; }
+.still-listening .today-play { background: #2b3542; box-shadow: none; }
+.still-listening .today-skip, .still-listening .today-restart { color: #f6f3ea; }
+@media (max-width: 1000px) {
+  .still-listening .sidebar { display: none; }
+  .still-listening .main-shell { margin-left: 0; }
+  .still-listening .today-page { padding: 0 24px 200px; }
+  .still-scene { left: 0; }
+  .still-listening .today-player { left: 12px; right: 12px; }
+}
+@media (max-width: 720px) {
+  .listening-header { height: 76px; }
+  .still-listening .today-page { padding: 0 20px 240px; }
+  .is-immersive .flow-index { font-size: 10px; gap: 0; padding-bottom: 12px; }
+  .is-immersive .flow-section { padding: 48px 12px; }
+  .is-immersive .flow-verse blockquote { font-size: clamp(26px, 7.5vw, 34px); line-height: 1.65; }
+  .is-immersive .flow-verse-copy { padding-top: 30px; }
+  .is-immersive .devotional-prose > p { font-size: 19px; line-height: 1.85; }
+  .is-immersive .flow-verse-bottom > a { font-size: 11px; }
+  .still-listening .today-player { left: 0; right: 0; bottom: 0; padding: 28px 24px calc(12px + env(safe-area-inset-bottom, 0px)); max-width: none; border: 0; border-radius: 0; background: linear-gradient(#071a2a00, #071a2af5 24%, #071a2a 100%); box-shadow: none; backdrop-filter: none; }
+  .still-listening .today-audio-heading { display: none; }
+  .still-listening .today-play { width: 64px; height: 64px; }
+  .still-listening .today-transport { gap: 0; }
+  .still-listening .today-audio-toggles > button { width: 48px; height: 48px; }
+  .still-listening .today-autoplay { min-height: 30px; font-size: 10px; color: #b6c2c6; }
+  .still-listening .today-player .audio-status { color: #e0d2ae; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .still-scene-landscape, .still-scene-glow, .still-scene-dust { animation: none; transition: none; }
+}
+
+.still-listening .listening-header { position: sticky; top: 0; background: linear-gradient(#112d3cf0, #112d3c00); }
+.is-immersive .flow-index { position: sticky; top: 84px; z-index: 44; background: #142f3ae8; border-radius: 12px; padding: 8px 12px; backdrop-filter: blur(12px); }
+.is-immersive .flow-section { scroll-margin-top: 150px; }
+.is-immersive .flow-verse-top { display: none; }
+.listening-menu > div > button { width: 100%; min-height: 44px; height: auto; border: 0; border-radius: 8px; text-align: left; display: block; padding: 8px 12px; background: transparent; }
+@media (max-width: 720px) {
+  .is-immersive .flow-index { top: 76px; }
+  .is-immersive .flow-section.flow-verse { padding: 28px 0; min-height: calc(100svh - 160px); }
+  .is-immersive .flow-verse-copy { padding: 24px 0 16px; }
+  .is-immersive .flow-verse blockquote { line-height: 1.55; }
+}
+
+.still-listening .listening-header { background: transparent; }
+.listening-header::before { content: ""; position: absolute; inset: 0 -40px; z-index: -1; pointer-events: none; background: linear-gradient(#112d3cf5, #112d3cba 65%, #112d3c00); }
+.is-immersive .flow-index { background: transparent; backdrop-filter: none; border-radius: 0; border-bottom: 1px solid #ffffff1a; }
+
+/* Keep the scene, text and dock on the same responsive desktop center line. */
+.still-listening { --listening-inset: 236px; }
+.still-listening .main-shell { margin-left: var(--listening-inset); width: calc(100% - var(--listening-inset)); }
+.still-listening #main { max-width: none; padding: 0; min-width: 0; }
+.still-listening .still-scene { left: var(--listening-inset); }
+.still-listening .today-player { left: calc(var(--listening-inset) + (100% - var(--listening-inset)) / 2); right: auto; width: min(760px, calc(100% - var(--listening-inset) - 48px)); max-width: none; margin: 0; transform: translateX(-50%); }
+.music-level-control { display: grid; gap: 8px; padding: 12px; font-size: 12px; color: #faf5e8; }
+.music-level-control input { width: 100%; min-height: 32px; accent-color: #e7c47d; }
+@media (max-width: 1200px) { .still-listening { --listening-inset: 210px; } }
+@media (max-width: 1000px) { .still-listening { --listening-inset: 0px; } }
+@media (max-width: 720px) { .still-listening .today-player { width: 100%; } }

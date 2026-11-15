@@ -23,3 +23,24 @@ music offset. Turning music off or leaving Today cancels pending loads as well a
 active playback, so a late download cannot start sound after navigation or lock.
 Music loading never delays the voice Play action. Saved music preferences alone
 do not start audio on page load; playback begins with the player gesture.
+
+## Audibility correction (v2)
+
+The original file measured -45.1 dBFS RMS before playback gain; it could run while
+being effectively inaudible. `stillness-v2.mp3` is the same original generated bed
+normalized to approximately -18.5 dBFS RMS / -10.4 dBFS peak, without clipping.
+Voice ducking is 0.25 and music-only gain is 0.4. The new URL and service-worker
+cache revision avoid reusing the nearly silent asset. Browser regressions now
+check decoded PCM RMS as well as loop/start/stop behavior. No third-party music
+was downloaded. The music button starts listening immediately, independently of
+whether narration has started, and failures produce a quiet retry message.
+
+## Phone-speaker mix (v3)
+
+The earlier bed concentrated energy below 250 Hz. Version 3 is an original,
+periodic 32-second stereo pad with harmonics from 220–659 Hz, designed to remain
+audible on phone speakers. It is generated locally with no third-party assets.
+Default gain is 0.4 beneath narration and 0.6 for music alone, with 150 ms ramps.
+Listening options exposes a saved Music level slider. Tests measure the output
+of the gain node while a real HTML narration element is playing, rather than
+checking only that a source started. The v3 URL and SW v18 invalidate older audio.

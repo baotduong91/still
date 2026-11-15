@@ -36,6 +36,7 @@ export type SavedState = {
   outbox: { path: string; body: unknown }[];
   todayVoiceOn?: boolean;
   todayAmbientOn?: boolean;
+  todayMusicLevel?: number;
 };
 export const defaults: SavedState = {
   journeyOnboarding: {},

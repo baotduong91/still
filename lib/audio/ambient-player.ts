@@ -12,6 +12,14 @@ let loading: Promise<AudioBuffer> | null = null;
 
 export async function unlockAmbientAudio(): Promise<AudioContext> {
   if (!context || context.state === "closed") {
+    const session = (
+      navigator as Navigator & { audioSession?: { type: string } }
+    ).audioSession;
+    if (session) {
+      try {
+        session.type = "playback";
+      } catch {}
+    }
     context = new AudioContext();
     gain = null;
     source = null;
