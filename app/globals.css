@@ -1811,6 +1811,9 @@ html[data-theme="dark"] .image-maker {
   justify-content: center;
   background: var(--paper);
 }
+.flow-section .devotional-prose {
+  min-height: 0;
+}
 .flow-section h2 {
   font:
     400 clamp(30px, 4vw, 44px)/1.15 Georgia,
@@ -2189,15 +2192,28 @@ html[data-theme="dark"] .image-maker {
     gap: 5px;
   }
   .flow-section {
-    padding: 28px 24px;
+    padding: 22px 20px;
     border-radius: 16px;
-    min-height: 74svh;
     scroll-margin-top: 14px;
-    margin-bottom: 18px;
+    margin-bottom: 14px;
+  }
+  .flow-section:not(.flow-verse) {
+    min-height: auto;
+    justify-content: flex-start;
+  }
+  .flow-section:not(.flow-verse) .flow-section-label {
+    margin-bottom: 14px;
+  }
+  .flow-section:not(.flow-verse) h2 {
+    margin-bottom: 16px;
+  }
+  .flow-section:not(.flow-verse) .flow-continue {
+    margin-top: 18px;
   }
   .flow-verse {
     min-height: calc(100svh - 180px);
     padding: 26px 24px;
+    justify-content: space-between;
   }
   .flow-verse-copy {
     padding: 40px 0;
@@ -2339,12 +2355,18 @@ html[data-theme="dark"] .image-maker {
     font-size: 10px;
   }
   .flow-section .practice-form {
-    padding: 18px 0;
+    margin-top: 8px;
+    padding: 12px 0 0;
     background: transparent;
     border: 0;
+    display: grid;
+    gap: 10px;
   }
   .flow-section .practice-form textarea {
-    min-height: 160px;
+    min-height: 112px;
+  }
+  .flow-section .flow-complete {
+    margin-top: 14px;
   }
   .flow-prayer .settings-card {
     padding: 18px;
@@ -2710,6 +2732,14 @@ html[data-theme="dark"] .image-maker {
   .still-listening .today-page { padding: 0 20px 240px; }
   .is-immersive .flow-index { font-size: 10px; gap: 0; padding-bottom: 12px; }
   .is-immersive .flow-section { padding: 48px 12px; }
+  .is-immersive .flow-section:not(.flow-verse) {
+    min-height: auto;
+    padding: 24px 12px 32px;
+    justify-content: flex-start;
+  }
+  .is-immersive .flow-section:not(.flow-verse) .devotional-prose h2 {
+    margin-bottom: 18px;
+  }
   .is-immersive .flow-verse blockquote { font-size: clamp(26px, 7.5vw, 34px); line-height: 1.65; }
   .is-immersive .flow-verse-copy { padding-top: 30px; }
   .is-immersive .devotional-prose > p { font-size: 19px; line-height: 1.85; }
