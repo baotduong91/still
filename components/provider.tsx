@@ -112,7 +112,7 @@ export function Provider({ children }: { children: React.ReactNode }) {
     };
   }, [getBible, update]);
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || !online) return;
     let alive = true;
     fetch("/api/modes")
       .then((r) => (r.ok ? r.json() : null))
@@ -121,7 +121,8 @@ export function Provider({ children }: { children: React.ReactNode }) {
         recordCloudVendor(status.modes.cloud.vendor);
         void update((s) => {
           if (shouldApplyHostedGroqDefault(s)) return hostedGroqDefaultState(s);
-          if (shouldSyncHostedGroqConsent(s, status)) return syncHostedGroqConsent(s);
+          if (shouldSyncHostedGroqConsent(s, status))
+            return syncHostedGroqConsent(s);
           return s;
         }).catch(() => {});
       })
@@ -131,7 +132,7 @@ export function Provider({ children }: { children: React.ReactNode }) {
     };
   }, [ready, online, update]);
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || !online) return;
     let alive = true;
     api<TranslationsStatus>("translations")
       .then((status) => {

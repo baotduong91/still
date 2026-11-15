@@ -283,7 +283,9 @@ test("personal prayers persist in the journal and WEB is the new default", async
     .getByLabel("God, today I bring…")
     .fill("Give me patience for this ordinary day.");
   await page.getByRole("button", { name: "Keep this prayer" }).click();
-  await expect(page.getByRole("status")).toContainText("Saved privately");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Saved privately" }),
+  ).toContainText("Saved privately");
   await page.goto("/journal");
   await expect(
     page.getByText("Personal prayer", { exact: false }),
@@ -379,7 +381,9 @@ test("phone Practice saves typed words with the day and survives completion", as
     .getByLabel("My response for today")
     .fill("I will tend one responsibility and release tomorrow's worry.");
   await page.getByRole("button", { name: "Save my response" }).click();
-  await expect(page.getByRole("status")).toContainText("saved with Day 1");
+  await expect(
+    page.getByRole("status").filter({ hasText: "saved with Day 1" }),
+  ).toContainText("saved with Day 1");
   await page.reload();
   await page.getByRole("link", { name: "04 Practice" }).click();
   await expect(page.getByLabel("My response for today")).toHaveValue(

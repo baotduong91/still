@@ -8,9 +8,7 @@ export type ModesStatus = {
 };
 
 export function hostedGroqAvailable(status: ModesStatus) {
-  return (
-    status.modes.cloud.configured && status.modes.cloud.vendor === "groq"
-  );
+  return status.modes.cloud.configured && status.modes.cloud.vendor === "groq";
 }
 
 export function shouldApplyHostedGroqDefault(state: SavedState) {
@@ -31,6 +29,8 @@ export function hostedGroqDefaultState(state: SavedState): SavedState {
 }
 
 export async function fetchModesStatus(): Promise<ModesStatus | null> {
+  if (typeof navigator !== "undefined" && navigator.onLine === false)
+    return null;
   try {
     const response = await fetch("/api/modes");
     return response.ok ? ((await response.json()) as ModesStatus) : null;

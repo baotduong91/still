@@ -3,6 +3,7 @@ import { Bible } from "../../lib/bible";
 import { webCorpus } from "./helpers/sanity";
 const bible = new Bible(webCorpus);
 test.use({
+  serviceWorkers: "block",
   stateOverrides: {
     setupSeen: true,
     translation: "CSB",

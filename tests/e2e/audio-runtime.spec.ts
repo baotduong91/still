@@ -77,7 +77,7 @@ test("real Edge Scripture starts decoding a streamed MP3 in the Today player", a
   await page.getByRole("button", { name: "Stop Scripture" }).click();
 });
 
-test("production enables isolation and serves an offline speech precache manifest", async ({
+test("production serves isolation headers and an offline speech precache manifest", async ({
   page,
   request,
 }) => {
@@ -87,7 +87,13 @@ test("production enables isolation and serves an offline speech precache manifes
     "credentialless",
   );
   await page.goto("/today");
-  expect(await page.evaluate(() => crossOriginIsolated)).toBe(true);
+  const capability = await page.evaluate(() => ({
+    isolated: crossOriginIsolated,
+    sharedMemory: typeof SharedArrayBuffer !== "undefined",
+  }));
+  // WebKit does not enable isolation with credentialless COEP. Its guarded
+  // single-thread WASM path is covered by the real Paradee offline test.
+  expect(capability.sharedMemory).toBe(capability.isolated);
   const manifest = await request.get("/tts/manifest.json");
   expect(await manifest.json()).toContain(
     "/tts/ort-wasm-simd-threaded.jsep.wasm",

@@ -12,6 +12,7 @@ import {
   Pause,
   Play,
   RotateCcw,
+  Square,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -55,7 +56,7 @@ export function TodayAudioDock({
   const [musicOnlyPlaying, setMusicOnlyPlaying] = useState(false);
   const playing = voiceOn ? reader.status === "playing" : musicOnlyPlaying;
   const musicError = useAmbientAudio(
-    ambientOn && (voiceActive || musicOnlyPlaying),
+    ambientOn && (musicOnlyPlaying || voiceActive),
     voiceActive,
     Math.max(0, Math.min(1, state.todayMusicLevel ?? 0.5)) / 0.5,
   );
@@ -85,6 +86,12 @@ export function TodayAudioDock({
     restartSection,
   } = reader;
 
+  const readingLabel =
+    payload.kind === "scripture"
+      ? "Scripture"
+      : payload.kind === "devotional"
+        ? "reflection"
+        : payload.kind;
   const canSeek =
     typeof seekBy === "function" &&
     (status === "playing" || status === "paused") &&
@@ -149,12 +156,10 @@ export function TodayAudioDock({
           }
           aria-label={
             playing
-              ? payload.kind === "scripture"
-                ? "Pause Scripture"
-                : "Pause reading"
+              ? `Pause ${readingLabel}`
               : payload.kind === "scripture"
                 ? "Play Scripture"
-                : "Play reading aloud"
+                : `Read ${readingLabel} aloud`
           }
           onClick={() => void transport()}
         >
@@ -244,6 +249,34 @@ export function TodayAudioDock({
           <span className="sr-only">Background music</span>
         </button>
       </div>
+      <button
+        className="today-stop-control"
+        type="button"
+        aria-label={`Stop ${readingLabel}`}
+        disabled={status === "idle" && !musicOnlyPlaying}
+        onClick={() => {
+          stop();
+          setMusicOnlyPlaying(false);
+          stopAmbientLoop();
+        }}
+      >
+        <Square size={16} />
+      </button>
+      {(reader.canKeepWaiting ||
+        (!!message && preferredEngine !== "device")) && (
+        <div className="audio-recovery">
+          {reader.canKeepWaiting && (
+            <button type="button" onClick={reader.keepWaiting}>
+              Keep waiting
+            </button>
+          )}
+          {preferredEngine !== "device" && (
+            <button type="button" onClick={reader.playDevice}>
+              Use device voice · no download
+            </button>
+          )}
+        </div>
+      )}
       <span className="audio-engine">
         {engine ||
           (preferredEngine === "device"

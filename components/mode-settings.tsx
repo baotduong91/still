@@ -39,6 +39,7 @@ export function ModeSettings() {
   const groq = status ? hostedGroqAvailable(status) : false;
   const cloudReady = status?.modes.cloud.configured !== false;
   useEffect(() => {
+    if (!online || !navigator.onLine) return;
     let alive = true;
     fetch("/api/modes")
       .then((r) => {
@@ -109,14 +110,15 @@ export function ModeSettings() {
           only.
         </p>
       )}
-      {status?.modes.ollama.configured && !status.modes.ollama.hostedLoopback && (
-        <OllamaNotice
-          status={status}
-          message={message}
-          setMessage={setMessage}
-          setStatus={setStatus}
-        />
-      )}
+      {status?.modes.ollama.configured &&
+        !status.modes.ollama.hostedLoopback && (
+          <OllamaNotice
+            status={status}
+            message={message}
+            setMessage={setMessage}
+            setStatus={setStatus}
+          />
+        )}
       {groq && (
         <GroqNotice
           cloudNotice={cloudNotice}
@@ -124,24 +126,26 @@ export function ModeSettings() {
           setStatus={setStatus}
         />
       )}
-      {!groq && status?.modes.cloud.configured && state.provider === "cloud" && (
-        <label>
-          <input
-            type="checkbox"
-            checked={state.cloudConsent}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              void update((s) => ({
-                ...s,
-                cloudConsent: checked,
-                guidePreferenceSet: true,
-              }));
-            }}
-          />{" "}
-          I choose to send my questions, goals, recent chat context, and
-          retrieved passages to the configured cloud model.
-        </label>
-      )}
+      {!groq &&
+        status?.modes.cloud.configured &&
+        state.provider === "cloud" && (
+          <label>
+            <input
+              type="checkbox"
+              checked={state.cloudConsent}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                void update((s) => ({
+                  ...s,
+                  cloudConsent: checked,
+                  guidePreferenceSet: true,
+                }));
+              }}
+            />{" "}
+            I choose to send my questions, goals, recent chat context, and
+            retrieved passages to the configured cloud model.
+          </label>
+        )}
       <p className="fine-print">
         Saved plans stay on this device. Offline reading does not use Groq.
       </p>

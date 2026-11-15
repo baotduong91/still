@@ -41,10 +41,12 @@ test("mobile Today keeps its verse, section controls and player readable in both
         .bottom,
       player: document.querySelector(".today-player")!.getBoundingClientRect()
         .top,
+      actions: document.querySelector(".overview-actions")!.getBoundingClientRect().bottom,
       width: document.documentElement.scrollWidth,
     }));
     expect(layout.top).toBeLessThan(180);
     expect(layout.verse).toBeLessThan(layout.player);
+    expect(layout.actions).toBeLessThanOrEqual(layout.player + 12);
     expect(layout.width).toBeLessThanOrEqual(390);
     const screenshot = testInfo.outputPath(`today-${theme}.png`);
     await page.screenshot({ path: screenshot });

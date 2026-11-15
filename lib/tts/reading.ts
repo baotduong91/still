@@ -20,14 +20,20 @@ export function devotionReflectionText(
     .join("\n\n");
 }
 
+/** Reflection + questions only — interpretation stays on screen, not in voice. */
+export function devotionReflectionSpokenText(
+  day: Pick<DayType, "reflection" | "questions">,
+) {
+  return [day.reflection, ...day.questions]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 export function buildSpokenText(payload: ReadingPayload) {
   // Preserve the existing Scripture bytes and reference behavior exactly.
   if (payload.kind === "scripture") return readingText(payload);
-  const text = payload.text.trim();
-  if (!text) return "";
-  return payload.kind === "prayer"
-    ? `A prayer inspired by today’s reading. This is not Scripture.\n\n${text}`
-    : text;
+  return payload.text.trim();
 }
 
 export function engineForKind(

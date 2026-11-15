@@ -32,6 +32,12 @@ test("dock fits desktop, mobile and short landscape in both themes", async ({
       expect(rect.x + rect.width).toBeLessThanOrEqual(viewport.width);
       expect(rect.height).toBeLessThan(viewport.width > 720 ? 120 : 170);
       expect(rect.y + rect.height).toBeLessThanOrEqual(viewport.height);
+      if (viewport.width === 1440) {
+        const actions = (await page
+          .locator(".overview-actions")
+          .boundingBox())!;
+        expect(actions.y + actions.height).toBeLessThan(rect.y);
+      }
       const buttons = dock.locator("button:visible");
       for (const button of await buttons.all()) {
         const box = (await button.boundingBox())!;
@@ -163,7 +169,7 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
       ),
     )
     .toBe(3);
-  await page.getByRole("button", { name: "Leave immersive view" }).click();
+
   await page.locator('a[href="/journal"]').first().click();
   await expect
     .poll(() =>

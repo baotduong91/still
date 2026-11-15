@@ -8,16 +8,22 @@ import {
   Share2,
   X,
   MoreHorizontal,
-  Maximize2,
+  Headphones,
+  Leaf,
 } from "lucide-react";
 import Link from "@/components/smart-link";
 import { usePrivacy } from "@/components/privacy";
 import { useApp } from "@/components/provider";
 import { Button } from "@/components/ui/button";
+import { primeAmbientFromGesture } from "./use-ambient-audio";
 import { TodayAudioDock } from "./today-audio-dock";
 import { useReadingAudio } from "@/components/scripture/use-reading-audio";
 import { usePassage } from "@/components/scripture/use-passage";
-import { devotionReflectionText, type ReadingPayload } from "@/lib/tts/reading";
+import {
+  devotionReflectionSpokenText,
+  devotionReflectionText,
+  type ReadingPayload,
+} from "@/lib/tts/reading";
 import { verseSpeech } from "@/lib/tts/shared";
 import {
   privateVoice,
@@ -53,12 +59,20 @@ export function DailyFlow({
   const voice = privateVoice(state.speechEngine);
   const { passage, resolving: passageResolving } = usePassage(localPassage);
   const [active, setActive] = useState(0);
-  const [immersive, setImmersive] = useState(true);
+  const [immersive, setImmersive] = useState(false);
   useEffect(() => {
-    document.body.classList.toggle("still-listening", immersive);
-    return () => document.body.classList.remove("still-listening");
+    document.body.classList.add("still-listening");
+    return () =>
+      document.body.classList.remove("still-listening", "still-reading");
+  }, []);
+  useEffect(() => {
+    document.body.classList.toggle("still-reading", immersive);
   }, [immersive]);
   const [autoplay, setAutoplay] = useState(true);
+  const autoplayRef = useRef(autoplay);
+  autoplayRef.current = autoplay;
+  const voiceListenRef = useRef(state.todayVoiceOn !== false);
+  voiceListenRef.current = state.todayVoiceOn !== false;
   const autoplayTarget = useRef<number | null>(null);
   const latestReader = useRef<ReturnType<typeof useReadingAudio> | null>(null);
   const [privateReady, setPrivateReady] = useState(false);
@@ -67,12 +81,13 @@ export function DailyFlow({
   const voicePrepare = useRef<AbortController | null>(null);
   const refs = useRef<(HTMLElement | null)[]>([]),
     lockScroll = useRef(0),
+    sectionNavUntil = useRef(0),
     consumed = useRef(0);
   const payloads: ReadingPayload[] = [
     { kind: "scripture", ...verseSpeech(passage) },
     {
       kind: "devotional",
-      text: devotionReflectionText(day),
+      text: devotionReflectionSpokenText(day),
       title: day.title,
     },
     { kind: "prayer", text: day.prayer, title: day.title },
@@ -93,8 +108,17 @@ export function DailyFlow({
     }
   }, []);
   function go(index: number, automatic = false) {
-    if (!automatic) autoplayTarget.current = null;
-    lockScroll.current = performance.now() + 700;
+    if (
+      autoplay &&
+      state.todayVoiceOn !== false &&
+      (reader.status === "playing" || autoplayTarget.current !== null)
+    ) {
+      autoplayTarget.current = index;
+      sectionNavUntil.current = performance.now() + 2500;
+    } else if (!automatic) {
+      autoplayTarget.current = null;
+    }
+    lockScroll.current = performance.now() + 1200;
     setActive(index);
     const section = refs.current[index];
     section?.querySelector<HTMLElement>("h2")?.focus({ preventScroll: true });
@@ -109,7 +133,10 @@ export function DailyFlow({
     let frame = 0;
     const measure = () => {
       frame = 0;
-      if (performance.now() < lockScroll.current) {
+      if (
+        performance.now() < lockScroll.current ||
+        performance.now() < sectionNavUntil.current
+      ) {
         frame = requestAnimationFrame(measure);
         return;
       }
@@ -118,7 +145,18 @@ export function DailyFlow({
       refs.current.forEach((section, i) => {
         if (section && section.getBoundingClientRect().top <= line) next = i;
       });
-      setActive(next);
+      setActive((current) => {
+        if (current === next) return current;
+        if (
+          autoplayRef.current &&
+          voiceListenRef.current &&
+          (latestReader.current?.status === "playing" ||
+            autoplayTarget.current !== null)
+        ) {
+          autoplayTarget.current = next;
+        }
+        return next;
+      });
     };
     const scroll = () => {
       if (!frame) frame = requestAnimationFrame(measure);
@@ -148,25 +186,49 @@ export function DailyFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reader.completed]);
   useEffect(() => {
-    if (!autoplay || autoplayTarget.current !== active) {
+    if (!autoplay || state.todayVoiceOn === false) return;
+    if (autoplayTarget.current !== active) return;
+    const section = active;
+    let alive = true;
+    const attempt = (tries = 0) => {
+      if (!alive || autoplayTarget.current !== section) return;
+      const current = latestReader.current;
+      if (section === 0 && passageResolving) {
+        if (tries < 50) window.setTimeout(() => attempt(tries + 1), 80);
+        return;
+      }
+      if (!current || current.empty || current.status === "loading") {
+        if (tries < 50) window.setTimeout(() => attempt(tries + 1), 80);
+        return;
+      }
       autoplayTarget.current = null;
-      return;
-    }
-    const frame = requestAnimationFrame(() => {
-      if (autoplayTarget.current !== active) return;
-      autoplayTarget.current = null;
-      if (state.todayVoiceOn !== false) void latestReader.current?.play();
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [active, autoplay, state.todayVoiceOn]);
+      sectionNavUntil.current = performance.now() + 800;
+      void current.play();
+    };
+    const timer = window.setTimeout(() => attempt(), 48);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    active,
+    autoplay,
+    state.todayVoiceOn,
+    passageResolving,
+    payloads[active].text,
+    payloads[active].kind,
+  ]);
   const playerReader = {
     ...reader,
     stop() {
       autoplayTarget.current = null;
+      sectionNavUntil.current = 0;
       reader.stop();
     },
     play() {
       autoplayTarget.current = null;
+      sectionNavUntil.current = 0;
       return reader.play();
     },
   };
@@ -266,67 +328,101 @@ export function DailyFlow({
   }
   return (
     <div
-      className={`daily-flow${immersive ? " is-immersive" : ""}`}
+      className="daily-flow is-immersive"
+      data-view={immersive ? "reading" : "overview"}
       data-section={active}
     >
-      {immersive ? (
-        <>
-          <div className="still-scene" aria-hidden="true">
-            <div className="still-scene-landscape" />
-            <div className="still-scene-glow" />
-            <div className="still-scene-dust" />
-          </div>
-          <header className="listening-header">
+      <>
+        <div className="still-scene" aria-hidden="true">
+          <div className="still-scene-landscape" />
+          <div className="still-scene-glow" />
+          <div className="still-scene-dust" />
+        </div>
+        <header className="listening-header">
+          {immersive ? (
             <button
               type="button"
               aria-label="Leave immersive view"
-              onClick={() => setImmersive(false)}
+              onClick={() => {
+                setImmersive(false);
+              }}
             >
               <X size={22} />
             </button>
-            <span>
-              STILL · DAY {day.number} OF {plan.days.length}
-            </span>
-            <details className="listening-menu">
-              <summary aria-label="Listening options">
-                <MoreHorizontal size={22} />
-              </summary>
-              <div>
-                <Link href="/journey">My journey</Link>
-                <Link href="/journal">Journal</Link>
-                <Link href="/settings#reading-voice">Voice settings</Link>
-                <label className="music-level-control">
-                  Music level
-                  <input
-                    type="range"
-                    aria-label="Background music level"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    value={state.todayMusicLevel ?? 0.5}
-                    onChange={(event) => {
-                      const level = Number(event.target.value);
-                      void update((s) => ({ ...s, todayMusicLevel: level }));
-                    }}
-                  />
-                </label>
-                {state.pinLock && (
-                  <button type="button" onClick={lock}>
-                    Lock personal content
-                  </button>
-                )}
-              </div>
-            </details>
-          </header>
-        </>
-      ) : (
-        <button
-          className="enter-listening"
-          type="button"
-          onClick={() => setImmersive(true)}
-        >
-          <Maximize2 size={16} /> Focus view
-        </button>
+          ) : (
+            <Link
+              className="today-home-link"
+              href="/journey"
+              aria-label="My journey"
+            >
+              <Leaf size={22} />
+            </Link>
+          )}
+          <span>
+            Day {day.number} of {plan.days.length}
+          </span>
+          <details className="listening-menu">
+            <summary aria-label="Listening options">
+              <MoreHorizontal size={22} />
+            </summary>
+            <div>
+              <Link href="/journey">My journey</Link>
+              <Link href="/journal">Journal</Link>
+              <Link href="/settings#reading-voice">Voice settings</Link>
+              <button type="button" onClick={() => reader.restartSection?.()}>
+                Restart this section
+              </button>
+              <label className="music-level-control">
+                Music level
+                <input
+                  type="range"
+                  aria-label="Background music level"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={state.todayMusicLevel ?? 0.5}
+                  onChange={(event) => {
+                    const level = Number(event.target.value);
+                    void update((s) => ({ ...s, todayMusicLevel: level }));
+                  }}
+                />
+              </label>
+              <label className="music-level-control">
+                Reading speed
+                <select
+                  aria-label="Reading speed"
+                  value={reader.speed}
+                  onChange={(event) =>
+                    reader.changeSpeed(Number(event.target.value))
+                  }
+                >
+                  {[0.8, 0.9, 1, 1.1, 1.2].map((rate) => (
+                    <option value={rate} key={rate}>
+                      {rate.toFixed(1)}×
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {state.pinLock && (
+                <button type="button" onClick={lock}>
+                  Lock personal content
+                </button>
+              )}
+            </div>
+          </details>
+        </header>
+      </>
+      {!immersive && (
+        <div className="today-welcome">
+          <p>
+            {new Intl.DateTimeFormat("en", {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            }).format(new Date())}
+          </p>
+          <h1>Make room for today.</h1>
+        </div>
       )}
 
       <nav className="flow-index" aria-label="Daily rhythm">
@@ -353,12 +449,6 @@ export function DailyFlow({
         }}
         aria-labelledby="verse-heading"
       >
-        <div className="flow-verse-top">
-          <span>YOUR DAILY RHYTHM</span>
-          <span>
-            Day {day.number} of {plan.days.length}
-          </span>
-        </div>
         <div className="flow-verse-copy">
           <p className="eyebrow">
             {passage.reference} · {passage.translation}
@@ -381,6 +471,30 @@ export function DailyFlow({
             <p className="flow-translation-notice">{passage.notice}</p>
           )}
         </div>
+        {!immersive && (
+          <div className="overview-actions">
+            <button
+              type="button"
+              onClick={() => {
+                if (state.todayAmbientOn)
+                  void primeAmbientFromGesture(
+                    true,
+                    Math.max(0, Math.min(1, state.todayMusicLevel ?? 0.5)) /
+                      0.5,
+                  ).catch(() => {});
+                void update((s) => ({ ...s, todayVoiceOn: true }));
+                if (reader.status === "idle" || reader.status === "paused")
+                  void reader.play();
+                setImmersive(true);
+              }}
+            >
+              <Headphones size={20} /> Listen
+            </button>
+            <button type="button" onClick={() => setImmersive(true)}>
+              <BookOpen size={20} /> Read
+            </button>
+          </div>
+        )}
         <div className="flow-verse-bottom">
           <Link
             href={`/scripture?ref=${encodeURIComponent(day.passage.reference)}`}
@@ -416,19 +530,9 @@ export function DailyFlow({
               <p key={q}>{q}</p>
             ))}
           </div>
-          <p className="fine-print">{day.interpretation}</p>
-          {voicePreparing && (
-            <p className="fine-print" role="status">
-              Preparing {voice.name} on this device for private listening…
-            </p>
-          )}
-          {needsVoiceDownload && !voicePreparing && (
-            <p className="fine-print">
-              <Link href="/settings#reading-voice">
-                Finish setting up {voice.name} in Settings for private reading.
-              </Link>
-            </p>
-          )}
+          <p className="fine-print flow-interpretation-note">
+            {day.interpretation}
+          </p>
         </div>
         {next(2)}
       </section>
@@ -447,10 +551,11 @@ export function DailyFlow({
           <h2 id="prayer-heading" tabIndex={-1}>
             Come as you are.
           </h2>
-          <p className="prayer-text">{day.prayer}</p>
           <p className="fine-print">
-            A personal prayer inspired by your reading; not Scripture.
+            A personal prayer inspired by today’s reading. This is not
+            Scripture.
           </p>
+          <p className="prayer-text">{day.prayer}</p>
         </div>
         <details className="flow-personal-prayer">
           <summary>Write your own prayer</summary>
@@ -502,16 +607,6 @@ export function DailyFlow({
         )}
       </section>
       <div className="today-player" data-voice-ready={privateReady}>
-        {autoplay &&
-          needsVoiceDownload &&
-          !voicePreparing &&
-          !privateReady &&
-          reader.status !== "idle" && (
-            <p className="reading-context" role="status">
-              Set up {voice.name} in Settings for private listening. Your
-              reading stays on-device.
-            </p>
-          )}
         <TodayAudioDock
           autoplay={autoplay}
           onAutoplayChange={(enabled) => {

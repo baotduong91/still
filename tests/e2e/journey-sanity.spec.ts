@@ -1,4 +1,4 @@
-import { devotionReflectionText } from "../../lib/tts/reading";
+import { devotionReflectionSpokenText } from "../../lib/tts/reading";
 import { seedOfflineParadeeAssets } from "./helpers/paradee-cache";
 import { test, expect } from "./fixtures";
 import AxeBuilder from "@axe-core/playwright";
@@ -60,7 +60,17 @@ test("one continuous offline journey saves Practice and participation, then crea
     .click();
   await expect(page.getByRole("status")).toContainText("Ready offline");
   await page.reload();
+  // Finish the Settings hydration/Bible load before disconnecting. WebKit
+  // reports a cancelled in-flight reload fetch as an access-control pageerror.
+  await expect(
+    page.getByRole("button", { name: "Download for offline", exact: true }),
+  ).toBeVisible();
   await context.setOffline(true);
+  const metadataRequests: string[] = [];
+  page.on("request", (request) => {
+    if (/\/api\/(modes|awp\/translations)(?:\?|$)/.test(request.url()))
+      metadataRequests.push(request.url());
+  });
   await page.goto("/today");
   await assertExactToday(page);
   await expect(page.getByLabel("Your participation")).toContainText(
@@ -145,6 +155,7 @@ test("one continuous offline journey saves Practice and participation, then crea
     }),
   ).toBe(webVerse("John", 3, 16));
   expect(planCalls).toEqual([]);
+  expect(metadataRequests).toEqual([]);
   expect(errors).toEqual([]);
 });
 
@@ -198,7 +209,7 @@ test("mobile Today animates within one document, avoids player collisions, and m
           (await heading.boundingBox())!.height,
       ).toBeLessThan(player!.y);
       for (const control of await page
-        .locator(".today-player button, .today-player select")
+        .locator(".today-player button:visible, .today-player select:visible")
         .all())
         await assertTouchTarget(control);
       const next =
@@ -224,7 +235,12 @@ test("mobile Today animates within one document, avoids player collisions, and m
           .poll(() =>
             page
               .locator(`#today-${next}`)
-              .evaluate((el) => Math.abs(el.getBoundingClientRect().top - 14)),
+              .evaluate((el) =>
+                Math.abs(
+                  el.getBoundingClientRect().top -
+                    parseFloat(getComputedStyle(el).scrollMarginTop),
+                ),
+              ),
           )
           .toBeLessThan(2);
         expect(
@@ -342,218 +358,231 @@ test("translation changes and missing online editions preserve exact WEB wording
   expect(sent).toHaveLength(3);
 });
 
-test("voice routing stays private and responsive across delayed Edge, Paradee, offline, and explicit device preference", async ({
-  page,
-  context,
-  savedPlan,
-}) => {
-  await page.goto("/settings");
-  await seedOfflineParadeeAssets(page);
-  let release!: () => void;
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  let edgeCalls = 0;
-  await page.route("**/api/tts", async (route) => {
-    if (route.request().method() === "HEAD")
-      return route.fulfill({ status: 204 });
-    edgeCalls++;
-    await held;
-    await route
-      .fulfill({ contentType: "audio/mpeg", body: Buffer.from([1, 2]) })
-      .catch(() => {});
-  });
-  await page.goto("/today");
-  await page
-    .getByRole("button", { name: "Play Scripture", exact: true })
-    .click();
-  await expect.poll(() => edgeCalls).toBe(1);
-  await expect(page.locator(".audio-engine")).toContainText("Edge");
-  // Keep Edge unresolved while the actual Continue control and viewport still work.
-  await page
-    .getByRole("button", { name: "Continue to reflection", exact: true })
-    .click();
-  await expect(
-    page.getByRole("button", { name: "Read reflection aloud", exact: true }),
-  ).toBeEnabled();
-  release();
-  const before = Date.now();
-  await page
-    .getByRole("button", { name: "Read reflection aloud", exact: true })
-    .click();
-  await expect(
-    page.getByRole("button", { name: "Pause reflection", exact: true }),
-  ).toBeVisible({ timeout: 1500 });
-  expect(Date.now() - before).toBeLessThan(1500);
-  expect((await voiceState(page)).localText).toContain(
-    devotionReflectionText(savedPlan.days[0]),
-  );
-  await page.getByRole("link", { name: "03 Prayer" }).click();
-  await page
-    .getByRole("button", { name: "Read prayer aloud", exact: true })
-    .click();
-  await expect(
-    page.getByRole("button", { name: "Pause prayer", exact: true }),
-  ).toBeVisible();
-  expect((await voiceState(page)).localText.at(-1)).toBe(
-    `A prayer inspired by today’s reading. This is not Scripture.\n\n${savedPlan.days[0].prayer}`,
-  );
-  expect((await voiceState(page)).active).toBe(1);
-  await context.setOffline(true);
-  await page.getByRole("link", { name: "01 Scripture" }).click();
-  await expect(page.locator(".audio-engine")).toContainText("Paradee");
-  await page
-    .getByRole("button", { name: "Play Scripture", exact: true })
-    .click();
-  await expect(
-    page.getByRole("button", { name: "Pause Scripture", exact: true }),
-  ).toBeVisible();
-  expect((await voiceState(page)).localText.at(-1)).toBe(
-    `${todayText}\n\n${todayReference}`,
-  );
-  expect(edgeCalls).toBe(1);
-  await context.setOffline(false);
-  for (const preference of ["paradee", "device"]) {
+// WebKit service-worker fetches bypass Playwright's network fixtures. These
+// provider tests isolate routing; the real offline shell is exercised above.
+test.describe("deterministic provider requests", () => {
+  test.use({ serviceWorkers: "block" });
+
+  test("voice routing stays private and responsive across delayed Edge, Paradee, offline, and explicit device preference", async ({
+    page,
+    context,
+    savedPlan,
+  }) => {
     await page.goto("/settings");
-    await page.getByLabel("Reading voice engine").selectOption(preference);
+    await seedOfflineParadeeAssets(page, false);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let edgeCalls = 0;
+    await page.route("**/api/tts", async (route) => {
+      if (route.request().method() === "HEAD")
+        return route.fulfill({ status: 204 });
+      edgeCalls++;
+      await held;
+      await route
+        .fulfill({ contentType: "audio/mpeg", body: Buffer.from([1, 2]) })
+        .catch(() => {});
+    });
     await page.goto("/today");
+    await page.getByRole("checkbox", { name: "Autoplay" }).uncheck();
+    await page
+      .getByRole("button", { name: "Play Scripture", exact: true })
+      .click();
+    await expect.poll(() => edgeCalls).toBe(1);
+    await expect(page.locator(".audio-engine")).toContainText("Edge");
+    // Keep Edge unresolved while the actual Continue control and viewport still work.
+    await page
+      .getByRole("button", { name: "Continue to reflection", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Read reflection aloud", exact: true }),
+    ).toBeEnabled();
+    release();
+    const before = Date.now();
+    await page
+      .getByRole("button", { name: "Read reflection aloud", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Pause reflection", exact: true }),
+    ).toBeVisible({ timeout: 1500 });
+    expect(Date.now() - before).toBeLessThan(1500);
+    expect((await voiceState(page)).localText).toContain(
+      devotionReflectionSpokenText(savedPlan.days[0]),
+    );
+    await page.getByRole("link", { name: "03 Prayer" }).click();
+    await page
+      .getByRole("button", { name: "Read prayer aloud", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Pause prayer", exact: true }),
+    ).toBeVisible();
+    expect((await voiceState(page)).localText.at(-1)).toBe(
+      savedPlan.days[0].prayer,
+    );
+    expect((await voiceState(page)).active).toBe(1);
+    await context.setOffline(true);
+    await page.getByRole("link", { name: "01 Scripture" }).click();
+    await expect(page.locator(".audio-engine")).toContainText("Paradee");
     await page
       .getByRole("button", { name: "Play Scripture", exact: true })
       .click();
     await expect(
       page.getByRole("button", { name: "Pause Scripture", exact: true }),
     ).toBeVisible();
-    await expect(page.locator(".audio-engine")).toContainText(
-      preference === "device" ? "Device voice" : "Paradee",
+    expect((await voiceState(page)).localText.at(-1)).toBe(
+      `${todayText}\n\n${todayReference}`,
     );
     expect(edgeCalls).toBe(1);
-  }
-  expect((await voiceState(page)).deviceText).toEqual([
-    `${todayText}\n\n${todayReference}`,
-  ]);
-});
-
-test("configured Ollama and cloud use only the chosen mode for plans/chat and surface failure without fallback", async ({
-  page,
-  savedPlan,
-}) => {
-  await page.route("**/api/modes", (route) =>
-    route.fulfill({
-      json: {
-        modes: {
-          guided: { configured: true },
-          ollama: { configured: true, hostedLoopback: false },
-          cloud: { configured: true },
-        },
-        ollamaReachable: null,
-      },
-    }),
-  );
-  const calls: { endpoint: string; provider: string }[] = [];
-  const bible = new Bible(webCorpus);
-  for (const endpoint of ["plans/generate", "chat"])
-    await page.route(`**/api/awp/${endpoint}`, (route) => {
-      const input = route.request().postDataJSON();
-      calls.push({ endpoint, provider: input.provider });
-      if ((input.prompt ?? input.question).includes("fixture failure"))
-        return route.fulfill({
-          status: 503,
-          json: {
-            error: {
-              code: "PROVIDER_UNAVAILABLE",
-              message: "Fixture model unavailable",
-              recovery: "Choose another mode explicitly.",
-            },
-          },
-        });
-      return route.fulfill({
-        json:
-          endpoint === "chat"
-            ? {
-                provider: input.provider,
-                answer:
-                  "A deterministic interpretation of the retrieved passage.",
-                interpretation: "Interpretation, not a Scripture quotation.",
-                context: "A cited fixture response.",
-                limited: false,
-                citations: [bible.lookup(todayReference)],
-              }
-            : {
-                plan: {
-                  ...savedPlan,
-                  id: crypto.randomUUID(),
-                  provider: input.provider,
-                  profile: { ...savedPlan.profile, prompt: input.prompt },
-                },
-              },
-      });
-    });
-  await page.goto("/settings");
-  await page.getByLabel("Guide", { exact: true }).selectOption("cloud");
-  await page.goto("/chat");
-  await page.getByLabel("Your Bible question").fill("Why is there suffering?");
-  await page
-    .getByRole("button", { name: "Send question", exact: true })
-    .click();
-  await expect(page.locator(".error-banner")).toContainText(
-    "Enable cloud sharing",
-  );
-  expect(calls).toEqual([]);
-  for (const provider of ["cloud", "ollama"]) {
-    await page.goto("/settings");
-    await page.getByLabel("Guide", { exact: true }).selectOption(provider);
-    if (provider === "cloud") {
-      const consent = page.getByRole("checkbox", { name: /I choose to send/ });
-      await consent.click();
-      await expect(consent).toBeChecked();
+    await context.setOffline(false);
+    for (const preference of ["paradee", "device"]) {
+      await page.goto("/settings");
+      await page.getByLabel("Reading voice engine").selectOption(preference);
+      await page.goto("/today");
+      await page
+        .getByRole("button", { name: "Play Scripture", exact: true })
+        .click();
+      await expect(
+        page.getByRole("button", { name: "Pause Scripture", exact: true }),
+      ).toBeVisible();
+      await expect(page.locator(".audio-engine")).toContainText(
+        preference === "device" ? "Device voice" : "Edge",
+      );
+      expect(edgeCalls).toBe(2);
     }
-    await page.goto("/create");
-    await page
-      .getByLabel("I’d like to explore…")
-      .fill("A gentle prayer journey");
-    await page
-      .getByRole("button", { name: "Begin my journey", exact: true })
-      .click();
-    await expect(page.locator(".today-player")).toBeVisible();
-    expect(calls.at(-1)).toEqual({ endpoint: "plans/generate", provider });
-    await assertExactToday(page);
+    expect((await voiceState(page)).deviceText).toEqual([
+      `${todayText}\n\n${todayReference}`,
+    ]);
+  });
+
+  test("configured Ollama and cloud use only the chosen mode for plans/chat and surface failure without fallback", async ({
+    page,
+    savedPlan,
+  }) => {
+    await page.route("**/api/modes", (route) =>
+      route.fulfill({
+        json: {
+          modes: {
+            guided: { configured: true },
+            ollama: { configured: true, hostedLoopback: false },
+            cloud: { configured: true },
+          },
+          ollamaReachable: null,
+        },
+      }),
+    );
+    const calls: { endpoint: string; provider: string }[] = [];
+    const bible = new Bible(webCorpus);
+    for (const endpoint of ["plans/generate", "chat"])
+      await page.route(`**/api/awp/${endpoint}`, (route) => {
+        const input = route.request().postDataJSON();
+        calls.push({ endpoint, provider: input.provider });
+        if ((input.prompt ?? input.question).includes("fixture failure"))
+          return route.fulfill({
+            status: 503,
+            json: {
+              error: {
+                code: "PROVIDER_UNAVAILABLE",
+                message: "Fixture model unavailable",
+                recovery: "Choose another mode explicitly.",
+              },
+            },
+          });
+        return route.fulfill({
+          json:
+            endpoint === "chat"
+              ? {
+                  provider: input.provider,
+                  answer:
+                    "A deterministic interpretation of the retrieved passage.",
+                  interpretation: "Interpretation, not a Scripture quotation.",
+                  context: "A cited fixture response.",
+                  limited: false,
+                  citations: [bible.lookup(todayReference)],
+                }
+              : {
+                  plan: {
+                    ...savedPlan,
+                    id: crypto.randomUUID(),
+                    provider: input.provider,
+                    profile: { ...savedPlan.profile, prompt: input.prompt },
+                  },
+                },
+        });
+      });
+    await page.goto("/settings");
+    await page.getByLabel("Guide", { exact: true }).selectOption("cloud");
     await page.goto("/chat");
     await page
       .getByLabel("Your Bible question")
-      .fill("What can this passage teach us?");
-    await page
-      .getByRole("button", { name: "Send question", exact: true })
-      .click();
-    await page.locator(".answer summary").click();
-    await expect(page.locator(".answer blockquote")).toBeVisible();
-    expect(await quoteText(page.locator(".answer blockquote"))).toBe(todayText);
-    await expect(page.locator(".answer summary")).toContainText(
-      `${todayReference} · WEB`,
-    );
-    expect(calls.at(-1)).toEqual({ endpoint: "chat", provider });
-    const count = calls.length;
-    await page.getByLabel("Your Bible question").fill("fixture failure");
+      .fill("Why is there suffering?");
     await page
       .getByRole("button", { name: "Send question", exact: true })
       .click();
     await expect(page.locator(".error-banner")).toContainText(
-      "Fixture model unavailable",
+      "Enable cloud sharing",
     );
-    expect(calls.slice(count)).toEqual([{ endpoint: "chat", provider }]);
-    await page.goto("/create");
-    await page.getByLabel("I’d like to explore…").fill("fixture failure");
-    const beforePlanFailure = calls.length;
-    await page
-      .getByRole("button", { name: "Begin my journey", exact: true })
-      .click();
-    await expect(page.locator(".error-banner")).toContainText(
-      "Fixture model unavailable",
-    );
-    expect(calls.slice(beforePlanFailure)).toEqual([
-      { endpoint: "plans/generate", provider },
-    ]);
-    expect(new URL(page.url()).pathname).toBe("/create");
-  }
+    expect(calls).toEqual([]);
+    for (const provider of ["cloud", "ollama"]) {
+      await page.goto("/settings");
+      await page.getByLabel("Guide", { exact: true }).selectOption(provider);
+      if (provider === "cloud") {
+        const consent = page.getByRole("checkbox", {
+          name: /I choose to send/,
+        });
+        await consent.click();
+        await expect(consent).toBeChecked();
+      }
+      await page.goto("/create");
+      await page
+        .getByLabel("I’d like to explore…")
+        .fill("A gentle prayer journey");
+      await page
+        .getByRole("button", { name: "Begin my journey", exact: true })
+        .click();
+      await expect(page.locator(".today-player")).toBeVisible();
+      expect(calls.at(-1)).toEqual({ endpoint: "plans/generate", provider });
+      await assertExactToday(page);
+      await page.goto("/chat");
+      await page
+        .getByLabel("Your Bible question")
+        .fill("What can this passage teach us?");
+      await page
+        .getByRole("button", { name: "Send question", exact: true })
+        .click();
+      await page.locator(".answer summary").click();
+      await expect(page.locator(".answer blockquote")).toBeVisible();
+      expect(await quoteText(page.locator(".answer blockquote"))).toBe(
+        todayText,
+      );
+      await expect(page.locator(".answer summary")).toContainText(
+        `${todayReference} · WEB`,
+      );
+      expect(calls.at(-1)).toEqual({ endpoint: "chat", provider });
+      const count = calls.length;
+      await page.getByLabel("Your Bible question").fill("fixture failure");
+      await page
+        .getByRole("button", { name: "Send question", exact: true })
+        .click();
+      await expect(page.locator(".error-banner")).toContainText(
+        "Fixture model unavailable",
+      );
+      expect(calls.slice(count)).toEqual([{ endpoint: "chat", provider }]);
+      await page.goto("/create");
+      await page.getByLabel("I’d like to explore…").fill("fixture failure");
+      const beforePlanFailure = calls.length;
+      await page
+        .getByRole("button", { name: "Begin my journey", exact: true })
+        .click();
+      await expect(page.locator(".error-banner")).toContainText(
+        "Fixture model unavailable",
+      );
+      expect(calls.slice(beforePlanFailure)).toEqual([
+        { endpoint: "plans/generate", provider },
+      ]);
+      expect(new URL(page.url()).pathname).toBe("/create");
+    }
+  });
 });
 
 test("PIN gates Today, journal and chat while public WEB reading and exact citations remain usable", async ({

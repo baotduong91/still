@@ -37,7 +37,6 @@ export async function downloadPrivateVoice(
 ) {
   if (preference === "device") return { stored: true, backend: "" };
   const voice = privateVoice(preference);
-  if (await voice.stored()) return { stored: true, backend: voice.backend() };
   const [, result] = await Promise.all([
     prepareSpeechRuntime(),
     voice.audio(null, progress, signal, undefined, options),

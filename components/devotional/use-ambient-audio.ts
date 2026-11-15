@@ -5,9 +5,10 @@ import {
   startAmbientLoop,
   stopAmbientLoop,
 } from "@/lib/audio/ambient-player";
-/** Tuned for Angelic Pad Loop @ −17 LUFS; music slider 0.5 = unity scale. */
-const ACTIVE_VOLUME = 0.46;
-const DUCKED_VOLUME = 0.28;
+/** Tuned for Angelic Pad Loop @ −17 LUFS; music slider 0.5 scales both gains. */
+const ACTIVE_VOLUME = 0.45;
+/** Background level while narration is playing. */
+const DUCKED_VOLUME = 0.3;
 export function useAmbientAudio(
   enabled: boolean,
   voiceActive: boolean,

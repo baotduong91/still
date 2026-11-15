@@ -7,12 +7,12 @@ Still’s optional listen controls complement screen readers; they do not replac
 | Kind | Source and placement | Spoken text | Edge eligibility |
 | --- | --- | --- | --- |
 | `scripture` | Retrieved `PassageType`: Today Scripture, passage/verse tools, public WEB reader, Create Image, chat citations | Exact retrieved verse text followed by its reference | Auto/Edge/Paradee online only, after Play |
-| `devotional` | Today Reflection: reflection, both questions, and interpretation (as shown in the section) | Validated plan copy, guided or generated | Never; selected Paradee, or explicitly chosen local voice |
-| `prayer` | Today Prayer: `day.prayer`, after plan validation | “A prayer inspired by today’s reading. This is not Scripture.” followed by the plan prayer | Never; selected Paradee, or explicitly chosen local voice |
+| `devotional` | Today Reflection: reflection and questions (interpretation stays on screen only) | Validated plan copy, guided or generated | Never; selected Paradee, or explicitly chosen local voice |
+| `prayer` | Today Prayer: `day.prayer`, after plan validation | Plan prayer text only | Never; selected Paradee, or explicitly chosen local voice |
 | `action` | Today Practice: fixed `day.action` copy | Validated plan action, guided or generated | Never; selected Paradee, or explicitly chosen local voice |
 | `interpretation` | Successful cited chat response’s `interpretation` block | Interpretation only, separate from answer/citations | Never; selected Paradee, or explicitly chosen local voice |
 
-`ReadingPayload` is `{ kind, text, reference?, title? }`. `buildSpokenText` centralizes trimming and the prayer prefix while preserving the existing Scripture `readingText` behavior exactly. Titles are not spoken, and non-Scripture references are not added to speech. `engineForKind` is the client privacy gate: only `scripture` may reach Edge. Selecting Edge in Settings does not override the on-device rule for other content. The TTS API still accepts only text/reference and voice controls; this feature does not add devotional request kinds to it. The optional `stream` flag enables progressive MP3 delivery.
+`ReadingPayload` is `{ kind, text, reference?, title? }`. `buildSpokenText` centralizes trimming while preserving the existing Scripture `readingText` behavior exactly. Titles are not spoken, and non-Scripture references are not added to speech. `engineForKind` is the client privacy gate: only `scripture` may reach Edge. Selecting Edge in Settings does not override the on-device rule for other content. The TTS API still accepts only text/reference and voice controls; this feature does not add devotional request kinds to it. The optional `stream` flag enables progressive MP3 delivery.
 
 Compact controls provide Play/Pause, Stop, 0.8×–1.2× speed, an engine label, and a private-reading status. Scripture players keep their existing controls and labels. The separate Journey view shows only summaries, user intention, and day titles; its day content opens in Today, where these players are available.
 
@@ -124,3 +124,24 @@ The automated prepared reflection-to-prayer handoff measured 9 ms / 36 ms from a
 simulated media-ended event to the next playing state. This checks buffer/player
 reuse and absence of another foreground synthesis; it is not an acoustic latency
 measurement or a guarantee against OS/browser audio scheduling delays.
+
+### Shared Today overview and reading view
+
+Today uses one continuous Scripture → Reflection → Prayer → Practice document and
+one mountain scene. Listen starts the existing player and enters reading view;
+Read hides navigation without starting speech. Returning to the overview keeps
+the current section, playback, speed, and saved music level. Listening options
+contains reading speed, music level, restart, and the privacy lock. Stop and
+timeout recovery remain reachable from the player.
+
+The overview player sits above mobile navigation; reading view uses the same
+player above the safe-area inset. Pausing narration pauses the music instead of
+letting the autoplay checkbox keep it running. Browsing sections before Play
+does not start narration. Settings preparation also repairs missing runtime
+assets when the model itself is already cached.
+
+Availability checks for hosted models and translations pause while offline and
+refresh on reconnect. Browser tests exercise that behavior without suppressing
+offline runtime errors. Safari/WebKit currently uses the guarded single-thread
+WASM path with the app's credentialless isolation headers; real offline synthesis
+is verified separately from shared-memory capability.

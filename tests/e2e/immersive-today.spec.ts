@@ -33,7 +33,47 @@ test("immersive Today preserves Scripture, animates quietly and returns to regul
     "animation-name",
     "none",
   );
+  await page.getByRole("button", { name: "Read", exact: true }).click();
   await page.getByRole("button", { name: "Leave immersive view" }).click();
-  await expect(page.locator("body")).not.toHaveClass(/still-listening/);
-  await expect(page.getByRole("button", { name: "Focus view" })).toBeVisible();
+  await expect(page.locator("body")).toHaveClass(/still-listening/);
+  await expect(page.locator("body")).not.toHaveClass(/still-reading/);
+});
+
+test("overview and reading reuse the scene, player and saved mix settings", async ({
+  page,
+}) => {
+  await installVoiceHarness(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/today");
+  await page
+    .locator(".still-scene")
+    .evaluate((el) => el.setAttribute("data-session", "same-scene"));
+  await page.getByLabel("Listening options").click();
+  const volume = page.getByLabel("Background music level");
+  await volume.focus();
+  await volume.press("End");
+  await expect(volume).toHaveValue("1");
+  await page.getByLabel("Reading speed").selectOption("1.2");
+  await page.getByLabel("Listening options").click();
+  await page.getByRole("button", { name: "Listen", exact: true }).click();
+  await expect(page.locator("body")).toHaveClass(/still-reading/);
+  await expect(
+    page.getByRole("button", { name: "Pause Scripture", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Leave immersive view" }).click();
+  await expect(page.locator(".still-scene")).toHaveAttribute(
+    "data-session",
+    "same-scene",
+  );
+  await expect(
+    page.getByRole("button", { name: "Pause Scripture", exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("Listening options").click();
+  await expect(page.getByLabel("Background music level")).toHaveValue("1");
+  await expect(page.getByLabel("Reading speed")).toHaveValue("1.2");
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.getByLabel("Reading speed").scrollIntoViewIfNeeded();
+  await expect(page.getByLabel("Reading speed")).toBeInViewport();
+  const menu = (await page.locator(".listening-menu > div").boundingBox())!;
+  expect(menu.y + menu.height).toBeLessThanOrEqual(390);
 });

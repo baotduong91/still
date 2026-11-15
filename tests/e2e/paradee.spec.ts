@@ -9,7 +9,10 @@ const corpus = JSON.parse(
 );
 import { verseSpeech } from "../../lib/tts/shared";
 import { PARADEE_MODEL_URL } from "../../lib/tts/paradee-model";
-import { buildSpokenText, devotionReflectionText } from "../../lib/tts/reading";
+import {
+  buildSpokenText,
+  devotionReflectionSpokenText,
+} from "../../lib/tts/reading";
 test.use({
   stateOverrides: { speechEngine: "kokoro" as never },
   launchOptions: { args: ["--mute-audio"] },
@@ -145,7 +148,7 @@ test("real Paradee downloads, plays full private sections and reuses its model a
   ).toContain(
     buildSpokenText({
       kind: "devotional",
-      text: devotionReflectionText(savedPlan.days[0]),
+      text: devotionReflectionSpokenText(savedPlan.days[0]),
     }),
   );
   await expect(page.locator(".today-player")).toHaveAttribute(

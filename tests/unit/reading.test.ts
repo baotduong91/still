@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import {
   buildSpokenText,
+  devotionReflectionSpokenText,
   devotionReflectionText,
   engineForKind,
   type ReadingKind,
@@ -37,15 +38,19 @@ it("preserves Scripture text and citation bytes using the existing readingText c
     "  Exact text.\nSecond line.  \n\nMatthew 6:34",
   );
 });
-it("speaks the full Today reflection section in display order", () => {
-  const spoken = devotionReflectionText({
+it("speaks reflection and questions without the on-screen interpretation line", () => {
+  const day = {
     reflection: "Pause and notice God’s love.",
     questions: ["What stirs gratitude?", "Who needs kindness?"],
     interpretation: "Small steps can keep the heart aligned.",
-  });
+  };
+  const spoken = devotionReflectionSpokenText(day);
   expect(buildSpokenText({ kind: "devotional", text: spoken })).toBe(spoken);
   expect(spoken).toContain("What stirs gratitude?");
-  expect(spoken).toContain("Small steps can keep the heart aligned.");
+  expect(spoken).not.toContain("Small steps can keep the heart aligned.");
+  expect(devotionReflectionText(day)).toContain(
+    "Small steps can keep the heart aligned.",
+  );
 });
 
 it("trims curated prose and never speaks its optional title/reference as Scripture", () => {
@@ -58,10 +63,8 @@ it("trims curated prose and never speaks its optional title/reference as Scriptu
         reference: "Not spoken",
       }),
     ).toBe("A steady step.");
-  expect(
-    buildSpokenText({ kind: "prayer", text: "  Help me be patient.  " }),
-  ).toBe(
-    "A prayer inspired by today’s reading. This is not Scripture.\n\nHelp me be patient.",
+  expect(buildSpokenText({ kind: "prayer", text: "  Help me be patient.  " })).toBe(
+    "Help me be patient.",
   );
   expect(buildSpokenText({ kind: "prayer", text: " \n " })).toBe("");
 });

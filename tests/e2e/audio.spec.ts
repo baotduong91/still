@@ -1,8 +1,11 @@
-import { devotionReflectionText } from "../../lib/tts/reading";
+import { devotionReflectionSpokenText } from "../../lib/tts/reading";
 import { seedOfflineParadeeAssets } from "./helpers/paradee-cache";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures";
-import { localVoiceAutoExtends, localVoiceTimeouts } from "../../lib/tts/local-voice-client";
+import {
+  localVoiceAutoExtends,
+  localVoiceTimeouts,
+} from "../../lib/tts/local-voice-client";
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => {
@@ -51,11 +54,13 @@ test.beforeEach(async ({ page }) => {
         prepare?: boolean;
       }) {
         if (["cancel", "clear"].includes(data.mode ?? "")) return;
-        (window as unknown as { localVoiceJobs: object[] }).localVoiceJobs.push({
-          mode: data.mode,
-          text: data.text ?? null,
-          prepare: data.prepare,
-        });
+        (window as unknown as { localVoiceJobs: object[] }).localVoiceJobs.push(
+          {
+            mode: data.mode,
+            text: data.text ?? null,
+            prepare: data.prepare,
+          },
+        );
         (
           window as unknown as { localReading: string | undefined }
         ).localReading = data.text ?? undefined;
@@ -254,12 +259,16 @@ test("desktop cold Paradee may take 45 seconds without switching to Zira", async
     Object.assign(window, { slowFirst: true, readingDelay: 45000 }),
   );
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
-  await expect(page.getByRole("status")).toContainText("First Paradee synthesis");
+  await expect(page.getByRole("status")).toContainText(
+    "First Paradee synthesis",
+  );
   await page.clock.fastForward(45001);
   await expect(
     page.getByRole("button", { name: "Pause reflection" }),
   ).toBeVisible();
-  await expect(page.locator(".audio-engine")).toContainText("Paradee 1.1 · Heart");
+  await expect(page.locator(".audio-engine")).toContainText(
+    "Paradee 1.1 · Heart",
+  );
   await page
     .getByRole("button", { name: "Pause reflection", exact: true })
     .click();
@@ -301,7 +310,9 @@ test("after automatic cold-start extensions Keep waiting continues the same Para
     localVoiceTimeouts.first_inference * (localVoiceAutoExtends + 1) + 60000,
   );
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
-  await expect(page.getByRole("status")).toContainText("First Paradee synthesis");
+  await expect(page.getByRole("status")).toContainText(
+    "First Paradee synthesis",
+  );
   for (let attempt = 0; attempt < localVoiceAutoExtends; attempt++) {
     await page.clock.fastForward(localVoiceTimeouts.first_inference + 1);
     await expect(
@@ -344,7 +355,9 @@ test("slow Paradee switches to Zira only on an explicit device-voice tap and ign
     Object.assign(window, { slowFirst: true, readingDelay: 240000 }),
   );
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
-  await expect(page.getByRole("status")).toContainText("First Paradee synthesis");
+  await expect(page.getByRole("status")).toContainText(
+    "First Paradee synthesis",
+  );
   await page.clock.fastForward(180001);
   await page
     .getByRole("button", { name: "Use device voice · no download" })
@@ -438,7 +451,9 @@ test("only Play sends exact Scripture to Edge; controls and navigation stop audi
   );
   expect(sent!.text).toBe(exact);
   expect(sent!.reference).toBe("Matthew 6:34");
+  await page.getByLabel("Listening options").click();
   await page.getByLabel("Reading speed").selectOption("1.2");
+  await page.getByLabel("Listening options").click();
   await page.getByRole("button", { name: "Pause Scripture" }).click();
   await page.getByRole("button", { name: "Play Scripture" }).click();
   await page.getByRole("button", { name: "Stop Scripture" }).click();
@@ -455,7 +470,7 @@ test("only Play sends exact Scripture to Edge; controls and navigation stop audi
     ),
   ).toBe(true);
 });
-test("private Paradee choice does not call Edge and survives reload", async ({
+test("Paradee preference survives reload and falls back locally when online Scripture fails", async ({
   page,
 }) => {
   let edgeCalls = 0;
@@ -476,7 +491,7 @@ test("private Paradee choice does not call Edge and survives reload", async ({
   await expect(page.locator(".audio-engine")).toContainText(
     "Paradee 1.1 · Heart · WASM",
   );
-  expect(edgeCalls).toBe(0);
+  expect(edgeCalls).toBe(1);
   expect(
     await page.evaluate(() =>
       (
@@ -522,6 +537,7 @@ test("Today curated steps stay local with Paradee online and never read personal
     return route.abort();
   });
   await page.goto("/today");
+  await page.getByRole("checkbox", { name: "Autoplay next section" }).uncheck();
   await page.getByRole("link", { name: "02 Reflection" }).click();
   const reflection = (await page
     .locator("#today-reflection .devotional-prose")
@@ -532,10 +548,6 @@ test("Today curated steps stay local with Paradee online and never read personal
       el.querySelectorAll(".question-box p").forEach((p) =>
         parts.push(p.textContent!.trim()),
       );
-      el.querySelectorAll(":scope > p.fine-print").forEach((p) => {
-        const text = p.textContent!.trim();
-        if (text && !text.startsWith("Download Paradee")) parts.push(text);
-      });
       return parts.filter(Boolean).join("\n\n");
     }))!;
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
@@ -581,9 +593,7 @@ test("Today curated steps stay local with Paradee online and never read personal
         window as unknown as { localVoiceJobs: { text: string | null }[] }
       ).localVoiceJobs.map((job) => job.text),
     ),
-  ).toContain(
-    `A prayer inspired by today’s reading. This is not Scripture.\n\n${prayer}`,
-  );
+  ).toContain(prayer);
   await page.getByRole("link", { name: "04 Practice" }).click();
   await expect(
     page.getByRole("button", { name: "Read action aloud" }),
@@ -618,7 +628,9 @@ test("Today curated steps stay local with Paradee online and never read personal
   ).toHaveCount(0);
   expect(edgeCalls).toBe(0);
   const sent = await page.evaluate(() =>
-    JSON.stringify((window as unknown as { localVoiceJobs: object[] }).localVoiceJobs),
+    JSON.stringify(
+      (window as unknown as { localVoiceJobs: object[] }).localVoiceJobs,
+    ),
   );
   expect(sent).not.toContain("Private personal prayer must never be spoken.");
   expect(sent).not.toContain("My private typed worry.");
@@ -715,7 +727,10 @@ test("locking the PIN boundary stops a curated reader", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "Pause reflection" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Lock", exact: true }).click();
+  await page.getByLabel("Listening options").click();
+  await page
+    .getByRole("button", { name: "Lock personal content", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "A little privacy." }),
   ).toBeVisible();
@@ -894,7 +909,7 @@ test("installed device voice is immediate and never invokes Edge or a model work
     await page.evaluate(
       () => (window as unknown as { deviceReading: string }).deviceReading,
     ),
-  ).toBe(devotionReflectionText(savedPlan.days[0]));
+  ).toBe(devotionReflectionSpokenText(savedPlan.days[0]));
   expect(
     await page.evaluate(
       () => (window as unknown as { workerReplies: number }).workerReplies,
@@ -962,7 +977,7 @@ test("Today is one vertical flow; finishing audio gently moves to reflection wit
     page.getByRole("button", { name: "Read prayer aloud" }),
   ).toBeVisible();
   await expect(page.locator(".today-player .audio-engine")).toHaveText(
-    "Paradee · on-device",
+    "Paradee 1.1 · Heart · on-device",
   );
   await page.getByRole("link", { name: "04 Practice" }).click();
   await page
@@ -997,7 +1012,9 @@ test("Today preloads the next section and reuses its player at the autoplay hand
     { timeout: 15000 },
   );
   const jobs = await page.evaluate(
-    () => (window as unknown as { localVoiceJobs: { mode?: string }[] }).localVoiceJobs,
+    () =>
+      (window as unknown as { localVoiceJobs: { mode?: string }[] })
+        .localVoiceJobs,
   );
   // Prime the real section directly; avoid a redundant Ready inference.
   expect(jobs.some((job) => job.mode === "warm")).toBe(false);
@@ -1030,7 +1047,9 @@ test("Today preloads the next section and reuses its player at the autoplay hand
     page.getByRole("button", { name: "Pause reflection" }),
   ).toBeVisible({ timeout: 5000 });
   const jobsAfterAutoplay = await page.evaluate(
-    () => (window as unknown as { localVoiceJobs: { mode?: string }[] }).localVoiceJobs,
+    () =>
+      (window as unknown as { localVoiceJobs: { mode?: string }[] })
+        .localVoiceJobs,
   );
   // The foreground read consumes the preloaded reflection. Only prayer may
   // enqueue new work once reflection starts; no redundant synthesis or warm-up.
@@ -1130,21 +1149,25 @@ test("fresh private listening starts Paradee setup automatically on Today", asyn
     });
   });
   await page.goto("/today");
-  await expect(
-    page.getByText("Preparing Paradee", { exact: false }),
-  ).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (
+          window as unknown as { localVoiceJobs: { prepare?: boolean }[] }
+        ).localVoiceJobs.some((job) => job.prepare),
+      ),
+    )
+    .toBe(true);
   await page.getByRole("link", { name: "02 Reflection" }).click();
   await page.getByRole("button", { name: "Read reflection aloud" }).click();
   await expect
     .poll(
       async () =>
-        (
-          await page.evaluate(
-            () =>
-              (window as unknown as { localVoiceJobs: object[] }).localVoiceJobs
-                .length,
-          )
-        ) > 0,
+        (await page.evaluate(
+          () =>
+            (window as unknown as { localVoiceJobs: object[] }).localVoiceJobs
+              .length,
+        )) > 0,
     )
     .toBe(true);
 });

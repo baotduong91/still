@@ -75,7 +75,8 @@ function Heading({
   );
 }
 function Create() {
-  const { state, bible, getBible, savePlan, online, setError, update } = useApp();
+  const { state, bible, getBible, savePlan, online, setError, update } =
+    useApp();
   const router = useRouter();
   const [prompt, setPrompt] = useState(""),
     [days, setDays] = useState(7),
@@ -86,6 +87,7 @@ function Create() {
     );
   const journeyTranslationTouched = useRef(false);
   useEffect(() => {
+    if (!online) return;
     api<TranslationsStatus>("translations")
       .then((r) => {
         const ids = r.translations.filter((t) => t.available).map((t) => t.id);
@@ -99,7 +101,7 @@ function Create() {
         );
       })
       .catch(() => {});
-  }, [state.translation]);
+  }, [state.translation, online]);
   async function generate(e: React.FormEvent) {
     e.preventDefault();
     if (!bible) {
@@ -749,7 +751,7 @@ function Chat() {
     [],
   );
   useEffect(() => {
-    if (state.provider !== "cloud") return;
+    if (state.provider !== "cloud" || !online) return;
     let alive = true;
     fetch("/api/modes")
       .then((r) => (r.ok ? r.json() : null))
@@ -1105,20 +1107,23 @@ function Settings() {
     [offline, setOffline] = useState(""),
     [install, setInstall] = useState<InstallEvent | null>(null);
   useEffect(() => {
-    api<{ translations: { id: string; available: boolean }[] }>("translations")
-      .then((r) =>
-        setAvailable(
-          r.translations.filter((t) => t.available).map((t) => t.id),
-        ),
+    if (online && navigator.onLine)
+      api<{ translations: { id: string; available: boolean }[] }>(
+        "translations",
       )
-      .catch(() => {});
+        .then((r) =>
+          setAvailable(
+            r.translations.filter((t) => t.available).map((t) => t.id),
+          ),
+        )
+        .catch(() => {});
     const listener = (e: Event) => {
       e.preventDefault();
       setInstall(e as InstallEvent);
     };
     window.addEventListener("beforeinstallprompt", listener);
     return () => window.removeEventListener("beforeinstallprompt", listener);
-  }, []);
+  }, [online]);
   async function download() {
     setOffline("Saving Scripture and app screens…");
     try {

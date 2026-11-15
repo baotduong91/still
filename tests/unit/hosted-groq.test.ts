@@ -1,7 +1,8 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { defaults } from "@/lib/client/store";
 import {
   effectiveCloudConsent,
+  fetchModesStatus,
   hostedGroqAvailable,
   hostedGroqDefaultState,
   shouldApplyHostedGroqDefault,
@@ -53,9 +54,7 @@ it("treats hosted Groq as implicit cloud consent", () => {
     cloudConsent: false,
     guidePreferenceSet: true,
   };
-  expect(
-    effectiveCloudConsent(cloudWithoutConsent, groqStatus),
-  ).toBe(true);
+  expect(effectiveCloudConsent(cloudWithoutConsent, groqStatus)).toBe(true);
   expect(
     effectiveCloudConsent(cloudWithoutConsent, {
       modes: { cloud: { configured: true, vendor: "gateway" } },
@@ -65,4 +64,21 @@ it("treats hosted Groq as implicit cloud consent", () => {
     true,
   );
   expect(syncHostedGroqConsent(cloudWithoutConsent).cloudConsent).toBe(true);
+});
+
+it("skips availability requests offline and refreshes after reconnection", async () => {
+  const fetch = vi
+    .fn()
+    .mockResolvedValue({ ok: true, json: async () => groqStatus });
+  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("navigator", { onLine: false });
+  try {
+    expect(await fetchModesStatus()).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+    vi.stubGlobal("navigator", { onLine: true });
+    expect(await fetchModesStatus()).toEqual(groqStatus);
+    expect(fetch).toHaveBeenCalledOnce();
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });
