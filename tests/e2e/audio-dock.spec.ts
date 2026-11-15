@@ -84,7 +84,7 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
   });
   let downloads = 0;
   page.on("request", (request) => {
-    if (request.url().includes("stillness-v3.mp3")) downloads++;
+    if (request.url().includes("angelic-pad-loop.mp3")) downloads++;
   });
   await page.goto("/today");
   await page.getByRole("button", { name: "Turn background music on" }).click();
@@ -180,7 +180,7 @@ test("an unavailable music asset reports a quiet error without blocking narratio
   page,
 }) => {
   await installVoiceHarness(page);
-  await page.route("**/stillness-v3.mp3", (route) =>
+  await page.route("**/angelic-pad-loop.mp3", (route) =>
     route.fulfill({ status: 503, body: "Unavailable" }),
   );
   await page.goto("/today");

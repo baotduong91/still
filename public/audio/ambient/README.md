@@ -1,16 +1,19 @@
 # Today ambient loop
 
-Still ships a short **32-second** cross-faded sine bed (`stillness-loop.mp3`) so offline Today always has a seamless loop with zero licensing friction.
+Still ships **`angelic-pad-loop.mp3`**: **PhonZz — Angelic Pad Loop** ([Freesound #242773](https://freesound.org/people/PhonZz/sounds/242773/), **CC0**). The app uses the first **128 seconds** (64 bars @ 120 bpm). Web Audio crossfades the seam in `loop-pcm.ts`. See `CREDITS.md`.
 
 For a richer BibleChat-style atmosphere, replace `stillness-loop.mp3` with any **CC0** (public domain) ambient loop. Recommended picks:
 
 | Track | Why | License |
 | --- | --- | --- |
+| [**Piano Drone Loop**](https://www.lotsofsounds.com/sounds/piano-drone-loop-fs-869196) (Lots of Sounds) | Calm paulstretch piano bed — closest to reference apps | **CC0** |
+| [**Minimalist Resonances**](https://www.lotsofsounds.com/sounds/minimalist-resonances-fs-856491) | Tagged **seamless-loop**, soft shimmer | **CC0** |
 | [**Raga of Stillness Drone**](https://www.lotsofsounds.com/sounds/raga-of-stillness-drone-fs-856221) (Lots of Sounds) | Meditation-focused, slow evolving, ~5 min | **CC0** · commercial use · no attribution |
 | [**Evolving Ambient Drone**](https://www.lotsofsounds.com/sounds/evolving-ambient-drone-fs-867409) | Dark cinematic bed, loop-friendly | **CC0** |
 | [**Loops of Ambience**](https://signaturesounds.org/store/p/ambient-loops-free-download-cc0-wav-sample-pack-) (Signature Sounds) | 90 seamless WAV loops | **CC0** |
 
-After download, convert to a **looping MP3** (~96–128 kbps) and overwrite `stillness-loop.mp3`, or change `defaultAmbientLoop` in `lib/audio/ambient.ts`.
+Regenerate the bundled bed: `bash scripts/generate-ambient-loop.sh`.  
+After downloading a CC0 replacement, convert to **stereo MP3 ~128 kbps**, save as `stillness-v4.mp3` (or update `defaultAmbientLoop` in `lib/audio/ambient.ts`).
 
 Avoid Pixabay/Artlist “free” tiers that forbid redistribution in apps unless you confirm license terms.
 ## Playback
@@ -44,3 +47,7 @@ Default gain is 0.4 beneath narration and 0.6 for music alone, with 150 ms ramps
 Listening options exposes a saved Music level slider. Tests measure the output
 of the gain node while a real HTML narration element is playing, rather than
 checking only that a source started. The v3 URL and SW v18 invalidate older audio.
+
+## Devotional dusk pad (v4)
+
+`stillness-v4.mp3` layers D-minor-family fundamentals (146–349 Hz) with pink noise air, slow phaser motion, and 5s fade in/out for a seamless 52s cycle. Loudness targets **≈ −16.5 LUFS** so the bed is audible under voice on phone speakers. Playback gain is **0.52** music-only and **0.34** beneath narration. SW **v19** precaches v4; re-add the home-screen bookmark after deploy.

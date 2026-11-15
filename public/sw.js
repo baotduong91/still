@@ -1,9 +1,9 @@
 /* Still's offline cache stores public shells and WEB only. Never cache API responses. */
-const CACHE='still-public-v18';
+const CACHE='still-public-v20';
 const PAGES=['/create-image','/read','/today','/journey','/create','/scripture','/chat','/journal','/settings'];
 async function prepareOffline(){
  const cache=await caches.open(CACHE);
- await cache.addAll(['/offline.html','/manifest.webmanifest','/icons/icon-192.png','/icons/icon-512.png','/bibles/WEB.json','/bibles/catalog.json','/backgrounds/mountain-hush.jpg','/backgrounds/still-dawn.svg','/backgrounds/quiet-water.svg','/backgrounds/sage-hills.svg','/audio/ambient/stillness-v3.mp3']);
+ await cache.addAll(['/offline.html','/manifest.webmanifest','/icons/icon-192.png','/icons/icon-512.png','/bibles/WEB.json','/bibles/catalog.json','/backgrounds/mountain-hush.jpg','/backgrounds/still-dawn.svg','/backgrounds/quiet-water.svg','/backgrounds/sage-hills.svg','/audio/ambient/angelic-pad-loop.mp3']);
  const assets=new Set();
  for(const page of PAGES){const response=await fetch(page,{cache:'reload'});if(!response.ok)throw new Error('A screen could not be saved.');const html=await response.clone().text();await cache.put(page,response);for(const match of html.matchAll(/(?:src|href)="([^" ]+)"/g)){if(match[1].startsWith('/_next/static/'))assets.add(match[1].replaceAll('&amp;','&'));}}
  await cache.addAll([...assets]);
