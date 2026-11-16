@@ -243,3 +243,48 @@ test("a custom seven-day journey clears an earlier fallback and persists every d
   await expect(page.locator("#today-reflection")).toContainText("Lament day 7");
   await expect(page.locator(".error-banner")).toHaveCount(0);
 });
+
+test("generation modal freezes the prompt and releases it after failure", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let calls = 0;
+  await page.route("**/api/awp/plans/generate", async (route) => {
+    calls++;
+    await pending;
+    await route.fulfill({
+      status: 400,
+      json: {
+        error: {
+          code: "INVALID_INPUT",
+          message: "Try again with your saved prompt.",
+        },
+      },
+    });
+  });
+  await page.goto("/create");
+  const prompt = page.getByLabel("I’d like to explore…");
+  await prompt.fill("Trust God in everyday moments");
+  await page
+    .getByRole("button", { name: "Begin my journey", exact: true })
+    .click();
+  const modal = page.getByRole("dialog", { name: "Preparing your journey" });
+  await expect(modal).toBeVisible();
+  await expect(prompt).toBeDisabled();
+  await expect(page.getByLabel("Make a little space for")).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(modal).toBeVisible();
+  await page.keyboard.press("Tab");
+  expect(
+    await page.evaluate(() => !!document.activeElement?.closest("dialog")),
+  ).toBe(true);
+  await page.screenshot({ path: "/tmp/still-generation-modal.png" });
+  release();
+  await expect(modal).not.toBeVisible();
+  await expect(prompt).toBeEnabled();
+  await expect(prompt).toHaveValue("Trust God in everyday moments");
+  expect(calls).toBe(1);
+});

@@ -102,9 +102,11 @@ function mockModel(
       calls.push(payload);
       expect(body.reasoning_effort).toBe("low");
       expect(body.temperature).toBe(0.45);
-      expect(body.messages[0].content).toContain("Baptist-informed");
       expect(body.messages[0].content).toContain(
-        "The first paragraph observes and interprets",
+        "warm, personal, natural devotional voice",
+      );
+      expect(body.messages[0].content).toContain(
+        "Let observation, interpretation, and a personal response flow naturally",
       );
       if (payload.stage === "devotional") {
         expect(JSON.stringify(payload)).toContain(

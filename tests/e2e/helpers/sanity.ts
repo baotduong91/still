@@ -102,7 +102,8 @@ export async function installVoiceHarness(page: Page) {
           return;
         }
         if (input.mode === "clear") return;
-        if (input.text && (!input.mode || input.mode === "prime")) state.localText.push(input.text);
+        if (input.text && (!input.mode || input.mode === "prime"))
+          state.localText.push(input.text);
         const timer = setTimeout(() => {
           this.timers.delete(input.id);
           this.dispatchEvent(
@@ -140,8 +141,12 @@ export async function installVoiceHarness(page: Page) {
         getVoices: () => [
           { name: "Fixture local voice", lang: "en-US", localService: true },
         ],
-        speak: (utterance: { text: string }) =>
-          state.deviceText.push(utterance.text),
+        speak: (utterance: { text: string; onend?: () => void }) => {
+          state.deviceText.push(utterance.text);
+          Object.assign(window, {
+            finishDeviceVoice: () => utterance.onend?.(),
+          });
+        },
         cancel() {},
         pause() {},
         resume() {},

@@ -253,3 +253,64 @@ test("music has an audible output signal while the online-voice audio element pl
     )
     .toBeGreaterThan(0.025);
 });
+
+test("pads continue after all four sections and stop explicitly", async ({
+  page,
+}) => {
+  await installVoiceHarness(page);
+  await page.addInitScript(() => {
+    const counts = { starts: 0, stops: 0 };
+    Object.assign(window, { padCounts: counts });
+    const original = AudioContext.prototype.createBufferSource;
+    AudioContext.prototype.createBufferSource = function () {
+      const source = original.call(this);
+      const start = source.start.bind(source),
+        stop = source.stop.bind(source);
+      source.start = (...args) => {
+        counts.starts++;
+        start(...args);
+      };
+      source.stop = (...args) => {
+        counts.stops++;
+        stop(...args);
+      };
+      return source;
+    };
+  });
+  await page.goto("/today");
+  await page.getByRole("button", { name: "Turn background music on" }).click();
+  await page
+    .getByRole("button", { name: "Play Scripture", exact: true })
+    .click();
+  for (const name of ["Scripture", "reflection", "prayer", "action"]) {
+    await expect(
+      page.getByRole("button", { name: `Pause ${name}`, exact: true }),
+    ).toBeVisible();
+    await page.evaluate(() =>
+      (
+        window as unknown as { finishDeviceVoice: () => void }
+      ).finishDeviceVoice(),
+    );
+  }
+  await expect(
+    page.getByRole("button", { name: "Read action aloud", exact: true }),
+  ).toBeVisible();
+  await page.waitForTimeout(600);
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { padCounts: { starts: number; stops: number } })
+          .padCounts,
+    ),
+  ).toEqual({ starts: 1, stops: 0 });
+  await page.getByRole("button", { name: "Stop action", exact: true }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as unknown as { padCounts: { stops: number } }).padCounts
+            .stops,
+      ),
+    )
+    .toBe(1);
+});

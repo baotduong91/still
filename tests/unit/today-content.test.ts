@@ -131,7 +131,9 @@ it("defaults ordinary goals to passage-led Christian devotion, not secular medit
   expect(devotionalLens("explicitly secular contemplation", 0)).not.toContain(
     "Knowing God:",
   );
-  expect(todayContentInstruction).toContain("Baptist-informed");
+  expect(todayContentInstruction).toContain(
+    "warm, personal, natural devotional voice",
+  );
   expect(todayContentInstruction).toContain(
     "If the reflection could fit any passage unchanged, rewrite it",
   );

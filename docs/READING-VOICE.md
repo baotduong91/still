@@ -177,3 +177,8 @@ refresh on reconnect. Browser tests exercise that behavior without suppressing
 offline runtime errors. Safari/WebKit currently uses the guarded single-thread
 WASM path with the app's credentialless isolation headers; real offline synthesis
 is verified separately from shared-memory capability.
+
+When Today's background music is enabled, the same loop continues through narration
+handoffs and after the final Practice reading finishes. Pause, Stop, turning music
+off, or leaving Today ends playback; finishing narration alone does not. Music
+returns to its unducked level when voice reading ends.

@@ -1,5 +1,5 @@
 "use client";
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useApp } from "@/components/provider";
 import type { ReadingPayload } from "@/lib/tts/reading";
 import { stopAmbientLoop } from "@/lib/audio/ambient-player";
@@ -55,6 +55,12 @@ export function TodayAudioDock({
     voiceOn && (reader.status === "playing" || reader.status === "loading");
   const [musicOnlyPlaying, setMusicOnlyPlaying] = useState(false);
   const playing = voiceOn ? reader.status === "playing" : musicOnlyPlaying;
+  // Keep the bed latched through section handoffs and natural completion.
+  // Pause/Stop, the music toggle, and unmount still end it explicitly.
+  useEffect(() => {
+    if (voiceActive && ambientOn) setMusicOnlyPlaying(true);
+    if (reader.status === "paused") setMusicOnlyPlaying(false);
+  }, [voiceActive, ambientOn, reader.status]);
   const musicError = useAmbientAudio(
     ambientOn && (musicOnlyPlaying || voiceActive),
     voiceActive,

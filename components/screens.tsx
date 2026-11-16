@@ -1,4 +1,5 @@
 "use client";
+import { GenerationModal } from "./generation-modal";
 import { AudioSettings } from "./scripture/audio-settings";
 import { CloudFallbackNotice } from "./cloud-status";
 import { DeviceWelcome, StartFreshSettings } from "./first-run";
@@ -89,6 +90,7 @@ function Create() {
       state.translation,
     );
   const journeyTranslationTouched = useRef(false);
+  const generating = useRef(false);
   useEffect(() => {
     if (!online) return;
     api<TranslationsStatus>("translations")
@@ -107,12 +109,14 @@ function Create() {
   }, [state.translation, online]);
   async function generate(e: React.FormEvent) {
     e.preventDefault();
+    if (generating.current) return;
     if (!bible) {
       setError(
         "Still is loading Scripture. Wait a moment, then try Begin my journey again.",
       );
       return;
     }
+    generating.current = true;
     setBusy(true);
     try {
       const cloudConsent = await alignCloudConsentForGroq(state, update);
@@ -164,6 +168,7 @@ function Create() {
     } catch (e) {
       setError((e as Error).message);
     } finally {
+      generating.current = false;
       setBusy(false);
     }
   }
@@ -174,130 +179,133 @@ function Create() {
         title="What’s on your heart?"
         description="Start with a real question, a season of life, or a small hope. We’ll make room for it in Scripture."
       />
-      <form className="form-card" onSubmit={generate}>
-        <label htmlFor="goal">I’d like to explore…</label>
-        <textarea
-          id="goal"
-          required
-          minLength={3}
-          maxLength={1200}
-          rows={5}
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="I feel anxious about a decision at work. Help me find peace and wisdom, one small step at a time."
-        />
-        <p className="field-hint">
-          Share only what you’re comfortable saving on this device.
-        </p>
-        <p className="field-hint">
-          {state.provider === "cloud"
-            ? "Describe your season in your own words. Still retrieves exact WEB verses; Groq shapes the journey around your prompt."
-            : "Guided mode accepts a theme such as anxiety or a reference such as John 3:16. Nothing is sent to a cloud model."}
-        </p>
-        <button
-          type="button"
-          className="text-link"
-          onClick={() => setPrompt("Study John 3:16")}
-        >
-          Study a specific passage · John 3:16
-        </button>
-        <div className="topic-chips">
-          {Object.keys(themes).map((topic) => (
-            <button
-              type="button"
-              key={topic}
-              onClick={() =>
-                setPrompt(
-                  `I want to grow through ${topic.replace("-", " ")} with a gentle daily practice`,
-                )
-              }
-            >
-              {topic.replace("-", " ")}
-            </button>
-          ))}
-        </div>
-        <div className="form-row">
-          <div>
-            <label htmlFor="duration">Make a little space for</label>
-            <select
-              id="duration"
-              value={days}
-              onChange={(e) => setDays(Number(e.target.value))}
-            >
-              {[3, 5, 7, 10, 14].map((d) => (
-                <option value={d} key={d}>
-                  {d} days
-                </option>
-              ))}
-            </select>
+      <GenerationModal busy={busy} />
+      <form className="form-card" onSubmit={generate} aria-busy={busy}>
+        <fieldset className="generation-fields" disabled={busy}>
+          <label htmlFor="goal">I’d like to explore…</label>
+          <textarea
+            id="goal"
+            required
+            minLength={3}
+            maxLength={1200}
+            rows={5}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="I feel anxious about a decision at work. Help me find peace and wisdom, one small step at a time."
+          />
+          <p className="field-hint">
+            Share only what you’re comfortable saving on this device.
+          </p>
+          <p className="field-hint">
+            {state.provider === "cloud"
+              ? "Describe your season in your own words. Still retrieves exact WEB verses; Groq shapes the journey around your prompt."
+              : "Guided mode accepts a theme such as anxiety or a reference such as John 3:16. Nothing is sent to a cloud model."}
+          </p>
+          <button
+            type="button"
+            className="text-link"
+            onClick={() => setPrompt("Study John 3:16")}
+          >
+            Study a specific passage · John 3:16
+          </button>
+          <div className="topic-chips">
+            {Object.keys(themes).map((topic) => (
+              <button
+                type="button"
+                key={topic}
+                onClick={() =>
+                  setPrompt(
+                    `I want to grow through ${topic.replace("-", " ")} with a gentle daily practice`,
+                  )
+                }
+              >
+                {topic.replace("-", " ")}
+              </button>
+            ))}
           </div>
-          <div>
-            <label htmlFor="journey-translation">Scripture edition</label>
-            <select
-              id="journey-translation"
-              value={journeyTranslation}
-              onChange={(e) => {
-                journeyTranslationTouched.current = true;
-                setJourneyTranslation(e.target.value as TranslationId);
-              }}
-            >
-              {Object.entries(translationNames)
-                .filter(([id]) => available.includes(id as TranslationId))
-                .sort(([a], [b]) => (a === "WEB" ? -1 : b === "WEB" ? 1 : 0))
-                .map(([id, name]) => (
-                  <option value={id} key={id}>
-                    {id} — {name}
-                    {id === "WEB"
-                      ? " (offline)"
-                      : ["CSB", "NLT", "MSG"].includes(id)
-                        ? " (online)"
-                        : ""}
+          <div className="form-row">
+            <div>
+              <label htmlFor="duration">Make a little space for</label>
+              <select
+                id="duration"
+                value={days}
+                onChange={(e) => setDays(Number(e.target.value))}
+              >
+                {[3, 5, 7, 10, 14].map((d) => (
+                  <option value={d} key={d}>
+                    {d} days
                   </option>
                 ))}
-            </select>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="journey-translation">Scripture edition</label>
+              <select
+                id="journey-translation"
+                value={journeyTranslation}
+                onChange={(e) => {
+                  journeyTranslationTouched.current = true;
+                  setJourneyTranslation(e.target.value as TranslationId);
+                }}
+              >
+                {Object.entries(translationNames)
+                  .filter(([id]) => available.includes(id as TranslationId))
+                  .sort(([a], [b]) => (a === "WEB" ? -1 : b === "WEB" ? 1 : 0))
+                  .map(([id, name]) => (
+                    <option value={id} key={id}>
+                      {id} — {name}
+                      {id === "WEB"
+                        ? " (offline)"
+                        : ["CSB", "NLT", "MSG"].includes(id)
+                          ? " (online)"
+                          : ""}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div>
+              <label>Your guide</label>
+              <p className="provider-label">
+                {state.provider === "curated"
+                  ? "Guided study"
+                  : state.provider === "ollama"
+                    ? "Your Mac · Ollama"
+                    : "Custom journey · Groq"}
+              </p>
+              <Link className="text-link" href="/settings">
+                {state.provider === "cloud"
+                  ? "Switch to guided only"
+                  : "Change guide"}{" "}
+                <ArrowUpRight size={12} />
+              </Link>
+            </div>
           </div>
-          <div>
-            <label>Your guide</label>
-            <p className="provider-label">
-              {state.provider === "curated"
-                ? "Guided study"
-                : state.provider === "ollama"
-                  ? "Your Mac · Ollama"
-                  : "Custom journey · Groq"}
+          {journeyTranslation !== "WEB" && (
+            <p className="field-hint">
+              Journeys are stored with exact WEB verses for offline use. With
+              online Scripture enabled in Settings, Today and reading can show{" "}
+              {journeyTranslation} from API.Bible.
             </p>
-            <Link className="text-link" href="/settings">
-              {state.provider === "cloud"
-                ? "Switch to guided only"
-                : "Change guide"}{" "}
-              <ArrowUpRight size={12} />
-            </Link>
-          </div>
-        </div>
-        {journeyTranslation !== "WEB" && (
-          <p className="field-hint">
-            Journeys are stored with exact WEB verses for offline use. With
-            online Scripture enabled in Settings, Today and reading can show{" "}
-            {journeyTranslation} from API.Bible.
+          )}
+          {state.provider === "cloud" && (
+            <p className="notice">
+              Your goal is sent to Groq to draft this {days}-day journey. Verse
+              references are validated against Still’s local WEB Bible; wording
+              online follows your edition when API.Bible access is enabled.
+            </p>
+          )}
+          <Button type="submit" disabled={busy || !bible}>
+            {busy
+              ? "Preparing your journey…"
+              : !bible
+                ? "Loading Scripture…"
+                : "Begin my journey"}
+            <ArrowRight size={17} />
+          </Button>
+          <p className="fine-print">
+            Your journey opens directly on Day 1. No schedule to catch up with.
           </p>
-        )}
-        {state.provider === "cloud" && (
-          <p className="notice">
-            Your goal is sent to Groq to draft this {days}-day journey. Verse
-            references are validated against Still’s local WEB Bible; wording
-            online follows your edition when API.Bible access is enabled.
-          </p>
-        )}
-        <Button type="submit" disabled={busy || !bible}>
-          {busy
-            ? "Preparing your journey…"
-            : !bible
-              ? "Loading Scripture…"
-              : "Begin my journey"}
-          <ArrowRight size={17} />
-        </Button>
-        <p className="fine-print">
-          Your journey opens directly on Day 1. No schedule to catch up with.
-        </p>
+        </fieldset>
       </form>
       <div className="quiet-process">
         <span>01 · Your intention</span>

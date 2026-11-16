@@ -32,10 +32,12 @@ model-created philosophical quotes.
 
 ## Christian devotional direction
 
-New Groq plans default to historic Christian faith with a Baptist-informed
-emphasis: Scripture as authority, grace through faith in Jesus Christ, repentance,
-personal trust, and obedience as a response to grace rather than earned acceptance.
-This is not Eastern Orthodoxy, a claim of Baptist unanimity, or denominational polemic.
+Groq blends the original careful Christian devotional voice with sparse prose:
+warm, personal, attentive to the user's goal, and grounded only in supplied Scripture.
+Trust in Christ and response to God remain, without a denominational formula or a
+requirement to turn every day into a doctrinal lesson. Reflections stay 60–80 words
+in two short paragraphs; prayers stay 20–45 words. Observation, meaning, and
+response should flow naturally rather than sound like a checklist.
 
 Each reflection observes a specific detail in its supplied passage, explains its
 meaning cautiously, then invites a concrete response to God. Seven reading lenses
@@ -124,3 +126,10 @@ Groq tests use the real SDK with deterministic mocked HTTP completions; they
 assert the policy, token ceiling, temperature, repair, labeled fallback and exact
 source attachment without spending a live account's quota. Browser tests include
 offline, reconnect, a malformed passage, Settings exit and responsive screenshots.
+
+## Generation interaction
+
+While a journey is being prepared, a native modal blocks changes and navigation
+inside the app. The prompt, duration, and edition are disabled, duplicate submits
+are ignored, and errors close the modal with the original prompt intact. The
+modal does not imply that a draft has been saved before generation succeeds.
