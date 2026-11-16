@@ -102,6 +102,16 @@ function mockModel(
       calls.push(payload);
       expect(body.reasoning_effort).toBe("low");
       expect(body.temperature).toBe(0.45);
+      expect(body.messages[0].content).toContain("Baptist-informed");
+      expect(body.messages[0].content).toContain(
+        "The first paragraph observes and interprets",
+      );
+      if (payload.stage === "devotional") {
+        expect(JSON.stringify(payload)).toContain(
+          "addressed to God and responding to this passage",
+        );
+        expect(JSON.stringify(payload)).not.toContain("Stoic attention");
+      }
       expect(body.max_tokens).toBeLessThanOrEqual(5000);
       expect(body.reasoning_format).toBeUndefined();
       if (payload.repair?.reason === "schema")

@@ -15,9 +15,10 @@ retrieved passages after validating every reference against installed WEB.
 - Reflection: 60–80 words, a single human tension, two short paragraphs requested;
   no paragraph may exceed three sentences. The word count and paragraph ceiling
   are deterministic gates, including during repair.
-- Prayer/contemplation: first-person, quiet, open-ended, with 20–45 words requested.
-  Explicit requests for God, prayer or worship retain that vocabulary. A secular
-  request receives an internal dialogue rather than a required religious formula.
+- Prayer: first-person, addressed to God or Father, 20–45 words requested.
+  Respond to the passage with worship, confession, thanksgiving, petition, or
+  surrender. Generic themes default to Christian devotion. Only an explicitly
+  secular request uses non-devotional contemplation.
 - Practice: one accessible, concrete micro-habit, roughly one or two minutes,
   with 15–35 words requested. No special equipment or presumed household is needed.
 - Questions remain optional prompts in the existing two-question field.
@@ -29,13 +30,31 @@ A no-key guided **contemplation** path also recognizes mindfulness, stillness,
 meaning, Stoic and existential entry words. Its anchors are retrieved WEB, not
 model-created philosophical quotes.
 
-The seven bundled editorial lenses cover chosen response, contemplative
-observation, existential choice, relational care, receptive silence, change, and
-ordinary limits. They are original editorial summaries, **not quotations** from
-ancient teachers, not additional Scripture, and not assertions that traditions
-agree. Lenses rotate across a journey; later visits have a different closing
-and practice. The prompt excludes invented cultural histories, named sayings,
-personal details, diagnoses, promised outcomes, and sectarian prescriptions.
+## Christian devotional direction
+
+New Groq plans default to historic Christian faith with a Baptist-informed
+emphasis: Scripture as authority, grace through faith in Jesus Christ, repentance,
+personal trust, and obedience as a response to grace rather than earned acceptance.
+This is not Eastern Orthodoxy, a claim of Baptist unanimity, or denominational polemic.
+
+Each reflection observes a specific detail in its supplied passage, explains its
+meaning cautiously, then invites a concrete response to God. Seven reading lenses
+rotate through knowing God, grace/trust, repentance, obedience, prayer/worship,
+love of neighbor, and perseverance. The passage takes priority over the lens;
+not every text is forced into every theme. The prayer responds to that day's
+passage instead of merely asking for calm. Short prose and gentle pacing remain.
+
+No invented historical context, original-language explanations, private revelations,
+or promises of healing or success. Descriptive events and promises to specific
+audiences must not become blanket personal guarantees. Christ is central to the
+journey without inventing a Christological interpretation of every verse. The
+model must distinguish interpretation from source text. These are generation
+instructions, not an automated proof of theological correctness.
+
+Default guided fallback uses Christian observation/prayer exercises rather than
+pretending to supply passage-specific exegesis. The original contemplative lenses
+remain available only for explicitly secular requests. Existing saved plans are
+not rewritten; generate a new plan to use this direction.
 
 WEB remains the verified primary-text registry. This update does not invent a
 cross-tradition quotation corpus. Additional primary wisdom sources must have a

@@ -8,7 +8,7 @@ import { GroqDraftError, GroqUnavailable } from "./providers/groq";
 import { themes } from "./themes";
 import {
   todayDevotionalDay,
-  quietLens,
+  devotionalLens,
   validateQuietCopy,
 } from "./today-content";
 
@@ -255,7 +255,7 @@ export async function generateGroqPlan(
         days: batch.map((day, index) => ({
           number: day.number,
           objective: day.objective,
-          lens: quietLens(input.prompt, day.number - 1).lens,
+          lens: devotionalLens(input.prompt, day.number - 1),
           context: day.context,
           passage: {
             reference: passages[index].reference,
@@ -265,7 +265,7 @@ export async function generateGroqPlan(
         })),
         previousPractices: days.map((day) => day.action),
         instruction:
-          "Write only these requested days, preserving their original numbers. Make each reflection and practice distinct, grounded in its supplied passage, and specific to the user's stated goal without inventing personal details. Reflection: 60–80 words in two short paragraphs, at most three sentences each. Use the supplied editorial lens without attributed quotes or historical claims. Prayer/contemplation: first person, 20–45 words, respecting the user’s spiritual or secular vocabulary. Practice: one accessible micro-habit, 15–35 words. Connection and interpretation: one short sentence each. Two brief optional questions. All prose is interpretation: never quote or reproduce Scripture, use quotation marks, or add Bible reference patterns. Exact Scripture is attached separately.",
+          "Write only these requested days, preserving their original numbers. Make each reflection and practice distinct, grounded in its supplied passage, and specific to the user's stated goal without inventing personal details. Reflection: 60–80 words in two short paragraphs, at most three sentences each. Observe one specific detail in the supplied passage, explain its meaning without unsupported context, and invite a response to God. The lens must serve the passage, not replace it. Prayer: first person, 20–45 words, addressed to God and responding to this passage; use secular contemplation only when explicitly requested. Practice: one accessible micro-habit, 15–35 words. Connection and interpretation: one short sentence each. Two brief optional questions. All prose is interpretation: never quote or reproduce Scripture, use quotation marks, or add Bible reference patterns. Exact Scripture is attached separately.",
       },
       (draft) => {
         draft.days.forEach((day, index) => {

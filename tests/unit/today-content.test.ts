@@ -4,6 +4,9 @@ import { Bible, type Corpus } from "@/lib/bible";
 import { buildGuidedPlan } from "@/lib/ai/guided";
 import {
   guidedQuietCopy,
+  devotionalLens,
+  christianLenses,
+  todayContentInstruction,
   quietLenses,
   quietReflection,
   wordCount,
@@ -101,4 +104,41 @@ it("offers an offline contemplative path without imposing a prayer vocabulary", 
   expect(plan.profile.themes).toContain("contemplation");
   expect(plan.days.every((day) => bible.validate(day.passage))).toBe(true);
   expect(plan.days.every((day) => !day.prayer.includes("God"))).toBe(true);
+});
+
+it("defaults ordinary goals to passage-led Christian devotion, not secular meditation", () => {
+  for (const goal of [
+    "anxiety",
+    "patience",
+    "closer to God in everyday little moments and worship",
+  ]) {
+    const lenses = Array.from({ length: 7 }, (_, day) =>
+      devotionalLens(goal, day),
+    );
+    expect(new Set(lenses).size).toBe(7);
+    expect(
+      lenses.every((lens) =>
+        christianLenses.includes(lens as (typeof christianLenses)[number]),
+      ),
+    ).toBe(true);
+    for (let day = 0; day < 14; day++) {
+      const copy = guidedQuietCopy(goal, day);
+      expect(copy.prayer).toMatch(/^God, /);
+      expect(copy.prayer).toContain("Christ");
+      expect(copy.reflection).toContain("passage");
+    }
+  }
+  expect(devotionalLens("explicitly secular contemplation", 0)).not.toContain(
+    "Knowing God:",
+  );
+  expect(todayContentInstruction).toContain("Baptist-informed");
+  expect(todayContentInstruction).toContain(
+    "If the reflection could fit any passage unchanged, rewrite it",
+  );
+  expect(todayContentInstruction).toContain(
+    "Do not invent original-language meanings",
+  );
+  expect(todayContentInstruction).toContain(
+    "Source text is attached by the application",
+  );
 });
