@@ -75,7 +75,7 @@ test("iPhone 16 Pro navigation keeps settings exit, reader tools and saved Pract
           .fill("An iPhone-sized reading note.");
         expect(
           await page
-            .locator(".verse-tools .audio-status")
+            .locator(".bible-player-meta > span")
             .evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
         ).toBeLessThanOrEqual(14);
         expect(

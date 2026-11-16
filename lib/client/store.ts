@@ -1,4 +1,5 @@
 import { openDB } from "idb";
+import { BiblePosition, type BiblePositionType } from "./bible-position";
 import {
   cloudConsentHeader,
   cloudStatusHeader,
@@ -15,6 +16,7 @@ export type DeviceProfile = {
   starterVariant?: number;
 };
 export type SavedState = {
+  biblePosition?: BiblePositionType;
   deviceProfile?: DeviceProfile;
   journeyOnboarding?: { completedAt?: string; dismissedWelcome?: boolean };
   speechEngine: "paradee" | "edge" | "device";
@@ -79,6 +81,11 @@ export function mergeSavedState(saved?: Partial<SavedState>): SavedState {
       ...saved?.journeyOnboarding,
     },
   };
+  if (
+    merged.biblePosition &&
+    !BiblePosition.safeParse(merged.biblePosition).success
+  )
+    delete merged.biblePosition;
   const legacy = merged.speechEngine as string;
   if (legacy === "auto" || legacy === "kokoro") merged.speechEngine = "paradee";
   return merged;

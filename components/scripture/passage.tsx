@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 export function PassageCard({
   passage: localPassage,
   compact = false,
+  audio = true,
 }: {
   passage: PassageType;
   compact?: boolean;
+  audio?: boolean;
 }) {
   const { passage, resolving } = usePassage(localPassage);
   return (
@@ -20,7 +22,7 @@ export function PassageCard({
       </div>
       <blockquote>
         {passage.verses.map((v) => (
-          <span key={v.verse}>
+          <span key={v.verse} data-bible-verse={v.verse}>
             <sup>{v.verse}</sup>
             {v.text}{" "}
           </span>
@@ -32,7 +34,7 @@ export function PassageCard({
       {passage.attribution && (
         <p className="translation-notice">{passage.attribution}</p>
       )}
-      <ScriptureAudio passage={passage} pending={resolving} />
+      {audio && <ScriptureAudio passage={passage} pending={resolving} />}
       <div className="passage-actions">
         <Button variant="ghost" size="sm" asChild>
           <Link

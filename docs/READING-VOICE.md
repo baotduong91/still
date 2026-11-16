@@ -1,5 +1,37 @@
 # Optional reading aloud
 
+## Bible reading position and compact player
+
+The private Bible tab remembers its last visible verse and verse/chapter view
+in the existing on-device state (`biblePosition`). The bookmark contains only a
+reference, verse number and view preference. It saves during scrolling and before
+navigation/page hiding, using the existing write-ahead record and IndexedDB. On
+return or reload, the correct licensed page is selected and the verse is restored
+after exact Scripture and fonts are ready. An explicit passage link takes priority
+over a different saved passage. Translation remains the user's Settings preference;
+offline WEB fallback does not overwrite it. Restoring never starts playback.
+
+The Bible tab now has one compact player above the phone's navigation, centered
+in the content column on desktop. It provides play/pause, previous/next reading
+sections, progress, and an expandable speed/stop menu. Controls have 44px touch
+targets; the phone bar is approximately 64px high and hides when the keyboard is
+open. Verse notes no longer contain a second, expanded audio player.
+
+Listening starts at the current verse. Sections contain at most eight retrieved
+verse records and approximately 1,800 source characters, without truncating a
+verse or splitting a grouped licensed span. Exact verse bytes and their true
+reference are passed to the existing voice engine. “Continue through this passage”
+advances within the currently retrieved passage/page; it stops at the end rather
+than silently changing chapters. Previous/next buttons also move the reading
+position into view. Scrolling while audio is playing does not interrupt it;
+when idle, the player follows the visible verse. Navigation and PIN unmount stop
+audio through the shared reading hook. Existing Edge/Paradee/device choices apply.
+
+`bible-position.test.ts` covers bookmark validation, explicit links, page offsets
+and exact source segmentation. `bible-reader.spec.ts` covers return/reload, CSB
+page restoration, offline fallback, no autoplay on restore, exact Edge payloads,
+automatic continuation, stop, and compact mobile/desktop proportions.
+
 Still’s optional listen controls complement screen readers; they do not replace accessibility tools. `ReadingAudio` accepts a typed app-owned payload; `ScriptureAudio` remains a wrapper for existing passage views. One shared `useReadingAudio` hook owns playback, pause/resume, speed, cancellation, and the `still-reading-audio` event so only one reader can be active app-wide. Section, navigation, payload/engine changes, and PIN-boundary unmount stop playback.
 
 ## V1 content and privacy

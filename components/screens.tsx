@@ -3,11 +3,14 @@ import { AudioSettings } from "./scripture/audio-settings";
 import { CloudFallbackNotice } from "./cloud-status";
 import { DeviceWelcome, StartFreshSettings } from "./first-run";
 import { needsJourneyWelcome } from "@/lib/client/onboarding";
-import { ReadingAudio, ScriptureAudio } from "./scripture/audio-player";
+import { ReadingAudio } from "./scripture/audio-player";
 import { PinSettings } from "./privacy";
 import { PrayerWriter } from "./devotional/prayer-writer";
 import { Participation } from "./devotional/participation";
 import { usePassage } from "./scripture/use-passage";
+import { BiblePlayer } from "./scripture/bible-player";
+import { useBiblePosition } from "./scripture/use-bible-position";
+import { bibleStart } from "@/lib/client/bible-position";
 import { selectedProvider } from "@/lib/client/modes";
 import { buildGuidedPlan } from "@/lib/ai/guided";
 import { ModeSettings } from "./mode-settings";
@@ -402,21 +405,24 @@ function Journey() {
 }
 function Scripture() {
   const { state, update, bible, setError } = useApp();
-  const [readerOffset, setReaderOffset] = useState(0);
-  const [query, setQuery] = useState("John 1"),
-    [reference, setReference] = useState("John 1"),
+  const [initial] = useState(() =>
+    bibleStart(
+      bible,
+      state.biblePosition,
+      typeof window === "undefined"
+        ? null
+        : new URLSearchParams(window.location.search).get("ref"),
+    ),
+  );
+  const [readingVerse, setReadingVerse] = useState(initial.verse);
+  const [readerOffset, setReaderOffset] = useState(initial.readerOffset);
+  const [query, setQuery] = useState(initial.reference),
+    [reference, setReference] = useState(initial.reference),
     [results, setResults] = useState<PassageType[] | null>(null),
-    [verseView, setVerseView] = useState(true),
+    [verseView, setVerseView] = useState(initial.verseView),
     [total, setTotal] = useState(0),
     [offset, setOffset] = useState(0),
     [selected, setSelected] = useState<string | null>(null);
-  useEffect(() => {
-    const ref = new URLSearchParams(window.location.search).get("ref");
-    if (ref) {
-      setQuery(ref);
-      setReference(ref);
-    }
-  }, []);
   let preview: PassageType;
   try {
     preview = bible?.lookup(reference, state.translation) ?? {
@@ -454,6 +460,14 @@ function Scripture() {
     resolving,
     retry,
   } = usePassage(pagePassage);
+  const position = useBiblePosition({
+    reference,
+    verseView,
+    pending: resolving || !!results,
+    passage: displayedPassage,
+    initial,
+    onVerse: setReadingVerse,
+  });
   if (!bible) return <p className="loading">Preparing the Bible…</p>;
   let passage: PassageType;
   try {
@@ -465,13 +479,29 @@ function Scripture() {
   const chapter = passage.verses[0].chapter,
     book = passage.verses[0].book;
   const bookInfo = books.find((b) => b.book === book)!;
+  function clearLinkedReference() {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("ref")) return;
+    url.searchParams.delete("ref");
+    window.history.replaceState(
+      window.history.state,
+      "",
+      url.pathname + url.search + url.hash,
+    );
+  }
   function search(e?: React.FormEvent, newOffset = 0) {
     e?.preventDefault();
     try {
       if (/\d/.test(query)) {
         const p = bible!.lookup(query, state.translation);
+        clearLinkedReference();
         setReaderOffset(0);
         setReference(p.reference);
+        position.relocate({
+          reference: p.reference,
+          verse: p.verses[0].verse,
+          verseView,
+        });
         setResults(null);
       } else {
         const theme = themes[query.toLowerCase()];
@@ -493,10 +523,17 @@ function Scripture() {
   }
   function navigate(ref: string) {
     try {
-      bible!.lookup(ref, state.translation);
+      const next = bible!.lookup(ref, state.translation);
+      clearLinkedReference();
       setReaderOffset(0);
-      setReference(ref);
-      setQuery(ref);
+      setReference(next.reference);
+      setReadingVerse(next.verses[0].verse);
+      position.relocate({
+        reference: next.reference,
+        verse: next.verses[0].verse,
+        verseView,
+      });
+      setQuery(next.reference);
       setResults(null);
       setSelected(null);
     } catch (e) {
@@ -504,7 +541,7 @@ function Scripture() {
     }
   }
   return (
-    <>
+    <div className="bible-reader">
       <Heading
         label="ROOTED IN THE WORD"
         title="Room to read."
@@ -610,7 +647,17 @@ function Scripture() {
                 {resolving ? state.translation : passage.translation}
               </span>
             </div>
-            <Button variant="ghost" onClick={() => setVerseView(!verseView)}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                position.relocate({
+                  reference,
+                  verse: readingVerse,
+                  verseView: !verseView,
+                });
+                setVerseView(!verseView);
+              }}
+            >
               {verseView ? "Chapter view" : "Verse view"}
             </Button>
           </div>
@@ -636,6 +683,8 @@ function Scripture() {
                 variant="ghost"
                 disabled={readerPage === 0}
                 onClick={() => {
+                  const verse = preview.verses[readerPage - 20].verse;
+                  position.relocate({ reference, verse, verseView });
                   setReaderOffset(readerPage - 20);
                   setSelected(null);
                 }}
@@ -647,6 +696,8 @@ function Scripture() {
                 variant="ghost"
                 disabled={readerPage + 20 >= preview.verses.length}
                 onClick={() => {
+                  const verse = preview.verses[readerPage + 20].verse;
+                  position.relocate({ reference, verse, verseView });
                   setReaderOffset(readerPage + 20);
                   setSelected(null);
                 }}
@@ -690,14 +741,24 @@ function Scripture() {
                   return (
                     <div
                       key={v.verse}
+                      data-bible-verse={v.verse}
+                      data-reading-current={
+                        readingVerse === v.verse ? "true" : undefined
+                      }
                       className={`verse-row ${state.highlights[key] ? "highlighted" : ""}`}
                     >
                       <button
                         aria-label={`Select verse ${v.verse}`}
                         className="verse-number"
-                        onClick={() =>
-                          setSelected(selected === key ? null : key)
-                        }
+                        onClick={() => {
+                          setSelected(selected === key ? null : key);
+                          setReadingVerse(v.verse);
+                          position.remember({
+                            reference,
+                            verse: v.verse,
+                            verseView,
+                          });
+                        }}
                       >
                         {v.verse}
                       </button>
@@ -705,15 +766,6 @@ function Scripture() {
                         <p>{v.text}</p>
                         {selected === key && (
                           <div className="verse-tools">
-                            <ScriptureAudio
-                              pending={resolving}
-                              passage={{
-                                ...passage,
-                                reference: ref,
-                                verses: [v],
-                                text: v.text,
-                              }}
-                            />
                             <Button variant="outline" size="sm" asChild>
                               <Link
                                 href={`/create-image?${new URLSearchParams({ ref, translation: state.translation })}`}
@@ -764,7 +816,7 @@ function Scripture() {
                 })}
               </div>
             ) : (
-              <PassageCard passage={passage} />
+              <PassageCard passage={passage} audio={false} />
             )}
             <div className="reader-pagination">
               <Button
@@ -785,9 +837,17 @@ function Scripture() {
               </Button>
             </div>
           </article>
+          <BiblePlayer
+            passage={passage}
+            pending={resolving}
+            verse={readingVerse}
+            onVerse={(verse) =>
+              position.relocate({ reference, verse, verseView })
+            }
+          />
         </>
       )}
-    </>
+    </div>
   );
 }
 function Chat() {
