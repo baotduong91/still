@@ -13,6 +13,7 @@ import { z } from "zod";
 import { AppError } from "@/lib/awp/errors";
 import type { ModelRunOptions, CloudStatus } from "../cloud-status";
 import type { ModelProvider } from "./index";
+import { todayTemperature, todayTokenBudget } from "../today-content";
 export const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 export const GROQ_MODEL = "openai/gpt-oss-120b";
 export class GroqDraftError extends AppError {
@@ -155,14 +156,14 @@ export function createGroqProvider(
       const stage = request.stage;
       const jsonRepair = request.repair?.reason === "schema";
       const planStage = stage === "outline" || stage === "devotional";
-      const outputTokens =
-        stage === "goals" || stage === "chat-retrieval"
+      const outputTokens = planStage
+        ? todayTokenBudget(
+            stage,
+            stage === "outline" ? request.count : request.days.length,
+          )
+        : stage === "goals" || stage === "chat-retrieval"
           ? 512
-          : stage === "outline"
-            ? Math.max(2000, Math.min(5000, request.count * 300 + 600))
-            : stage === "devotional"
-              ? Math.max(1800, Math.min(8000, request.days.length * 650 + 600))
-              : 1600;
+          : 1600;
       for (;;) {
         try {
           if (options.signal?.aborted) throw options.signal.reason;
@@ -174,7 +175,7 @@ export function createGroqProvider(
               (jsonRepair
                 ? ` Return a JSON object matching this schema exactly: ${JSON.stringify(groqWireSchema(schema))}.`
                 : "") +
-              " Keep every field concise. Reflections must be at least 60 characters. Use short passages of at most 8 verses. No extra prose. Never use quotation-mark characters in commentary strings. Put canonical references only in the outline reference field, never in reflection, prayer, or context text.",
+              " Keep every field concise. Today reflections must be 60–80 words in two short paragraphs. Use short passages of at most 8 verses. No extra prose. Never use quotation-mark characters in commentary strings. Put canonical references only in the outline reference field, never in reflection, prayer, or context text.",
             prompt,
             output: jsonRepair
               ? Output.json()
@@ -185,6 +186,7 @@ export function createGroqProvider(
               planStage && request.repair?.reason === "truncated"
                 ? Math.min(5000, Math.ceil(outputTokens * 1.4))
                 : outputTokens,
+            ...(planStage ? { temperature: todayTemperature } : {}),
             maxRetries: 0,
             abortSignal: signal(stage),
             providerOptions: {

@@ -236,17 +236,21 @@ describe("Groq direct provider integration and consent", () => {
       expect(f.mock.calls[0][0]).toBe(`${GROQ_BASE_URL}/chat/completions`);
     },
   );
-  it("keeps cloud selection explicit when Groq is unreachable", async () => {
+  it("labels an offline guided fallback when Groq is unreachable", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(
       new TypeError("fixture offline"),
     );
-    await expect(
-      generatePlan({
+    const status = vi.fn();
+    const plan = await generatePlan(
+      {
         prompt: "Explore the mystery of suffering",
         days: 3,
         provider: "cloud",
-      }),
-    ).rejects.toMatchObject({ code: "PROVIDER_UNAVAILABLE" });
+      },
+      { onCloudStatus: status },
+    );
+    expect(plan.provider).toBe("curated");
+    expect(status).toHaveBeenLastCalledWith("unavailable", true);
   });
   it("runs outline and batched composition, retrieving all Scripture independently", async () => {
     const bible = await getBible("WEB");
@@ -278,7 +282,7 @@ describe("Groq direct provider integration and consent", () => {
         return completion({
           days: guide.days.map((d) => ({
             number: d.number,
-            reflection: `During day ${d.number}, notice the particular invitation of the passage and respond with honest attention and humility.`,
+            reflection: `Day ${d.number}: ${d.reflection}`,
             connection: `Connect day ${d.number} to a quiet moment of prayer within your ordinary daily responsibilities.`,
             questions: [
               "What do you notice within the passage today?",

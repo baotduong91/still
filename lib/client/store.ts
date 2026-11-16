@@ -128,7 +128,7 @@ export function recoverable(error: unknown) {
 export async function api<T>(
   path: string,
   body?: unknown,
-  options: { cloudConsent?: boolean } = {},
+  options: { cloudConsent?: boolean; signal?: AbortSignal } = {},
 ): Promise<T> {
   const cloud =
     body &&
@@ -144,13 +144,14 @@ export async function api<T>(
     body
       ? {
           method: "POST",
+          signal: options.signal,
           headers: {
             "Content-Type": "application/json",
             ...(cloud ? { [cloudConsentHeader]: "true" } : {}),
           },
           body: JSON.stringify(body),
         }
-      : {},
+      : { signal: options.signal },
   );
   const status = response.headers.get(cloudStatusHeader);
   if (isCloudStatus(status))

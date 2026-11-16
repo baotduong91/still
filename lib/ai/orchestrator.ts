@@ -8,6 +8,7 @@ import {
 } from "@/lib/schemas";
 import { parseWithServerTranslationDefault } from "@/lib/bible/default-translation-server";
 import { themes, type Lesson } from "./themes";
+import { guidedQuietCopy } from "./today-content";
 const lenses: { pattern: RegExp; lesson: Lesson }[] = [
   {
     pattern: /\b(sleep|night|bedtime|insomnia)\b/i,
@@ -69,7 +70,7 @@ export function extractGoals(prompt: string) {
   if (!ranked.length)
     throw new AppError(
       "PLAN_GENERATION_FAILED",
-      "Tell us which area you want to explore: anxiety, grief, forgiveness, prayer, patience, decisions, healing, or gratitude.",
+      "Tell us which area you want to explore: anxiety, grief, forgiveness, prayer, contemplation, patience, decisions, healing, or gratitude.",
     );
   return {
     prompt,
@@ -145,23 +146,19 @@ export function buildPlan(
       passage,
       context: `Read ${passage.verses[0].book} ${passage.verses[0].chapter} for the surrounding literary context. ${step.lesson.insight}`,
       explanation: step.lesson.insight,
-      reflection: `You brought this intention: “${profile.focus}” ${step.lesson.insight} ${step.deepening ? "Return to your earlier notes. Notice what has changed through practice and what still needs patience." : "Let this passage meet that intention without requiring it to answer more than it says."}`,
       connection: `For your goal, consider this concrete practice: ${step.lesson.action}`,
       questions: [
         `What do you notice in ${passage.reference} that speaks to your stated goal?`,
-        `As you ${step.title.toLowerCase()}, what is one honest response you can make today?`,
+        "What is one honest, manageable response you can make today?",
       ],
-      prayer: `God, meet me as I ${step.title.toLowerCase()}. Help me attend to these words with honesty and humility. Give me courage for the next faithful step and patience with what remains unresolved. Amen.`,
-      action: `${step.deepening ? "Review your earlier attempt and choose one adjustment. " : ""}${profile.pace === "gentle" ? "Keep this small; one minute is enough. " : ""}${step.lesson.action}`,
       journalPrompt: `What stood out as you explored ${step.title.toLowerCase()}?`,
       bridge:
         i === outline.length - 1
           ? "Carry one practice forward. You can revisit this journey at your own pace."
           : `Tomorrow: ${outline[i + 1].title.toLowerCase()}. Bring one observation from today.`,
-      interpretation:
-        "Devotional interpretation, not a quotation or a personal revelation. Christian traditions may read details differently. No promise of a particular outcome is implied.",
       completedAt: null,
       completedDate: null,
+      ...guidedQuietCopy(input.prompt, i),
     };
   });
   return validatePlan(
@@ -200,9 +197,8 @@ export function adaptPlan(
       ? d
       : {
           ...d,
-          reflection:
-            d.reflection.split(" Your latest reflection:")[0] +
-            ` Your latest reflection: “${feedback}” As you read, notice what this adds to your original goal.`,
+          // Keep the validated meditation sparse. Personal feedback stays in
+          // plan.feedback, outside automatic narration and source text.
           action: gentle
             ? `For now, take only the first small step. ${d.action.replace(/^For now, take only the first small step\. /, "")}`
             : d.action,

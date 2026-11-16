@@ -12,6 +12,8 @@ import { themes } from "./themes";
 import { GroqUnavailable } from "./providers/groq";
 import type { ModelRunOptions, CloudStatus } from "./cloud-status";
 import { cloudVendor } from "./modes";
+import { todayContentInstruction } from "./today-content";
+import { groqGuidedPlan } from "./groq-guided";
 import { generateGroqPlan } from "./groq-plan";
 
 function shouldGroqCloudFallback(
@@ -37,7 +39,7 @@ async function modelPlan(raw: unknown, options: ModelRunOptions) {
   if (input.provider === "curated") return buildGuidedPlan(input, bible);
   const provider = await getProvider(input.provider, options);
   if (provider.name === "groq")
-    return generateGroqPlan(input, bible, provider, system);
+    return generateGroqPlan(input, bible, provider, todayContentInstruction);
   const profileSchema = z.object({
     themes: z
       .array(z.enum(Object.keys(themes) as [string, ...string[]]))
@@ -266,9 +268,25 @@ export async function generatePlan(
   raw: unknown,
   options: ModelRunOptions = {},
 ) {
-  // Cloud selection is a contract: never save a guided plan in its place.
-  // Validated cloud output succeeds; outages/invalid drafts remain retryable errors.
-  const plan = await modelPlan(raw, options);
+  const input = parseWithServerTranslationDefault(GenerateInput, raw);
+  let plan;
+  try {
+    plan = await modelPlan(input, options);
+  } catch (error) {
+    const failedDraft =
+      error instanceof AppError &&
+      ["PLAN_GENERATION_FAILED", "SCRIPTURE_NOT_FOUND"].includes(error.code);
+    if (
+      options.signal?.aborted ||
+      input.provider !== "cloud" ||
+      cloudVendor() !== "groq" ||
+      !(error instanceof GroqUnavailable || failedDraft)
+    )
+      throw error;
+    // Original, reviewed offline copy + exact local WEB. Never label this Groq output.
+    plan = groqGuidedPlan(input, await getBible("WEB"));
+    options.onCloudStatus?.(groqFallbackStatus(error), true);
+  }
   if (plan.translation === "WEB") return plan;
   // The model plan has passed exact WEB validation. Licensed wording is
   // retrieved independently afterward; it is never checked against WEB text.

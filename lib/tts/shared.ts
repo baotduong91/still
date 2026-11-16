@@ -1,6 +1,8 @@
+import { assertPassageText } from "@/lib/bible/integrity";
 import type { PassageType } from "@/lib/schemas";
 export type SpeechEngine = "paradee" | "edge" | "device";
 export function verseSpeech(passage: PassageType) {
+  assertPassageText(passage);
   return {
     text: passage.verses.map((verse) => verse.text).join(" "),
     reference: passage.reference,

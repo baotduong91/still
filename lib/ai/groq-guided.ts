@@ -1,6 +1,7 @@
 import type { Bible } from "@/lib/bible";
 import { GenerateInput } from "@/lib/schemas";
 import { parseWithServerTranslationDefault } from "@/lib/bible/default-translation-server";
+import { guidedQuietCopy } from "./today-content";
 import { buildGuidedPlan } from "./guided";
 export function groqGuidedPlan(raw: unknown, bible: Bible) {
   const input = parseWithServerTranslationDefault(GenerateInput, raw);
@@ -14,6 +15,11 @@ export function groqGuidedPlan(raw: unknown, bible: Bible) {
       bible,
     );
     plan.profile.prompt = input.prompt;
+    plan.profile.focus = input.prompt;
+    plan.days = plan.days.map((day, i) => ({
+      ...day,
+      ...guidedQuietCopy(input.prompt, i),
+    }));
     return plan;
   }
 }

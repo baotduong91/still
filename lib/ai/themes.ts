@@ -6,6 +6,79 @@ export type Lesson = {
 };
 export type Theme = { title: string; keywords: string[]; lessons: Lesson[] };
 export const themes: Record<string, Theme> = {
+  contemplation: {
+    title: "Room to notice",
+    keywords: [
+      "contemplation",
+      "contemplative",
+      "mindfulness",
+      "mindful",
+      "stillness",
+      "presence",
+      "stoic",
+      "existential",
+      "philosophy",
+      "meaning",
+    ],
+    lessons: [
+      {
+        reference: "Psalms 131:1-3",
+        title: "Begin with quiet",
+        insight:
+          "The speaker describes a quieted soul while acknowledging limits to what can be understood.",
+        action:
+          "Pause and notice one question you do not need to resolve immediately.",
+      },
+      {
+        reference: "Ecclesiastes 3:1-8",
+        title: "Make room for change",
+        insight:
+          "The poem places contrasting human experiences beside one another across changing times.",
+        action:
+          "Name a change you are noticing without requiring yourself to welcome it.",
+      },
+      {
+        reference: "Micah 6:6-8",
+        title: "Care beyond display",
+        insight:
+          "The passage contrasts offerings with justice, mercy, and humility in relation to God.",
+        action:
+          "Choose one small act of fairness or mercy that needs no audience.",
+      },
+      {
+        reference: "James 1:19-20",
+        title: "Listen before answering",
+        insight:
+          "The passage connects readiness to listen with restraint in speech and anger.",
+        action:
+          "In a safe conversation, let a sentence finish before preparing your reply.",
+      },
+      {
+        reference: "Matthew 6:34",
+        title: "Attend to this day",
+        insight:
+          "The closing instruction turns attention from tomorrow's anxiety toward the troubles of the present day.",
+        action:
+          "Name one responsibility that belongs to today and one that can wait.",
+      },
+      {
+        reference: "Romans 12:14-18",
+        title: "Share the human moment",
+        insight:
+          "The passage asks for attention to others' joy and sorrow while acknowledging limits to making peace.",
+        action:
+          "Notice another person's feeling without immediately trying to fix or explain it.",
+      },
+      {
+        reference: "Psalms 90:12",
+        title: "Consider your time",
+        insight:
+          "The speaker asks for wisdom in attending to the limits of human days.",
+        action:
+          "Set aside one minute for something you want your attention to honor.",
+      },
+    ],
+  },
   anxiety: {
     title: "Room for peace",
     keywords: [

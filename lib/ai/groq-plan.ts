@@ -6,6 +6,11 @@ import { validatePlan } from "./orchestrator";
 import { validateCommentary, type ModelProvider } from "./providers";
 import { GroqDraftError, GroqUnavailable } from "./providers/groq";
 import { themes } from "./themes";
+import {
+  todayDevotionalDay,
+  quietLens,
+  validateQuietCopy,
+} from "./today-content";
 
 const outlineDay = z.object({
   number: z.number().int().positive(),
@@ -15,17 +20,7 @@ const outlineDay = z.object({
   context: z.string().min(20).max(400),
   bridge: z.string().min(10).max(220),
 });
-const devotionalDay = z.object({
-  number: z.number().int().positive(),
-  // Match the final gate here, rather than accepting a 20-character draft
-  // which can never pass validatePlan's 60-character reflection minimum.
-  reflection: z.string().min(100).max(1200),
-  connection: z.string().min(30).max(500),
-  questions: z.array(z.string().min(15).max(200)).length(2),
-  prayer: z.string().min(30).max(500),
-  action: z.string().min(30).max(400),
-  interpretation: z.string().min(20).max(250),
-});
+const devotionalDay = todayDevotionalDay;
 
 function checkText(values: string[]) {
   values.forEach((text) => validateCommentary(text));
@@ -183,7 +178,7 @@ export async function generateGroqPlan(
       count: input.days,
       installedBooks: bible.books(),
       instruction:
-        "Extract only supported themes/pace and design a coherent progressive journey around this exact goal. Choose one to three supported themes as metadata, not a restriction to a curated curriculum. Supply consecutive day numbers and distinct titles/objectives. Use canonical references in Book Chapter:Verse-Verse format within one chapter, at most 8 verses per passage. No quotes or reference patterns in commentary. Keep context to 1-2 sentences and bridge to one sentence.",
+        "Extract only supported themes/pace and design a coherent progressive journey around this exact goal. Choose one to three supported themes as metadata, not a restriction to a curated curriculum. Supply consecutive day numbers and distinct titles/objectives. Use canonical references in Book Chapter:Verse-Verse format within one chapter, prefer 1–3 verses and never more than 8 verses per passage. No quotes or reference patterns in commentary. Keep context to 1-2 sentences and bridge to one sentence.",
     },
     (draft) => {
       checkText([draft.title]);
@@ -260,6 +255,7 @@ export async function generateGroqPlan(
         days: batch.map((day, index) => ({
           number: day.number,
           objective: day.objective,
+          lens: quietLens(input.prompt, day.number - 1).lens,
           context: day.context,
           passage: {
             reference: passages[index].reference,
@@ -269,11 +265,12 @@ export async function generateGroqPlan(
         })),
         previousPractices: days.map((day) => day.action),
         instruction:
-          "Write only these requested days, preserving their original numbers. Make each reflection and practice distinct, grounded in its supplied passage, and specific to the user's stated goal without inventing personal details. Reflection: 2-4 sentences, at least 100 characters. Connection, prayer, action, interpretation: 1-2 concise sentences each. Two short questions. All prose is interpretation: never quote or reproduce Scripture, use quotation marks, or add Bible reference patterns. Exact Scripture is attached separately.",
+          "Write only these requested days, preserving their original numbers. Make each reflection and practice distinct, grounded in its supplied passage, and specific to the user's stated goal without inventing personal details. Reflection: 60–80 words in two short paragraphs, at most three sentences each. Use the supplied editorial lens without attributed quotes or historical claims. Prayer/contemplation: first person, 20–45 words, respecting the user’s spiritual or secular vocabulary. Practice: one accessible micro-habit, 15–35 words. Connection and interpretation: one short sentence each. Two brief optional questions. All prose is interpretation: never quote or reproduce Scripture, use quotation marks, or add Bible reference patterns. Exact Scripture is attached separately.",
       },
       (draft) => {
         draft.days.forEach((day, index) => {
           if (day.number !== batch[index].number) throw draftFailure();
+          validateQuietCopy(day);
           checkText([
             day.reflection,
             day.connection,

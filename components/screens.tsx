@@ -449,7 +449,11 @@ function Scripture() {
   const pagePassage = paged
     ? bible!.lookup(pageReference, state.translation)
     : preview;
-  const { passage: displayedPassage, resolving } = usePassage(pagePassage);
+  const {
+    passage: displayedPassage,
+    resolving,
+    retry,
+  } = usePassage(pagePassage);
   if (!bible) return <p className="loading">Preparing the Bible…</p>;
   let passage: PassageType;
   try {
@@ -573,12 +577,56 @@ function Scripture() {
                   </option>
                 ))}
               </select>
-              <span className="translation-badge">{passage.translation}</span>
+              <select
+                aria-label="Reading translation"
+                value={state.translation}
+                onChange={(event) => {
+                  const translation = event.target.value as TranslationId;
+                  setReaderOffset(0);
+                  setSelected(null);
+                  void update((saved) => ({
+                    ...saved,
+                    translation,
+                    translationPreferenceSet: true,
+                  }));
+                }}
+              >
+                {Object.keys(translationNames)
+                  .sort((a, b) => (a === "WEB" ? -1 : b === "WEB" ? 1 : 0))
+                  .map((id) => (
+                    <option key={id} value={id}>
+                      {id}
+                      {id === "WEB" ? " · offline" : " · online"}
+                    </option>
+                  ))}
+              </select>
+              <span
+                className="translation-badge"
+                aria-label="Displayed translation"
+              >
+                {passage.translation}
+              </span>
             </div>
             <Button variant="ghost" onClick={() => setVerseView(!verseView)}>
               {verseView ? "Chapter view" : "Verse view"}
             </Button>
           </div>
+          {state.translation !== "WEB" && !state.onlineScripture && (
+            <p className="translation-notice">
+              {state.translation} needs online Scripture access.{" "}
+              <Link href="/settings#translation">Enable it in Settings</Link>.
+              Exact WEB remains available.
+            </p>
+          )}
+          {passage.fallback && !resolving && state.onlineScripture && (
+            <Button
+              variant="outline"
+              className="translation-retry"
+              onClick={retry}
+            >
+              Retry {state.translation}
+            </Button>
+          )}
           {paged && (
             <div className="reader-pagination" aria-label="Passage pages">
               <Button
@@ -1163,7 +1211,12 @@ function Settings() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   return (
-    <div className="narrow-page">
+    <div className="narrow-page settings-page">
+      <div className="settings-exit-bar">
+        <Link href="/today" className="settings-exit">
+          <ChevronLeft size={19} /> Back to Today
+        </Link>
+      </div>
       <Heading
         label="MAKE YOURSELF AT HOME"
         title="A space that feels like you."

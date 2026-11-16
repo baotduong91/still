@@ -524,7 +524,9 @@ export function DailyFlow({
           <h2 id="reflection-heading" tabIndex={-1}>
             {day.title}
           </h2>
-          <p>{day.reflection}</p>
+          {day.reflection.split(/\n\s*\n/u).map((paragraph, i) => (
+            <p key={i}>{paragraph}</p>
+          ))}
           <div className="question-box">
             {day.questions.map((q) => (
               <p key={q}>{q}</p>
@@ -545,15 +547,15 @@ export function DailyFlow({
         aria-labelledby="prayer-heading"
       >
         <div className="flow-section-label">
-          <span>03</span> A PRAYER FOR TODAY
+          <span>03</span> PRAYER / CONTEMPLATION
         </div>
         <div className="devotional-prose">
           <h2 id="prayer-heading" tabIndex={-1}>
             Come as you are.
           </h2>
           <p className="fine-print">
-            A personal prayer inspired by today’s reading. This is not
-            Scripture.
+            A personal prayer or contemplation inspired by today’s reading. This
+            is not Scripture.
           </p>
           <p className="prayer-text">{day.prayer}</p>
         </div>

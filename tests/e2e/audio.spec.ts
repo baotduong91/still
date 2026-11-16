@@ -543,8 +543,9 @@ test("Today curated steps stay local with Paradee online and never read personal
     .locator("#today-reflection .devotional-prose")
     .evaluate((el) => {
       const parts: string[] = [];
-      const main = el.querySelector(":scope > p:not(.fine-print)");
-      if (main) parts.push(main.textContent!.trim());
+      el.querySelectorAll(":scope > p:not(.fine-print)").forEach((p) =>
+        parts.push(p.textContent!.trim()),
+      );
       el.querySelectorAll(".question-box p").forEach((p) =>
         parts.push(p.textContent!.trim()),
       );

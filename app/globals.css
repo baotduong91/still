@@ -1000,6 +1000,26 @@ main {
   color: var(--sage);
   border-radius: 4px;
 }
+.settings-exit { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--sage); font-size: 14px; }
+.settings-exit-bar { margin-bottom: 16px; }
+.translation-retry { margin-bottom: 12px; }
+@media (max-width: 720px) {
+  .settings-exit-bar { position: sticky; top: 0; z-index: 35; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .settings-page :target { scroll-margin-top: 64px; }
+  .reader-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .reader-toolbar .toolbar { display: contents; }
+  .reader-toolbar select { -webkit-appearance: none; appearance: none; width: 100%; min-width: 0; max-width: none !important; height: 44px; min-height: 44px; font-size: 16px !important; padding: 0 28px 0 10px !important; border: 1px solid var(--line); border-radius: 8px; background-color: var(--paper); color: var(--ink); background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 14px) 50%, calc(100% - 10px) 50%; background-size: 4px 4px; background-repeat: no-repeat; }
+  .reader-toolbar > .button { min-height: 44px !important; font-size: 13px !important; }
+  .reader-toolbar .translation-badge { justify-self: start; }
+  .verse-row > div { min-width: 0; }
+  .verse-row .verse-number { width: 44px; min-height: 44px; display: grid; place-items: center; align-self: flex-start; }
+  .verse-tools { padding: 12px; overflow-wrap: anywhere; }
+  .reader-paper .verse-tools textarea { font-size: 16px; }
+  .reader-toolbar .translation-badge { grid-column: 1 / -1; grid-row: 3; }
+  .search-bar > button { min-height: 44px; }
+  .reader-pagination[aria-label="Passage pages"] { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .reader-pagination[aria-label="Passage pages"] > span { grid-column: 1 / -1; grid-row: 1; text-align: center; }
+}
 .reader-paper {
   max-width: 800px;
   margin: auto;
@@ -1028,7 +1048,7 @@ main {
 .verse-row > div {
   flex: 1;
 }
-.verse-row p {
+.verse-row > div > p {
   font-family: Georgia, serif;
   font-size: 21px;
   line-height: 1.8;
@@ -1647,7 +1667,7 @@ main {
   .verse-row {
     gap: 13px;
   }
-  .verse-row p {
+  .verse-row > div > p {
     font-size: 20px;
   }
   .reader-paper > h2 {

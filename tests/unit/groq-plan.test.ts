@@ -55,7 +55,7 @@ function content(payload: Payload) {
   return {
     days: payload.days!.map((day) => ({
       number: day.number,
-      reflection: `On day ${day.number}, make space for lament and unanswered questions. Notice the response in the supplied passage without turning it into an easy explanation of every painful experience. Bring an honest observation to prayer.`,
+      reflection: `On day ${day.number}, make space for lament and unanswered questions. Notice the response in the supplied passage without turning it into an easy explanation of every painful experience. Bring an honest observation to prayer.\n\nYou do not need to force certainty before taking a small step. Let one question remain open while you consider a response that is honest, possible, and kind to the limits you carry today.`,
       connection: `Relate day ${day.number} to the stated wish to leave room for unanswered questions, without inventing a personal story.`,
       questions: [
         "What does this passage leave open for you?",
@@ -101,6 +101,8 @@ function mockModel(
       const payload = JSON.parse(body.messages.at(-1).content) as Payload;
       calls.push(payload);
       expect(body.reasoning_effort).toBe("low");
+      expect(body.temperature).toBe(0.45);
+      expect(body.max_tokens).toBeLessThanOrEqual(5000);
       expect(body.reasoning_format).toBeUndefined();
       if (payload.repair?.reason === "schema")
         expect(body.response_format.type).toBe("json_object");
@@ -236,6 +238,8 @@ describe("Seven-day Groq journey regression", () => {
     "quoted Scripture",
     "wrong day",
     "duplicate practice",
+    "stock phrase",
+    "model source field",
   ])(
     "repairs %s locally without weakening the text or progression gate",
     async (problem) => {
@@ -255,6 +259,13 @@ describe("Seven-day Groq journey regression", () => {
           draft.days[0].prayer =
             "God, help me hear “an invented verse” and respond faithfully.";
         if (problem === "wrong day") draft.days[0].number = 1;
+        if (problem === "stock phrase")
+          draft.days[0].prayer =
+            "Let’s dive in and unlock your potential during this exciting day of prayer.";
+        if (problem === "model source field")
+          Object.assign(draft.days[0], {
+            passage: { text: "Invented anchor" },
+          });
         if (problem === "duplicate practice")
           draft.days[0].action = content({
             ...payload,
@@ -293,18 +304,21 @@ describe("Seven-day Groq journey regression", () => {
     });
     expect(plan.days[0].passage.reference).toBe("Psalms 13:1-6");
   });
-  it("never returns a model plan with invented passages after both outline attempts fail", async () => {
+  it("returns a validated guided plan, never invented passages, after both outline attempts fail", async () => {
     const { calls } = mockModel(() => {
       const draft = outline();
       draft.days[0].reference = "Imaginary 1:1";
       return completion(draft);
     });
     const status = vi.fn();
-    await expect(
-      generatePlan(input, { onCloudStatus: status }),
-    ).rejects.toMatchObject({ code: "PLAN_GENERATION_FAILED" });
+    const fallback = await generatePlan(input, { onCloudStatus: status });
+    expect(fallback.provider).toBe("curated");
+    const bible = await getBible("WEB");
+    expect(fallback.days.every((day) => bible.validate(day.passage))).toBe(
+      true,
+    );
     expect(calls).toHaveLength(2);
-    expect(status).not.toHaveBeenCalledWith("unavailable", true);
+    expect(status).toHaveBeenCalledWith("unavailable", true);
     const logs = JSON.stringify(vi.mocked(console.warn).mock.calls);
     expect(logs).not.toContain(goal);
     expect(logs).not.toContain("fixture-secret");
@@ -325,7 +339,7 @@ describe("Seven-day Groq journey regression", () => {
     expect(calls.filter((call) => call.days?.[0].number === 4)).toHaveLength(2);
     expect(calls.filter((call) => call.stage === "outline")).toHaveLength(1);
   });
-  it("does not retry a daily quota wait or silently choose a different provider", async () => {
+  it("does not retry a daily quota wait and explicitly labels the guided fallback", async () => {
     const { calls } = mockModel(() =>
       Response.json(
         { error: { type: "requests", message: "Fixture daily quota" } },
@@ -333,11 +347,11 @@ describe("Seven-day Groq journey regression", () => {
       ),
     );
     const status = vi.fn();
-    await expect(
-      generatePlan(input, { onCloudStatus: status }),
-    ).rejects.toMatchObject({ code: "PROVIDER_UNAVAILABLE" });
+    expect(
+      (await generatePlan(input, { onCloudStatus: status })).provider,
+    ).toBe("curated");
     expect(calls).toHaveLength(1);
-    expect(status).toHaveBeenLastCalledWith("rate-limited");
+    expect(status).toHaveBeenLastCalledWith("rate-limited", true);
   });
   it("cancels without repairing, selecting guided, or making another model request", async () => {
     const abort = new AbortController();

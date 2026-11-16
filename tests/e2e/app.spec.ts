@@ -29,7 +29,9 @@ test("today opens at Day 1 and completes the guided sequence", async ({
   await page.getByRole("button", { name: "Continue to reflection" }).click();
   await page.getByRole("button", { name: "Continue to prayer" }).click();
   await expect(
-    page.getByText("A personal prayer inspired", { exact: false }),
+    page.getByText("A personal prayer or contemplation inspired", {
+      exact: false,
+    }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Continue to practice" }).click();
   await page
