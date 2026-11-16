@@ -1034,6 +1034,11 @@ main {
   padding-bottom: 22px;
   margin-bottom: 26px;
 }
+.reader-pending { min-height: 240px; }
+.reader-pending > p { color: var(--muted); font-size: 14px; line-height: 1.7; }
+.reader-placeholder-lines { display: grid; gap: 18px; margin-top: 28px; }
+.reader-placeholder-lines > span { height: 12px; border-radius: 6px; background: var(--line); }
+.reader-placeholder-lines > span:last-child { width: 72%; }
 .reader-paper > h2 em {
   color: var(--sage);
 }

@@ -41,6 +41,116 @@ test.beforeEach(async ({ page }) => {
   await installVoiceHarness(page);
 });
 
+for (const translation of ["CSB", "NLT", "MSG"]) {
+  test(`${translation} is selected from the first Bible render without flashing WEB`, async ({
+    page,
+  }) => {
+    await page.goto("/settings");
+    await page.getByLabel("Preferred translation").selectOption(translation);
+    // Observe every reader DOM commit, not just the final state after the API responds.
+    await page.addInitScript(() => {
+      const startup = { sawWEB: false };
+      Object.assign(window, { bibleStartup: startup });
+      new MutationObserver(() => {
+        const badge = document
+          .querySelector(".translation-badge")
+          ?.textContent?.trim();
+        const heading =
+          document.querySelector(".reader-paper .eyebrow")?.textContent ?? "";
+        if (badge === "WEB" || /\bWEB\b/.test(heading)) startup.sawWEB = true;
+      }).observe(document, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+      });
+    });
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route("**/api/awp/scripture?*", async (route) => {
+      await held;
+      const reference = new URL(route.request().url()).searchParams.get(
+        "reference",
+      )!;
+      await route.fulfill({
+        json: { passage: licensed(reference, translation) },
+      });
+    });
+    try {
+      await page.goto("/scripture");
+      await expect(page.getByLabel("Reading translation")).toHaveValue(
+        translation,
+      );
+      await expect(page.locator(".translation-badge")).toHaveText(translation);
+      await expect(page.locator(".reader-paper")).toHaveAttribute(
+        "aria-busy",
+        "true",
+      );
+      await expect(page.locator(".reader-pending [role=status]")).toContainText(
+        `Loading exact ${translation}`,
+      );
+      await expect(page.locator(".verse-row")).toHaveCount(0);
+      await expect(page.locator(".reader-paper")).not.toContainText("WEB");
+    } finally {
+      release();
+    }
+    await expect(page.locator(".verse-row").first()).toContainText(
+      `Exact ${translation} response fixture 1`,
+    );
+    await expect(page.locator(".reader-paper")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+    expect(
+      await page.evaluate(
+        () =>
+          (window as unknown as { bibleStartup: { sawWEB: boolean } })
+            .bibleStartup.sawWEB,
+      ),
+    ).toBe(false);
+  });
+}
+
+test("WEB appears only after the selected online edition is confirmed unavailable", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/awp/scripture?*", async (route) => {
+    await held;
+    const reference = new URL(route.request().url()).searchParams.get(
+      "reference",
+    )!;
+    await route.fulfill({
+      json: {
+        passage: {
+          ...bible.lookup(reference, "CSB"),
+          notice:
+            "CSB online access is not configured. Showing exact WEB text.",
+        },
+      },
+    });
+  });
+  try {
+    await page.goto("/scripture");
+    await expect(page.locator(".translation-badge")).toHaveText("CSB");
+    await expect(page.locator(".verse-row")).toHaveCount(0);
+  } finally {
+    release();
+  }
+  await expect(page.locator(".translation-badge")).toHaveText("WEB");
+  await expect(page.getByLabel("Reading translation")).toHaveValue("CSB");
+  await expect(
+    page.locator(".verse-row").first().locator(":scope > div > p"),
+  ).toHaveText(bible.lookup("John 1:1").text);
+  await expect(page.locator(".reader-paper")).toContainText(
+    "CSB online access is not configured",
+  );
+});
+
 test("initial WEB fallback recovers to the selected CSB without a book search", async ({
   page,
 }) => {

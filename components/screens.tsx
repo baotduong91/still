@@ -602,9 +602,12 @@ function Scripture() {
               </select>
               <span
                 className="translation-badge"
-                aria-label="Displayed translation"
+                aria-label={
+                  resolving ? "Selected translation" : "Displayed translation"
+                }
+                aria-busy={resolving}
               >
-                {passage.translation}
+                {resolving ? state.translation : passage.translation}
               </span>
             </div>
             <Button variant="ghost" onClick={() => setVerseView(!verseView)}>
@@ -652,26 +655,34 @@ function Scripture() {
               </Button>
             </div>
           )}
-          {resolving && (
-            <p role="status" className="translation-notice">
-              Loading {state.translation}… Exact WEB text remains available
-              below.
-            </p>
-          )}
           <article className="reader-paper" aria-busy={resolving}>
             <p className="eyebrow">
-              {passage.translation} · {translationNames[passage.translation]}
+              {resolving ? state.translation : passage.translation} ·{" "}
+              {
+                translationNames[
+                  resolving ? state.translation : passage.translation
+                ]
+              }
             </p>
             <h2>
               {book} <em>{chapter}</em>
             </h2>
-            {passage.attribution && (
+            {!resolving && passage.attribution && (
               <p className="translation-notice">{passage.attribution}</p>
             )}
-            {passage.fallback && (
+            {!resolving && passage.fallback && (
               <p className="translation-notice">{passage.notice}</p>
             )}
-            {verseView ? (
+            {resolving ? (
+              <div className="reader-pending">
+                <p role="status">Loading exact {state.translation} text…</p>
+                <div className="reader-placeholder-lines" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              </div>
+            ) : verseView ? (
               <div className="verses">
                 {passage.verses.map((v) => {
                   const ref = `${book} ${chapter}:${v.verse}${v.verseEnd && v.verseEnd > v.verse ? `-${v.verseEnd}` : ""}`;
