@@ -2919,3 +2919,18 @@ body.still-listening { background: #112d3c; color: #faf5e8; overflow-x: clip; }
 .generation-modal > svg { margin: 0 auto 16px; }
 .generation-modal h2 { margin: 0 0 14px; }
 .generation-modal p { line-height: 1.6; }
+
+/* Overview retains navigation on landscape phones and small tablets. */
+@media (min-width: 721px) and (max-width: 1000px) {
+  .still-listening:not(.still-reading) { --listening-inset: 210px; }
+  .still-listening:not(.still-reading) .sidebar { display: block; }
+}
+@media (min-width: 721px) and (max-height: 500px) {
+  .sidebar { overflow-y: auto; padding-top: 16px; padding-bottom: 16px; }
+  .sidebar .brand-caption { margin-bottom: 12px; }
+  .sidebar .quiet-note { display: none; }
+}
+@media (max-width: 720px) {
+  html[data-keyboard="open"] body.still-listening .sidebar { display: none; }
+  .sidebar { height: calc(72px + env(safe-area-inset-bottom, 0px)); }
+}

@@ -1,6 +1,87 @@
 import { test, expect } from "./fixtures";
 import { installVoiceHarness, assertTouchTarget } from "./helpers/sanity";
 
+test("focus exit preserves the reading position and landscape keeps navigation", async ({
+  page,
+}) => {
+  await installVoiceHarness(page);
+  await page.goto("/today");
+  await page.getByRole("button", { name: "Listen", exact: true }).click();
+  await page.getByRole("link", { name: "03 Prayer", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Pause prayer", exact: true }),
+  ).toBeVisible();
+  await page.waitForTimeout(1400);
+  const before = await page
+    .locator("#today-prayer")
+    .evaluate((el) => el.getBoundingClientRect().top);
+  await page.getByRole("button", { name: "Leave immersive view" }).click();
+  const after = await page
+    .locator("#today-prayer")
+    .evaluate((el) => el.getBoundingClientRect().top);
+  expect(Math.abs(after - before)).toBeLessThan(8);
+  await expect(
+    page.getByRole("button", { name: "Pause prayer", exact: true }),
+  ).toBeVisible();
+  const nav = page.getByRole("navigation", { name: "Main navigation" });
+  for (const tab of ["Scripture", "Bible chat", "Journal", "My journeys"]) {
+    await nav.getByRole("link", { name: tab, exact: true }).click();
+    await expect(page.locator("body")).not.toHaveClass(
+      /still-reading|still-listening/,
+    );
+    await expect(page.locator(".today-player")).toHaveCount(0);
+    await nav.getByRole("link", { name: "Today", exact: true }).click();
+    await expect(page.locator(".daily-flow")).toHaveAttribute(
+      "data-view",
+      "overview",
+    );
+    await expect(
+      page.getByRole("button", { name: "Play Scripture", exact: true }),
+    ).toBeVisible();
+  }
+  await page.setViewportSize({ width: 874, height: 402 });
+  await expect(nav).toBeVisible();
+  await nav
+    .getByRole("link", { name: "Journal", exact: true })
+    .scrollIntoViewIfNeeded();
+  await expect(
+    nav.getByRole("link", { name: "Journal", exact: true }),
+  ).toBeInViewport();
+  await page.screenshot({ path: "/tmp/still-today-landscape-navigation.png" });
+  await nav.getByRole("link", { name: "Journal", exact: true }).click();
+  await expect(page).toHaveURL(/\/journal$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/today$/);
+  await expect(page.locator(".daily-flow")).toHaveAttribute(
+    "data-view",
+    "overview",
+  );
+  await expect(
+    page.getByRole("button", { name: "Play Scripture", exact: true }),
+  ).toBeVisible();
+});
+
+test("listening options dismiss on Escape and outside tap; keyboard hides navigation", async ({
+  page,
+}) => {
+  await installVoiceHarness(page);
+  await page.goto("/today");
+  const options = page.getByLabel("Listening options");
+  await options.click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByLabel("Reading speed")).not.toBeVisible();
+  await expect(options).toBeFocused();
+  await options.click();
+  await page.locator(".today-welcome h1").click({ position: { x: 5, y: 5 } });
+  await expect(page.getByLabel("Reading speed")).not.toBeVisible();
+  await page.evaluate(() => {
+    document.documentElement.dataset.keyboard = "open";
+  });
+  await expect(
+    page.getByRole("navigation", { name: "Main navigation" }),
+  ).not.toBeVisible();
+});
+
 test.use({
   viewport: { width: 402, height: 874 },
   isMobile: true,

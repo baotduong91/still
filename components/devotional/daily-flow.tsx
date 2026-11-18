@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUpRight,
@@ -60,14 +60,42 @@ export function DailyFlow({
   const { passage, resolving: passageResolving } = usePassage(localPassage);
   const [active, setActive] = useState(0);
   const [immersive, setImmersive] = useState(false);
+  const menu = useRef<HTMLDetailsElement>(null);
+  const viewAnchor = useRef<{ element: HTMLElement; top: number } | null>(null);
   useEffect(() => {
     document.body.classList.add("still-listening");
     return () =>
       document.body.classList.remove("still-listening", "still-reading");
   }, []);
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.body.classList.toggle("still-reading", immersive);
+    const anchor = viewAnchor.current;
+    viewAnchor.current = null;
+    if (anchor?.element.isConnected) {
+      window.scrollBy({
+        top: anchor.element.getBoundingClientRect().top - anchor.top,
+        behavior: "instant",
+      });
+    }
   }, [immersive]);
+  useEffect(() => {
+    const dismiss = (event: PointerEvent) => {
+      if (menu.current?.open && !menu.current.contains(event.target as Node))
+        menu.current.open = false;
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && menu.current?.open) {
+        menu.current.open = false;
+        menu.current.querySelector("summary")?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("keydown", escape);
+    };
+  }, []);
   const [autoplay, setAutoplay] = useState(true);
   const autoplayRef = useRef(autoplay);
   autoplayRef.current = autoplay;
@@ -97,6 +125,18 @@ export function DailyFlow({
     licensedTextPending: active === 0 && passageResolving,
   });
   latestReader.current = reader;
+  function changeView(focused: boolean) {
+    const element = refs.current[active];
+    if (element && window.scrollY > 0) {
+      viewAnchor.current = {
+        element,
+        top: element.getBoundingClientRect().top,
+      };
+      lockScroll.current = performance.now() + 1200;
+    }
+    if (menu.current) menu.current.open = false;
+    setImmersive(focused);
+  }
   useEffect(() => {
     const linked = anchors.indexOf(window.location.hash.slice(1));
     if (linked >= 0) {
@@ -344,7 +384,7 @@ export function DailyFlow({
               type="button"
               aria-label="Leave immersive view"
               onClick={() => {
-                setImmersive(false);
+                changeView(false);
               }}
             >
               <X size={22} />
@@ -361,7 +401,7 @@ export function DailyFlow({
           <span>
             Day {day.number} of {plan.days.length}
           </span>
-          <details className="listening-menu">
+          <details className="listening-menu" ref={menu}>
             <summary aria-label="Listening options">
               <MoreHorizontal size={22} />
             </summary>
@@ -485,12 +525,12 @@ export function DailyFlow({
                 void update((s) => ({ ...s, todayVoiceOn: true }));
                 if (reader.status === "idle" || reader.status === "paused")
                   void reader.play();
-                setImmersive(true);
+                changeView(true);
               }}
             >
               <Headphones size={20} /> Listen
             </button>
-            <button type="button" onClick={() => setImmersive(true)}>
+            <button type="button" onClick={() => changeView(true)}>
               <BookOpen size={20} /> Read
             </button>
           </div>
