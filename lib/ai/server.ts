@@ -283,6 +283,10 @@ export async function generatePlan(
       !(error instanceof GroqUnavailable || failedDraft)
     )
       throw error;
+    if (options.requireCloudPlan) {
+      options.onCloudStatus?.(groqFallbackStatus(error));
+      throw error;
+    }
     // Original, reviewed offline copy + exact local WEB. Never label this Groq output.
     plan = groqGuidedPlan(input, await getBible("WEB"));
     options.onCloudStatus?.(groqFallbackStatus(error), true);

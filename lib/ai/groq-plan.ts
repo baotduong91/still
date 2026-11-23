@@ -88,21 +88,30 @@ async function repairDevotionalFields(
   if (!Array.isArray(draft.days)) return;
   const edits = [];
   for (const issue of issues) {
-    const match = /^days\.(\d+)\.(reflection|prayer)$/u.exec(issue.path);
+    const match = /^days\.(\d+)\.(reflection|prayer|action)$/u.exec(issue.path);
     if (!match) return;
     const index = Number(match[1]);
     const field = match[2];
     const originalText = draft.days[index]?.[field];
     if (typeof originalText !== "string" || !payload.days[index]) return;
-    const minimum = field === "reflection" ? 130 : 35;
-    const maximum = field === "reflection" ? 180 : 55;
+    const minimum = field === "action" ? 10 : field === "reflection" ? 130 : 35;
+    const maximum = field === "action" ? 28 : field === "reflection" ? 180 : 55;
     const count = issue.actualWords;
+    let quotation = issue.code === "quotation_or_reference";
+    try {
+      validateCommentary(originalText);
+    } catch (error) {
+      if (!(error instanceof AppError)) throw error;
+      quotation = true;
+    }
     const append =
+      !quotation &&
       count !== undefined &&
       count >= (field === "reflection" ? 60 : 17) &&
       count < minimum;
     const rewrite =
-      issue.code === "quotation_or_reference" ||
+      field === "action" ||
+      quotation ||
       (count !== undefined && count > maximum);
     if (!append && !rewrite) return;
     const retainedWords = append ? count : 0;
@@ -110,7 +119,8 @@ async function repairDevotionalFields(
       index,
       day: payload.days[index],
       field,
-      originalText,
+      // A replacement must not echo rejected quotations back as a writing sample.
+      originalText: quotation ? undefined : originalText,
       operation: append ? "append" : "replace",
       minimumNewWords: minimum - retainedWords,
       targetNewWords: Math.round((minimum + maximum) / 2) - retainedWords,
@@ -128,6 +138,13 @@ async function repairDevotionalFields(
       stage: "devotional",
       goal: payload.goal,
       days: edits,
+      ...(edits.some((edit) => edit.field === "action")
+        ? {
+            previousPractices: payload.previousPractices,
+            writingRule:
+              "Replace the repeated invitation with one distinct open-ended question about a specific detail of this day’s passage.",
+          }
+        : {}),
       instruction:
         "Return one string per item in the same order. For append, write only a new paragraph that develops an observation or application without repeating the existing prose. For replace, rewrite the whole field in original words, retaining its insight and removing quotations and inline citations. Each new string must be within minimumNewWords and maximumNewWords. Use only the supplied passage.",
     }),
@@ -136,7 +153,7 @@ async function repairDevotionalFields(
     const revisedText = additions[i].trim();
     draft.days![index][field] =
       operation === "append"
-        ? `${originalText.trim()}\n\n${revisedText}`
+        ? `${originalText!.trim()}\n\n${revisedText}`
         : revisedText;
   });
   return draft;
@@ -153,6 +170,7 @@ async function verified<T>(
   let reason: string | undefined;
   let fieldIssues: GroqDraftError["issues"] = [];
   let rejectedDraft: unknown;
+  let skipFieldEdit = false;
   let corrections: ReferenceRepair["corrections"] | undefined;
   let validDays: ReferenceRepair["validDays"] = [];
   for (let attempt = 0; ; attempt++) {
@@ -161,7 +179,7 @@ async function verified<T>(
       // Generation/parsing must be inside the repair boundary too: truncated
       // JSON fails before a draft exists. Only this outline/batch is repeated.
       const expanded =
-        attempt > 0 && stage === "devotional"
+        attempt > 0 && !skipFieldEdit && stage === "devotional"
           ? await repairDevotionalFields(
               provider,
               system,
@@ -251,6 +269,23 @@ async function verified<T>(
         )
       )
         throw error;
+      // A malformed edit response is not a replacement for the previous batch.
+      // Keep that draft and retry once with the full schema repair path.
+      if (
+        attempt < 3 &&
+        !skipFieldEdit &&
+        stage === "devotional" &&
+        rejectedDraft &&
+        error instanceof GroqDraftError &&
+        !error.rejectedDraft &&
+        !parsedDraft &&
+        (error.reason === "truncated" || error.reason === "schema")
+      ) {
+        skipFieldEdit = true;
+        reason = "schema";
+        continue;
+      }
+      skipFieldEdit = false;
       const previousReason = reason;
       reason = repairReason(error);
       rejectedDraft =
@@ -287,6 +322,7 @@ async function verified<T>(
           fieldIssues.every(
             (issue) =>
               issue.code === "quotation_or_reference" ||
+              issue.code === "repeated_writing_prompt" ||
               issue.actualWords !== undefined,
           ));
       // Operational metadata only. Never log the prompt, draft, passages, key,
@@ -464,13 +500,20 @@ export async function generateGroqPlan(
           ])
         )
           throw draftFailure("repeated_reflection");
-        if (
-          !distinct([
-            ...days.map((day) => day.action),
-            ...draft.days.map((day) => day.action),
-          ])
-        )
-          throw draftFailure("repeated_writing_prompt");
+        const actions = days.map((day) => day.action);
+        const repeatedActions: GroqDraftError["issues"] = [];
+        draft.days.forEach((day, index) => {
+          actions.push(day.action);
+          if (!distinct(actions)) {
+            actions.pop();
+            repeatedActions.push({
+              path: `days.${index}.action`,
+              code: "repeated_writing_prompt",
+            });
+          }
+        });
+        if (repeatedActions.length)
+          throw new GroqDraftError("validation", repeatedActions);
       },
     );
     batch.forEach((day, index) => {

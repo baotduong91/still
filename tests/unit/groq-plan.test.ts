@@ -211,6 +211,57 @@ describe("Seven-day Groq journey regression", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+  it("assembles individually generated paragraphs and prayer sentences into a verified seven-day plan", async () => {
+    const { calls } = mockModel((payload) => {
+      if (payload.stage !== "devotional") return;
+      const days = content(payload).days.map((day) => {
+        const words = day.reflection.split(/\s+/);
+        const prayer = day.prayer.split(/(?<=\.) /);
+        return {
+          ...day,
+          reflection: {
+            observation: {
+              thought: words.slice(0, 18).join(" "),
+              development: words.slice(18, 35).join(" "),
+            },
+            setting: {
+              thought: words.slice(35, 53).join(" "),
+              development: words.slice(53, 70).join(" "),
+            },
+            insight: {
+              thought: words.slice(70, 88).join(" "),
+              development: words.slice(88, 105).join(" "),
+            },
+            detail: {
+              thought: "A further observation.",
+              development: "A further detail.",
+            },
+            application: {
+              thought: words.slice(105, 120).join(" "),
+              development: words.slice(120).join(" "),
+            },
+          },
+          prayer: {
+            address: prayer[0],
+            response: prayer[1],
+            gratitude: "Thank you for this opportunity to listen.",
+            petition: prayer.slice(2).join(" "),
+          },
+        };
+      });
+      return completion({ days });
+    });
+    const plan = await generatePlan({
+      ...input,
+      prompt:
+        "I want to be closer to God in my everyday walk with heratfelt worship moments",
+    });
+    expect(plan.provider).toBe("groq");
+    expect(
+      plan.days.every((day) => day.reflection.split("\n\n").length === 4),
+    ).toBe(true);
+    expect(calls).toHaveLength(4);
+  });
   it("repairs a truncated middle batch without regenerating verified earlier days", async () => {
     let broken = false;
     const { calls, fetch } = mockModel((payload) => {
@@ -267,6 +318,38 @@ describe("Seven-day Groq journey regression", () => {
       let broken = false;
       const { calls } = mockModel((payload) => {
         if (
+          problem === "duplicate practice" &&
+          payload.days?.[0] &&
+          "targetNewWords" in payload.days[0]
+        ) {
+          expect(payload.days[0]).toMatchObject({
+            field: "action",
+            operation: "replace",
+          });
+          return completion({
+            additions: [
+              "Which concrete step can you record after reading this passage today?",
+            ],
+          });
+        }
+        if (
+          problem === "quoted Scripture" &&
+          payload.days?.[0] &&
+          "targetNewWords" in payload.days[0]
+        ) {
+          expect(payload.days[0]).toMatchObject({
+            operation: "replace",
+            field: "prayer",
+          });
+          expect(JSON.stringify(payload)).not.toContain("an invented verse");
+          return completion({
+            additions: [
+              content({ ...payload, days: [{ ...payload.days[0], number: 4 }] })
+                .days[0].prayer,
+            ],
+          });
+        }
+        if (
           payload.stage !== "devotional" ||
           payload.days![0].number !== 4 ||
           broken
@@ -304,7 +387,7 @@ describe("Seven-day Groq journey regression", () => {
       const plan = await generatePlan(input);
       expect(plan.provider).toBe("groq");
       expect(calls.filter((call) => call.days?.[0].number === 4)).toHaveLength(
-        2,
+        ["quoted Scripture", "duplicate practice"].includes(problem) ? 1 : 2,
       );
       const repair = calls.find((call) => call.repair)?.repair;
       if (problem === "short reflection") {
@@ -378,6 +461,33 @@ describe("Seven-day Groq journey regression", () => {
     expect(plan.days[5].reflection).toContain(
       "Remember the person who is still waiting",
     );
+  });
+  it("keeps the original batch when Groq rejects the field-edit JSON", async () => {
+    const { calls } = mockModel((payload) => {
+      if (payload.days?.[0] && "targetNewWords" in payload.days[0]) {
+        return Response.json(
+          {
+            error: {
+              code: "json_validate_failed",
+              message: "Failed to generate JSON",
+            },
+          },
+          { status: 400 },
+        );
+      }
+      if (payload.days?.[0].number === 4 && !payload.repair) {
+        const draft = content(payload);
+        draft.days[0].reflection = draft.days[0].reflection
+          .split(/\s+/)
+          .slice(0, 120)
+          .join(" ");
+        return completion(draft);
+      }
+    });
+    expect((await generatePlan(input)).provider).toBe("groq");
+    const repair = calls.find((call) => call.repair)?.repair;
+    expect(repair?.rejectedDraft?.days[0].number).toBe(4);
+    expect(repair?.fieldIssues?.[0].actualWords).toBe(120);
   });
   it("rewrites only the reflection that contains a quotation", async () => {
     let broken = false;
@@ -496,6 +606,33 @@ describe("Seven-day Groq journey regression", () => {
     ).toBe("curated");
     expect(calls).toHaveLength(1);
     expect(status).toHaveBeenLastCalledWith("rate-limited", true);
+  });
+  it("preserves the cloud-only Create request when Groq cannot serve it", async () => {
+    mockModel(() =>
+      Response.json(
+        { error: { message: "Quota exceeded" } },
+        { status: 429, headers: { "retry-after": "3600" } },
+      ),
+    );
+    const response = await handle(
+      new Request("http://localhost/api/awp/plans/generate", {
+        method: "POST",
+        headers: {
+          origin: "http://localhost",
+          "Content-Type": "application/json",
+          "X-Still-Cloud-Consent": "true",
+          "X-Still-Require-Cloud-Plan": "true",
+        },
+        body: JSON.stringify(input),
+      }),
+      "plans/generate",
+    );
+    expect(response.status).toBe(503);
+    expect(response.headers.get("X-Still-Cloud-Status")).toBe("rate-limited");
+    expect(response.headers.get("X-Still-Fallback")).toBeNull();
+    expect(await response.json()).toMatchObject({
+      error: { code: "PROVIDER_UNAVAILABLE" },
+    });
   });
   it("cancels without repairing, selecting guided, or making another model request", async () => {
     const abort = new AbortController();

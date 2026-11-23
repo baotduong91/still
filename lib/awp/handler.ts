@@ -18,6 +18,7 @@ import { requireCloudConsent } from "@/lib/ai/consent";
 import {
   cloudStatusHeader,
   cloudFallbackHeader,
+  cloudPlanOnlyHeader,
   type CloudStatus,
   type ModelRunOptions,
 } from "@/lib/ai/cloud-status";
@@ -173,6 +174,9 @@ export async function handle(request: Request, path: string) {
     requireCloudConsent(request, parsed);
     const result = await execute(id as ActionId, parsed, identity.owner, {
       signal: request.signal,
+      requireCloudPlan:
+        id === "generate_plan" &&
+        request.headers.get(cloudPlanOnlyHeader) === "true",
       onCloudStatus: (status, guided = false) => {
         cloudStatus = status;
         fallback = guided;

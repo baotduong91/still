@@ -12,8 +12,12 @@ import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { AppError } from "@/lib/awp/errors";
 import type { ModelRunOptions, CloudStatus } from "../cloud-status";
-import type { ModelProvider } from "./index";
-import { todayTemperature, todayTokenBudget } from "../today-content";
+import { validateCommentary, type ModelProvider } from "./index";
+import {
+  todayTemperature,
+  todayTokenBudget,
+  wordCount,
+} from "../today-content";
 export const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 export const GROQ_MODEL = "openai/gpt-oss-120b";
 export class GroqDraftError extends AppError {
@@ -66,6 +70,124 @@ export function groqWireSchema(schema: z.ZodType) {
     return result;
   };
   return walk(z.toJSONSchema(schema)) as Parameters<typeof jsonSchema>[0];
+}
+// Ask for the actual paragraphs separately. A single string field routinely
+// produced a 70-word summary even with a 130–180 word prompt on GPT-OSS.
+const reflectionSentence = z
+  .string()
+  .describe(
+    "One complete, specific sentence of 18–22 words, using original language without quotations.",
+  );
+const paragraph = z.strictObject({
+  thought: reflectionSentence,
+  development: reflectionSentence.describe(
+    "Develop the preceding thought with a second complete sentence of 18–22 words.",
+  ),
+});
+const prayerSentence = z
+  .string()
+  .describe("One complete sentence of 13–17 words addressed to God.");
+const reflectionParts = z.strictObject({
+  observation: paragraph,
+  setting: paragraph,
+  insight: paragraph,
+  detail: paragraph,
+  application: paragraph,
+});
+const prayerParts = z.strictObject({
+  address: prayerSentence,
+  response: prayerSentence,
+  gratitude: prayerSentence.describe(
+    "One standalone sentence of thanksgiving in 10–14 words.",
+  ),
+  petition: prayerSentence,
+});
+const composition = z.strictObject({
+  days: z.array(
+    z.strictObject({
+      number: z.number().int(),
+      reflection: reflectionParts,
+      prayer: prayerParts,
+      action: z.string(),
+    }),
+  ),
+});
+// Choose complete, model-written units. Never cut a sentence or pad a day
+// with stock prose. If no variant fits, the normal field repair still runs.
+function chooseProse(
+  variants: string[][],
+  separator: string,
+  minimum: number,
+  maximum: number,
+) {
+  const texts = variants.map((parts) =>
+    parts.map((text) => text.trim()).join(separator),
+  );
+  for (const text of texts) {
+    const count = wordCount(text);
+    if (count < minimum || count > maximum) continue;
+    try {
+      validateCommentary(text);
+      return text;
+    } catch (error) {
+      if (!(error instanceof AppError)) throw error;
+    }
+  }
+  return texts[0];
+}
+function joinParagraph(part: z.infer<typeof paragraph>) {
+  return part.thought.trim() + " " + part.development.trim();
+}
+function assembleComposition(value: unknown) {
+  const parsed = composition.safeParse(value);
+  if (!parsed.success) return value; // The caller still applies the complete domain schema.
+  return {
+    days: parsed.data.days.map(({ reflection, prayer, ...day }) => ({
+      ...day,
+      reflection: chooseProse(
+        [
+          [
+            joinParagraph(reflection.observation),
+            joinParagraph(reflection.setting),
+            joinParagraph(reflection.insight),
+            joinParagraph(reflection.application),
+          ],
+          [
+            joinParagraph(reflection.observation),
+            joinParagraph(reflection.setting),
+            joinParagraph(reflection.insight),
+            joinParagraph(reflection.detail),
+            joinParagraph(reflection.application),
+          ],
+          [
+            joinParagraph(reflection.observation),
+            joinParagraph(reflection.detail),
+            joinParagraph(reflection.insight),
+            joinParagraph(reflection.application),
+          ],
+          [
+            joinParagraph(reflection.observation),
+            joinParagraph(reflection.insight),
+            joinParagraph(reflection.application),
+          ],
+        ],
+        "\n\n",
+        130,
+        180,
+      ),
+      prayer: chooseProse(
+        [
+          [prayer.address, prayer.response, prayer.petition],
+          [prayer.address, prayer.gratitude, prayer.petition],
+          [prayer.address, prayer.response, prayer.gratitude, prayer.petition],
+          [prayer.address, prayer.petition],
+        ],
+        " ",
+        35,
+        55,
+      ),
+    })),
+  };
 }
 export function schemaIssues(error: z.ZodError) {
   return error.issues.map((issue) => ({
@@ -168,14 +290,34 @@ export function createGroqProvider(
       const stage = request.stage;
       const jsonRepair = request.repair?.reason === "schema";
       const planStage = stage === "outline" || stage === "devotional";
-      const outputTokens = planStage
-        ? todayTokenBudget(
-            stage,
-            stage === "outline" ? request.count : request.days.length,
+      const editing =
+        stage === "devotional" &&
+        Array.isArray(request.days) &&
+        request.days.every((day: { maximumNewWords?: number }) =>
+          Number.isFinite(day.maximumNewWords),
+        );
+      const composing = stage === "devotional" && !editing && !request.repair;
+      const wireSchema = groqWireSchema(composing ? composition : schema);
+      // Size an edit by the words requested, not by counting each edited field
+      // as an entire devotional day against Groq's token-per-minute allowance.
+      const outputTokens = editing
+        ? Math.min(
+            4000,
+            900 +
+              request.days.reduce(
+                (sum: number, edit: { maximumNewWords: number }) =>
+                  sum + Math.ceil(2 * edit.maximumNewWords),
+                0,
+              ),
           )
-        : stage === "goals" || stage === "chat-retrieval"
-          ? 512
-          : 1600;
+        : planStage
+          ? todayTokenBudget(
+              stage,
+              stage === "outline" ? request.count : request.days.length,
+            )
+          : stage === "goals" || stage === "chat-retrieval"
+            ? 512
+            : 1600;
       for (;;) {
         let rejectedDraft: unknown;
         try {
@@ -186,13 +328,13 @@ export function createGroqProvider(
             system:
               system +
               (jsonRepair
-                ? ` Return a JSON object matching this schema exactly: ${JSON.stringify(groqWireSchema(schema))}.`
+                ? ` Return a JSON object matching this schema exactly: ${JSON.stringify(wireSchema)}.`
                 : "") +
               " Return only the requested fields. Never use quotation-mark characters in commentary strings. Put canonical references only in the outline reference field, never in reflection, prayer, or context text.",
             prompt,
             output: jsonRepair
               ? Output.json()
-              : Output.object({ schema: jsonSchema(groqWireSchema(schema)) }),
+              : Output.object({ schema: jsonSchema(wireSchema) }),
             // GPT-OSS reasoning shares the completion budget with JSON. A
             // length-limited repair gets headroom without replaying all days.
             maxOutputTokens:
@@ -211,7 +353,9 @@ export function createGroqProvider(
               },
             },
           });
-          const output = result.output;
+          const output = composing
+            ? assembleComposition(result.output)
+            : result.output;
           if (
             stage === "devotional" &&
             JSON.stringify(output).length <= 12_000
@@ -244,8 +388,7 @@ export function createGroqProvider(
               status === 429 &&
               shortRateLimitRetries > 0 &&
               Number.isFinite(seconds) &&
-              seconds >= 0 &&
-              seconds <= 60
+              seconds >= 0
                 ? Math.max(4000, Math.ceil(seconds * 1000))
                 : transientRetries > 0 &&
                     (error instanceof TypeError ||

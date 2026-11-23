@@ -176,12 +176,10 @@ test("Groq rate limiting labels the guided response and never breaks a saved day
   await page
     .getByRole("button", { name: "Begin my journey", exact: true })
     .click();
-  await expect(page.locator("#today-scripture blockquote")).toContainText(
-    todayText,
-  );
-  await expect(
-    page.getByRole("status").filter({ hasText: /Using guided/ }),
-  ).toBeVisible();
+  await expect(page.getByLabel("I’d like to explore…")).toHaveValue("Grow through prayer");
+  await expect(page.getByRole("button", { name: "Retry Groq" })).toBeVisible();
+  await page.getByRole("button", { name: "Use guided study" }).click();
+  await expect(page.locator("#today-scripture blockquote")).toBeVisible();
   await expect(page.locator(".error-banner")).toHaveCount(0);
 });
 

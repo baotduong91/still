@@ -2,6 +2,7 @@ import { openDB } from "idb";
 import { BiblePosition, type BiblePositionType } from "./bible-position";
 import {
   cloudConsentHeader,
+  cloudPlanOnlyHeader,
   cloudStatusHeader,
   cloudFallbackHeader,
   isCloudStatus,
@@ -154,6 +155,9 @@ export async function api<T>(
           signal: options.signal,
           headers: {
             "Content-Type": "application/json",
+            ...(cloud && path === "plans/generate"
+              ? { [cloudPlanOnlyHeader]: "true" }
+              : {}),
             ...(cloud ? { [cloudConsentHeader]: "true" } : {}),
           },
           body: JSON.stringify(body),

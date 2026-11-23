@@ -85,6 +85,7 @@ function Create() {
   const [prompt, setPrompt] = useState(""),
     [days, setDays] = useState(7),
     [busy, setBusy] = useState(false),
+    [cloudProblem, setCloudProblem] = useState(""),
     [available, setAvailable] = useState<TranslationId[]>(["WEB"]),
     [journeyTranslation, setJourneyTranslation] = useState<TranslationId>(
       state.translation,
@@ -107,7 +108,7 @@ function Create() {
       })
       .catch(() => {});
   }, [state.translation, online]);
-  async function generate(e: React.FormEvent) {
+  async function generate(e: React.FormEvent, guided = false) {
     e.preventDefault();
     if (generating.current) return;
     if (!bible) {
@@ -118,51 +119,60 @@ function Create() {
     }
     generating.current = true;
     setBusy(true);
+    setCloudProblem("");
     try {
-      const cloudConsent = await alignCloudConsentForGroq(state, update);
+      const cloudConsent =
+        !guided && (await alignCloudConsentForGroq(state, update));
       const input = {
         prompt,
         days,
         translation: journeyTranslation,
-        provider: selectedProvider({
-          provider: state.provider,
-          cloudConsent,
-        }),
+        provider: guided
+          ? ("curated" as const)
+          : selectedProvider({
+              provider: state.provider,
+              cloudConsent,
+            }),
       };
-      if (online || input.provider === "ollama") {
+      if (guided) {
+        await savePlan(groqGuidedPlan(input, await getBible("WEB")));
+      } else if (online || input.provider === "ollama") {
+        let plan: PlanType;
+        let remote = true;
         try {
-          const { plan } = await api<{ plan: PlanType }>(
-            "plans/generate",
-            input,
-            { cloudConsent },
-          );
-          if (plan.provider === "groq") recordCloudStatus("connected", false);
-          await savePlan(plan, true);
+          ({ plan } = await api<{ plan: PlanType }>("plans/generate", input, {
+            cloudConsent,
+          }));
         } catch (error) {
-          if (
-            input.provider === "cloud" &&
-            readCloudVendor() === "groq" &&
-            recoverable(error)
-          ) {
-            recordCloudStatus("unavailable", true);
-            await savePlan(groqGuidedPlan(input, await getBible("WEB")));
-          } else {
-            if (state.provider !== "curated" || !recoverable(error))
-              throw error;
-            await savePlan(buildGuidedPlan(input, bible));
-          }
-        }
-      } else {
-        if (input.provider === "cloud" && readCloudVendor() === "groq") {
-          recordCloudStatus("unavailable", true);
-          await savePlan(groqGuidedPlan(input, await getBible("WEB")));
-        } else {
-          if (state.provider !== "curated")
-            throw new Error(
-              "Models need a connection. Select the local curated guide in Settings.",
+          if (input.provider === "cloud") {
+            setCloudProblem(
+              error instanceof TypeError
+                ? "The connection was interrupted."
+                : error instanceof Error
+                  ? error.message
+                  : "The cloud request could not be completed.",
             );
-          await savePlan(buildGuidedPlan(input, bible));
+            return;
+          }
+          if (input.provider !== "curated" || !recoverable(error)) throw error;
+          plan = buildGuidedPlan(input, bible);
+          remote = false;
         }
+        if (input.provider === "cloud" && plan.provider === "curated") {
+          setCloudProblem("Groq could not finish this journey.");
+          return;
+        }
+        if (plan.provider === "groq") recordCloudStatus("connected", false);
+        await savePlan(plan, remote);
+      } else if (input.provider === "cloud") {
+        setCloudProblem("Reconnect to generate your journey with Groq.");
+        return;
+      } else {
+        if (input.provider !== "curated")
+          throw new Error(
+            "Models need a connection. Select the local curated guide in Settings.",
+          );
+        await savePlan(buildGuidedPlan(input, bible));
       }
       router.push("/today");
     } catch (e) {
@@ -294,12 +304,27 @@ function Create() {
               online follows your edition when API.Bible access is enabled.
             </p>
           )}
+          {cloudProblem && (
+            <div className="notice" role="status">
+              <p>{cloudProblem}</p>
+              <button
+                type="button"
+                className="text-link"
+                disabled={busy}
+                onClick={(event) => void generate(event, true)}
+              >
+                Use guided study
+              </button>
+            </div>
+          )}
           <Button type="submit" disabled={busy || !bible}>
             {busy
               ? "Preparing your journey…"
               : !bible
                 ? "Loading Scripture…"
-                : "Begin my journey"}
+                : cloudProblem
+                  ? "Retry Groq"
+                  : "Begin my journey"}
             <ArrowRight size={17} />
           </Button>
           <p className="fine-print">
