@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { guidedQuietCopy } from "@/lib/ai/today-content";
 import { generatePlan } from "@/lib/ai/server";
 import { getBible } from "@/lib/bible/server";
 import { handle } from "@/lib/awp/handler";
@@ -7,10 +8,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const references = [
-  "Psalms 13:1-6",
-  "Psalms 42:1-5",
+  "Psalms 13:1-3",
+  "Psalms 42:1-3",
   "Job 1:20-22",
-  "Lamentations 3:19-24",
+  "Lamentations 3:19-21",
   "Romans 8:26-27",
   "Habakkuk 3:17-19",
   "Revelation 21:3-5",
@@ -55,13 +56,13 @@ function content(payload: Payload) {
   return {
     days: payload.days!.map((day) => ({
       number: day.number,
-      reflection: `On day ${day.number}, make space for lament and unanswered questions. Notice the response in the supplied passage without turning it into an easy explanation of every painful experience. Bring an honest observation to prayer.\n\nYou do not need to force certainty before taking a small step. Let one question remain open while you consider a response that is honest, possible, and kind to the limits you carry today.`,
+      reflection: `On day ${day.number}, make space for lament and unanswered questions. Notice the response in the supplied passage without turning it into an easy explanation of every painful experience. Bring an honest observation to prayer.\n\nYou do not need to force certainty before taking a small step. Let one question remain open while you consider a response that is honest, possible, and kind to the limits you carry today. ${guidedQuietCopy(goal, day.number - 1).reflection}`,
       connection: `Relate day ${day.number} to the stated wish to leave room for unanswered questions, without inventing a personal story.`,
       questions: [
         "What does this passage leave open for you?",
         "What response feels honest and manageable today?",
       ],
-      prayer: `God, meet me during day ${day.number} with patience for what remains unresolved and courage to speak honestly. Amen.`,
+      prayer: `God, meet me during day ${day.number} with patience for what remains unresolved and courage to speak honestly. Teach me to listen to the words before me, to love the person who needs my attention, and to depend on your grace when my understanding runs short. Amen.`,
       action: `For day ${day.number}, write a different unanswered question and sit quietly with it before choosing one small act of care.`,
       interpretation:
         "This is devotional interpretation, not Scripture; Christian traditions may differ.",
@@ -184,8 +185,11 @@ describe("Seven-day Groq journey regression", () => {
         calls.slice(1).map((call) => call.days!.map((day) => day.number)),
       ).toEqual([[1, 2, 3], [4, 5, 6], [7]]);
       const bible = await getBible("WEB");
-      for (const day of plan.days)
+      for (const day of plan.days) {
         expect(bible.validate(day.passage)).toBe(true);
+        expect(day.devotionalFormat).toBe("baptist-daily");
+        expect(day.journalPrompt).toBe(day.action);
+      }
       for (const call of calls.slice(1))
         for (const day of call.days!) {
           expect(day.passage).toEqual({
@@ -247,9 +251,11 @@ describe("Seven-day Groq journey regression", () => {
   });
   it.each([
     "short reflection",
+    "short prayer",
     "quoted Scripture",
     "wrong day",
     "duplicate practice",
+    "lightly edited reflection",
     "stock phrase",
     "model source field",
   ])(
@@ -267,6 +273,8 @@ describe("Seven-day Groq journey regression", () => {
         const draft = content(payload);
         if (problem === "short reflection")
           draft.days[0].reflection = "A short thought.";
+        if (problem === "short prayer")
+          draft.days[0].prayer = "Lord, help me trust you.";
         if (problem === "quoted Scripture")
           draft.days[0].prayer =
             "God, help me hear “an invented verse” and respond faithfully.";
@@ -278,6 +286,11 @@ describe("Seven-day Groq journey regression", () => {
           Object.assign(draft.days[0], {
             passage: { text: "Invented anchor" },
           });
+        if (problem === "lightly edited reflection")
+          draft.days[0].reflection = content({
+            ...payload,
+            days: [{ ...payload.days![0], number: 1 }],
+          }).days[0].reflection.replace("On day 1", "During this day");
         if (problem === "duplicate practice")
           draft.days[0].action = content({
             ...payload,
@@ -314,7 +327,7 @@ describe("Seven-day Groq journey regression", () => {
         ],
       },
     });
-    expect(plan.days[0].passage.reference).toBe("Psalms 13:1-6");
+    expect(plan.days[0].passage.reference).toBe("Psalms 13:1-3");
   });
   it("returns a validated guided plan, never invented passages, after both outline attempts fail", async () => {
     const { calls } = mockModel(() => {
@@ -384,12 +397,12 @@ it("retrieves a formatted valid reference exactly without wasting an outline rep
   const { calls } = mockModel((payload) => {
     if (payload.stage !== "outline") return;
     const draft = outline();
-    draft.days[0].reference = "Psalm 13 : 1 – 6";
+    draft.days[0].reference = "Psalm 13 : 1 – 3";
     return completion(draft);
   });
   const plan = await generatePlan(input);
   expect(plan.provider).toBe("groq");
-  expect(plan.days[0].passage.reference).toBe("Psalms 13:1-6");
+  expect(plan.days[0].passage.reference).toBe("Psalms 13:1-3");
   expect(calls.filter((c) => c.stage === "outline")).toHaveLength(1);
 });
 
@@ -459,7 +472,7 @@ it("offers real bounds for invalid starts and keeps verified days during repair"
       ],
     },
   });
-  expect(plan.days[0].passage.reference).toBe("Psalms 13:1-6");
+  expect(plan.days[0].passage.reference).toBe("Psalms 13:1-3");
 });
 
 it("repairs a five-day CSB outline using exact failing field constraints", async () => {

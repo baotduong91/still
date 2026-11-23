@@ -175,7 +175,7 @@ export function createGroqProvider(
               (jsonRepair
                 ? ` Return a JSON object matching this schema exactly: ${JSON.stringify(groqWireSchema(schema))}.`
                 : "") +
-              " Keep every field concise. Today reflections must be 60–80 words in two short paragraphs. Use short passages of at most 8 verses. No extra prose. Never use quotation-mark characters in commentary strings. Put canonical references only in the outline reference field, never in reflection, prayer, or context text.",
+              " Return only the requested fields. Never use quotation-mark characters in commentary strings. Put canonical references only in the outline reference field, never in reflection, prayer, or context text.",
             prompt,
             output: jsonRepair
               ? Output.json()

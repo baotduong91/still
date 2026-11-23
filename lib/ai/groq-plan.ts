@@ -6,11 +6,7 @@ import { validatePlan } from "./orchestrator";
 import { validateCommentary, type ModelProvider } from "./providers";
 import { GroqDraftError, GroqUnavailable } from "./providers/groq";
 import { themes } from "./themes";
-import {
-  todayDevotionalDay,
-  devotionalLens,
-  validateQuietCopy,
-} from "./today-content";
+import { todayDevotionalDay, validateQuietCopy } from "./today-content";
 
 const outlineDay = z.object({
   number: z.number().int().positive(),
@@ -32,6 +28,25 @@ function distinct(values: string[]) {
     ).size === values.length
   );
 }
+// Five-word overlap catches lightly edited copies without penalizing shared
+// biblical vocabulary or ordinary prayer openings.
+function repeatedReflection(texts: string[]) {
+  const previous: Set<string>[] = [];
+  for (const text of texts) {
+    const words = text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+    const phrases = new Set(
+      words.slice(4).map((_, i) => words.slice(i, i + 5).join(" ")),
+    );
+    for (const prior of previous) {
+      let shared = 0;
+      for (const phrase of phrases) if (prior.has(phrase)) shared++;
+      if (shared > 0.8 * (prior.size + phrases.size - shared)) return true;
+    }
+    previous.push(phrases);
+  }
+  return false;
+}
+
 class ReferenceRepair extends AppError {
   constructor(
     public corrections: {
@@ -87,7 +102,7 @@ async function verified<T>(
                       ? { corrections, preserveDays: validDays }
                       : {}),
                     instruction:
-                      "The previous attempt failed verification. Return every requested day exactly once, with unique titles/practices, real short canonical references, and commentary without quotations or reference patterns. Keep prose concise and satisfy every field length.",
+                      "The previous attempt failed verification. Return every requested day exactly once, with unique titles/practices, real short canonical references, and commentary without quotations or reference patterns. For prose repairs rewrite repeated reflections around different textual details and concrete applications. Check 130–180 reflection words, 35–55 prayer words and one writing invitation.",
                   },
                 }
               : {}),
@@ -178,11 +193,15 @@ export async function generateGroqPlan(
       count: input.days,
       installedBooks: bible.books(),
       instruction:
-        "Extract only supported themes/pace and design a coherent progressive journey around this exact goal. Choose one to three supported themes as metadata, not a restriction to a curated curriculum. Supply consecutive day numbers and distinct titles/objectives. Use canonical references in Book Chapter:Verse-Verse format within one chapter, prefer 1–3 verses and never more than 8 verses per passage. No quotes or reference patterns in commentary. Keep context to 1-2 sentences and bridge to one sentence.",
+        "Extract only supported themes/pace and design a coherent progressive journey around this exact goal. Choose one to three supported themes as metadata, not a restriction to a curated curriculum. Supply consecutive day numbers and distinct titles/objectives. Use canonical references in Book Chapter:Verse-Verse format within one chapter, choose 1–3 consecutive verses per passage. Give each day a distinct passage-supported insight in its objective; vary application across the journey. No quotes or reference patterns in commentary. Keep context to 1-2 sentences and bridge to one sentence.",
     },
     (draft) => {
       checkText([draft.title]);
-      if (!distinct(draft.days.map((day) => day.title))) throw draftFailure();
+      if (
+        !distinct(draft.days.map((day) => day.title)) ||
+        !distinct(draft.days.map((day) => day.objective))
+      )
+        throw draftFailure();
       const refs: string[] = [];
       const corrections: ReferenceRepair["corrections"] = [];
       draft.days.forEach((day, index) => {
@@ -191,11 +210,11 @@ export async function generateGroqPlan(
         try {
           const selection = bible.planReference(day.reference);
           const passage = bible.lookup(selection.reference, input.translation);
-          if (passage.verses.length > 8) {
+          if (passage.verses.length > 3) {
             corrections.push({
               day: day.number,
               reference: day.reference,
-              issue: "Choose at most 8 consecutive verses within this chapter.",
+              issue: "Choose at most 3 consecutive verses within this chapter.",
             });
           } else {
             day.reference = passage.reference;
@@ -255,17 +274,18 @@ export async function generateGroqPlan(
         days: batch.map((day, index) => ({
           number: day.number,
           objective: day.objective,
-          lens: devotionalLens(input.prompt, day.number - 1),
-          context: day.context,
           passage: {
             reference: passages[index].reference,
-            translation: "WEB",
+            translation: passages[index].translation,
             text: passages[index].text,
           },
         })),
+        previousOpenings: days.map((day) =>
+          day.reflection.split(/\s+/u).slice(0, 12).join(" "),
+        ),
         previousPractices: days.map((day) => day.action),
         instruction:
-          "Write only these requested days, preserving their original numbers. Make each reflection and practice distinct, grounded in its supplied passage, and specific to the user's stated goal without inventing personal details. Reflection: 60–80 words in two short paragraphs, at most three sentences each. Observe one specific detail in the supplied passage, explain its meaning without unsupported context, and invite a response to God. The lens must serve the passage, not replace it. Prayer: first person, 20–45 words, addressed to God and responding to this passage; use secular contemplation only when explicitly requested. Practice: one accessible micro-habit, 15–35 words. Connection and interpretation: one short sentence each. Two brief optional questions. All prose is interpretation: never quote or reproduce Scripture, use quotation marks, or add Bible reference patterns. Exact Scripture is attached separately.",
+          "Write only these requested days, preserving their original numbers. Use only the retrieved WEB passage to support the daily objective. Vary openings, insights and applications across this batch and earlier days. Aim for 150 words of reflection and 45 words of prayer, addressed to God and responding to this passage. Put the single Write It Down invitation in action. Connection, interpretation and two brief questions are internal plan metadata. Exact Scripture is attached separately.",
       },
       (draft) => {
         draft.days.forEach((day, index) => {
@@ -281,7 +301,7 @@ export async function generateGroqPlan(
           ]);
         });
         if (
-          !distinct([
+          repeatedReflection([
             ...days.map((day) => day.reflection),
             ...draft.days.map((day) => day.reflection),
           ]) ||
@@ -300,7 +320,8 @@ export async function generateGroqPlan(
         ...prose,
         passage: passages[index],
         explanation: day.context,
-        journalPrompt: prose.questions[0],
+        devotionalFormat: "baptist-daily",
+        journalPrompt: prose.action,
         completedAt: null,
         completedDate: null,
       });

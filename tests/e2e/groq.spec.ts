@@ -198,6 +198,8 @@ test("a custom seven-day journey clears an earlier fallback and persists every d
     profile: { ...savedPlan.profile, prompt, focus: prompt },
     days: savedPlan.days.map((day) => ({
       ...day,
+      devotionalFormat: "baptist-daily",
+      action: `What might you write about the passage for day ${day.number}?`,
       reflection: `Lament day ${day.number}: attend to the supplied passage and make room for an honest unanswered question without demanding an easy answer.`,
     })),
   };
@@ -234,6 +236,10 @@ test("a custom seven-day journey clears an earlier fallback and persists every d
   await page.getByRole("button", { name: "Open day 7", exact: true }).click();
   await expect(page.getByText("Day 7 of 7", { exact: true })).toBeVisible();
   await expect(page.locator("#today-reflection")).toContainText("Lament day 7");
+  await expect(page.locator("#reflection-heading")).toHaveText("Reflection");
+  await expect(page.locator("#today-reflection .question-box")).toHaveCount(0);
+  await expect(page.locator("#practice-heading")).toHaveText("Write It Down");
+  await expect(page.locator("#today-practice")).toContainText(plan.days[6].action);
   expect(await quoteText(page.locator("#today-scripture blockquote"))).toBe(
     plan.days[6].passage.verses.at(-1)!.text,
   );
@@ -241,6 +247,10 @@ test("a custom seven-day journey clears an earlier fallback and persists every d
   // Today intentionally opens at the first incomplete day after a reload.
   await page.getByRole("button", { name: "Open day 7", exact: true }).click();
   await expect(page.locator("#today-reflection")).toContainText("Lament day 7");
+  await expect(page.locator("#reflection-heading")).toHaveText("Reflection");
+  await expect(page.locator("#today-reflection .question-box")).toHaveCount(0);
+  await expect(page.locator("#practice-heading")).toHaveText("Write It Down");
+  await expect(page.locator("#today-practice")).toContainText(plan.days[6].action);
   await expect(page.locator(".error-banner")).toHaveCount(0);
 });
 

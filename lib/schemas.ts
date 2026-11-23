@@ -23,6 +23,7 @@ export const Passage = z.object({
   text: z.string(),
 });
 export const Day = z.object({
+  devotionalFormat: z.literal("baptist-daily").optional(),
   number: z.number().int().positive(),
   title: z.string(),
   objective: z.string(),

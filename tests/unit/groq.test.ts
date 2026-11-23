@@ -274,7 +274,12 @@ describe("Groq direct provider integration and consent", () => {
               number: d.number,
               title: d.title,
               objective: d.objective,
-              reference: d.passage.reference,
+              reference:
+                d.passage.verses[0].book +
+                " " +
+                d.passage.verses[0].chapter +
+                ":" +
+                d.passage.verses[0].verse,
               context: d.context,
               bridge: d.bridge,
             })),
@@ -282,13 +287,13 @@ describe("Groq direct provider integration and consent", () => {
         return completion({
           days: guide.days.map((d) => ({
             number: d.number,
-            reflection: `Day ${d.number}: ${d.reflection}`,
+            reflection: `Day ${d.number}: ${d.reflection} Read slowly again and pay attention to a detail you missed. ${d.reflection}`,
             connection: `Connect day ${d.number} to a quiet moment of prayer within your ordinary daily responsibilities.`,
             questions: [
               "What do you notice within the passage today?",
               "What small response feels honest and manageable?",
             ],
-            prayer: `God, guide my attention during day ${d.number} and help me respond with patience and kindness. Amen.`,
+            prayer: `God, guide my attention during day ${d.number} and help me respond with patience and kindness. When I am quick to fill the silence with an answer, give me the grace to listen carefully and to love the neighbor who is before me. Amen.`,
             action: `During day ${d.number}, write one observation and take a quiet moment to consider how it shapes your next step.`,
             interpretation:
               "This is devotional interpretation; Christian traditions may differ in their understanding.",

@@ -34,7 +34,6 @@ import type { PassageType, DayType, PlanType } from "@/lib/schemas";
 import { PracticeWriter } from "./practice-writer";
 import { PrayerWriter } from "./prayer-writer";
 
-const sections = ["Scripture", "Reflection", "Prayer", "Practice"];
 const anchors = [
   "today-scripture",
   "today-reflection",
@@ -54,6 +53,13 @@ export function DailyFlow({
   busy: boolean;
   onComplete: () => Promise<void>;
 }) {
+  const devotional = day.devotionalFormat === "baptist-daily";
+  const sections = [
+    "Scripture",
+    "Reflection",
+    "Prayer",
+    devotional ? "Write It Down" : "Practice",
+  ];
   const { state, online, update } = useApp();
   const { lock } = usePrivacy();
   const voice = privateVoice(state.speechEngine);
@@ -115,7 +121,7 @@ export function DailyFlow({
     { kind: "scripture", ...verseSpeech(passage) },
     {
       kind: "devotional",
-      text: devotionReflectionSpokenText(day),
+      text: devotional ? day.reflection : devotionReflectionSpokenText(day),
       title: day.title,
     },
     { kind: "prayer", text: day.prayer, title: day.title },
@@ -461,7 +467,11 @@ export function DailyFlow({
               day: "numeric",
             }).format(new Date())}
           </p>
-          <h1>Make room for today.</h1>
+          <h1>
+            {devotional
+              ? `Day ${day.number}: ${day.title}`
+              : "Make room for today."}
+          </h1>
         </div>
       )}
 
@@ -494,7 +504,7 @@ export function DailyFlow({
             {passage.reference} · {passage.translation}
           </p>
           <h2 id="verse-heading" tabIndex={-1}>
-            Scripture for today
+            {devotional ? "Today’s Scripture" : "Scripture for today"}
           </h2>
           <blockquote>
             {passage.verses.map((v) => (
@@ -562,19 +572,23 @@ export function DailyFlow({
         </div>
         <div className="devotional-prose">
           <h2 id="reflection-heading" tabIndex={-1}>
-            {day.title}
+            {devotional ? "Reflection" : day.title}
           </h2>
           {day.reflection.split(/\n\s*\n/u).map((paragraph, i) => (
             <p key={i}>{paragraph}</p>
           ))}
-          <div className="question-box">
-            {day.questions.map((q) => (
-              <p key={q}>{q}</p>
-            ))}
-          </div>
-          <p className="fine-print flow-interpretation-note">
-            {day.interpretation}
-          </p>
+          {!devotional && (
+            <>
+              <div className="question-box">
+                {day.questions.map((q) => (
+                  <p key={q}>{q}</p>
+                ))}
+              </div>
+              <p className="fine-print flow-interpretation-note">
+                {day.interpretation}
+              </p>
+            </>
+          )}
         </div>
         {next(2)}
       </section>
@@ -591,7 +605,7 @@ export function DailyFlow({
         </div>
         <div className="devotional-prose">
           <h2 id="prayer-heading" tabIndex={-1}>
-            Come as you are.
+            {devotional ? "Prayer" : "Come as you are."}
           </h2>
           <p className="fine-print">
             A personal prayer or contemplation inspired by today’s reading. This
@@ -618,7 +632,7 @@ export function DailyFlow({
         </div>
         <div className="devotional-prose">
           <h2 id="practice-heading" tabIndex={-1}>
-            Carry it into your day.
+            {devotional ? "Write It Down" : "Carry it into your day."}
           </h2>
           <p>{day.action}</p>
         </div>
