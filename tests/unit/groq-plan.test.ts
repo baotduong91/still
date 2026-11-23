@@ -29,7 +29,16 @@ type Payload = {
   count?: number;
   repair?: {
     reason: string;
-    fieldIssues?: { path: string; code: string; minimum?: number }[];
+    fieldIssues?: {
+      path: string;
+      code: string;
+      minimum?: number;
+      actualWords?: number;
+      minimumWords?: number;
+      maximumWords?: number;
+    }[];
+    rejectedDraft?: ReturnType<typeof content>;
+    wordEdits?: { path: string; edit: string }[];
   };
   goal: string;
   days?: {
@@ -57,15 +66,9 @@ function content(payload: Payload) {
     days: payload.days!.map((day) => ({
       number: day.number,
       reflection: `On day ${day.number}, make space for lament and unanswered questions. Notice the response in the supplied passage without turning it into an easy explanation of every painful experience. Bring an honest observation to prayer.\n\nYou do not need to force certainty before taking a small step. Let one question remain open while you consider a response that is honest, possible, and kind to the limits you carry today. ${guidedQuietCopy(goal, day.number - 1).reflection}`,
-      connection: `Relate day ${day.number} to the stated wish to leave room for unanswered questions, without inventing a personal story.`,
-      questions: [
-        "What does this passage leave open for you?",
-        "What response feels honest and manageable today?",
-      ],
+
       prayer: `God, meet me during day ${day.number} with patience for what remains unresolved and courage to speak honestly. Teach me to listen to the words before me, to love the person who needs my attention, and to depend on your grace when my understanding runs short. Amen.`,
       action: `For day ${day.number}, write a different unanswered question and sit quietly with it before choosing one small act of care.`,
-      interpretation:
-        "This is devotional interpretation, not Scripture; Christian traditions may differ.",
     })),
   };
 }
@@ -110,8 +113,8 @@ function mockModel(
         "Let observation, interpretation, and a personal response flow naturally",
       );
       if (payload.stage === "devotional") {
-        expect(JSON.stringify(payload)).toContain(
-          "addressed to God and responding to this passage",
+        expect(JSON.stringify(payload)).toMatch(
+          /three full sentences addressed to God|targetNewWords/,
         );
         expect(JSON.stringify(payload)).not.toContain("Stoic attention");
       }
@@ -303,12 +306,128 @@ describe("Seven-day Groq journey regression", () => {
       expect(calls.filter((call) => call.days?.[0].number === 4)).toHaveLength(
         2,
       );
+      const repair = calls.find((call) => call.repair)?.repair;
+      if (problem === "short reflection") {
+        expect(repair?.fieldIssues).toContainEqual({
+          path: "days.0.reflection",
+          code: "custom",
+          actualWords: 3,
+          minimumWords: 130,
+          maximumWords: 180,
+        });
+        expect(repair?.wordEdits).toContainEqual({
+          path: "days.0.reflection",
+          edit: expect.stringContaining("Add about 152 words"),
+        });
+        expect(repair?.rejectedDraft?.days[0].reflection).toBe(
+          "A short thought.",
+        );
+      }
+      if (problem === "short prayer") {
+        expect(repair?.fieldIssues).toContainEqual({
+          path: "days.0.prayer",
+          code: "custom",
+          actualWords: 5,
+          minimumWords: 35,
+          maximumWords: 55,
+        });
+        expect(repair?.rejectedDraft?.days[0].prayer).toBe(
+          "Lord, help me trust you.",
+        );
+      }
       expect(
         plan.days.every((day) => !day.prayer.includes("invented verse")),
       ).toBe(true);
       expect(new Set(plan.days.map((day) => day.action)).size).toBe(7);
     },
   );
+  it("can recover a second word-count miss without replaying accepted batches", async () => {
+    let attempts = 0;
+    let expansions = 0;
+    const { calls } = mockModel((payload) => {
+      if (Array.isArray(payload.days) && "targetNewWords" in payload.days[0]) {
+        if (++expansions === 1)
+          return completion({ additions: ["Remember this."] });
+        return completion({
+          additions: [
+            "Remember the person who is still waiting for an answer. Give that person your attention for a moment, without promising that you can resolve the situation today.",
+          ],
+        });
+      }
+      if (payload.days?.[0].number !== 4 || ++attempts > 2) return;
+      const draft = content(payload);
+      draft.days[2].reflection = draft.days[2].reflection
+        .split(/\s+/u)
+        .slice(0, attempts === 1 ? 127 : 128)
+        .join(" ");
+      return completion(draft);
+    });
+    const plan = await generatePlan(input);
+    expect(plan.provider).toBe("groq");
+    expect(calls.map((call) => call.days?.[0].number)).toEqual([
+      undefined,
+      1,
+      4,
+      undefined,
+      undefined,
+      7,
+    ]);
+    expect(calls[4].days).toMatchObject([
+      { index: 2, minimumNewWords: 1, targetNewWords: 26, maximumNewWords: 51 },
+    ]);
+    expect(plan.days[5].reflection).toContain(
+      "Remember the person who is still waiting",
+    );
+  });
+  it("rewrites only the reflection that contains a quotation", async () => {
+    let broken = false;
+    const { calls } = mockModel((payload) => {
+      if (payload.days?.[0] && "targetNewWords" in payload.days[0]) {
+        const edit = payload.days[0] as unknown as { day: { number: number } };
+        return completion({
+          additions: [
+            content({
+              ...payload,
+              days: [edit.day as NonNullable<Payload["days"]>[number]],
+            }).days[0].reflection,
+          ],
+        });
+      }
+      if (payload.days?.[0].number !== 4 || broken) return;
+      broken = true;
+      const draft = content(payload);
+      draft.days[1].reflection += " “An unverified quotation.”";
+      return completion(draft);
+    });
+    const plan = await generatePlan(input);
+    expect(plan.provider).toBe("groq");
+    expect(plan.days[4].reflection).not.toContain("unverified quotation");
+    expect(calls[3].days).toMatchObject([
+      {
+        index: 1,
+        field: "reflection",
+        operation: "replace",
+        day: { number: 5 },
+      },
+    ]);
+  });
+  it("repairs a bad reference after an outline schema retry", async () => {
+    const { calls } = mockModel((payload, index) => {
+      if (index === 1) return completion({ days: [] });
+      if (index !== 2) return;
+      const draft = outline(payload.count);
+      draft.days[0].reference = "Psalm 4:99";
+      return completion(draft);
+    });
+    const plan = await generatePlan(input);
+    expect(plan.provider).toBe("groq");
+    expect(calls.slice(0, 3).map((call) => call.repair?.reason)).toEqual([
+      undefined,
+      "schema",
+      "reference",
+    ]);
+    expect(plan.days[0].passage.reference).toBe("Psalms 13:1-3");
+  });
   it("repairs a bad reference in the outline before composing any devotional content", async () => {
     const { calls } = mockModel((_payload, index) => {
       if (index !== 1) return;
@@ -468,7 +587,10 @@ it("offers real bounds for invalid starts and keeps verified days during repair"
   expect(calls[1]).toMatchObject({
     repair: {
       corrections: [
-        expect.objectContaining({ day: 5, validReferences: ["Psalms 4:1-8"] }),
+        expect.objectContaining({
+          day: 5,
+          validReferences: ["Psalms 4:1-3", "Psalms 4:4-6", "Psalms 4:7-8"],
+        }),
       ],
     },
   });
@@ -509,11 +631,17 @@ it("repairs a five-day CSB outline using exact failing field constraints", async
   expect(plan.days.every((day) => bible.validate(day.passage))).toBe(true);
 });
 
-it("keeps a verified five-day journey when Groq supplies extra valid theme metadata", async () => {
+it("keeps a verified five-day journey when Groq supplies extra or unknown theme labels", async () => {
   const { calls } = mockModel((payload) => {
     if (payload.stage !== "outline") return;
     const draft = outline(payload.count);
-    draft.themes = ["prayer", "gratitude", "patience", "forgiveness"];
+    draft.themes = [
+      "prayer",
+      "everyday worship",
+      " Gratitude ",
+      "patience",
+      "forgiveness",
+    ];
     return completion(draft);
   });
   const plan = await generatePlan({ ...input, days: 5, translation: "CSB" });

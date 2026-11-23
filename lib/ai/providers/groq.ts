@@ -24,7 +24,11 @@ export class GroqDraftError extends AppError {
       code: string;
       minimum?: number;
       maximum?: number;
+      actualWords?: number;
+      minimumWords?: number;
+      maximumWords?: number;
     }[] = [],
+    public rejectedDraft?: unknown,
   ) {
     super(
       "PLAN_GENERATION_FAILED",
@@ -63,12 +67,19 @@ export function groqWireSchema(schema: z.ZodType) {
   };
   return walk(z.toJSONSchema(schema)) as Parameters<typeof jsonSchema>[0];
 }
-function schemaIssues(error: z.ZodError) {
+export function schemaIssues(error: z.ZodError) {
   return error.issues.map((issue) => ({
     path: issue.path.join("."),
     code: issue.code,
     ...("minimum" in issue ? { minimum: Number(issue.minimum) } : {}),
     ...("maximum" in issue ? { maximum: Number(issue.maximum) } : {}),
+    ...(issue.code === "custom" && typeof issue.params?.actualWords === "number"
+      ? {
+          actualWords: issue.params.actualWords,
+          minimumWords: Number(issue.params.minimumWords),
+          maximumWords: Number(issue.params.maximumWords),
+        }
+      : {}),
   }));
 }
 export class GroqUnavailable extends AppError {
@@ -87,6 +98,7 @@ export function createGroqProvider(
   const key = process.env.GROQ_API_KEY?.trim();
   const deadline = Date.now() + 240_000;
   let transientRetries = 2;
+  let shortRateLimitRetries = 8;
   const model = () => {
     if (!key) throw new GroqUnavailable("unavailable");
     return createGroq({ apiKey: key, baseURL: GROQ_BASE_URL })(GROQ_MODEL);
@@ -104,7 +116,7 @@ export function createGroqProvider(
       ),
       ...(options.signal ? [options.signal] : []),
     ]);
-  const failed = (error: unknown): never => {
+  const failed = (error: unknown, rejectedDraft?: unknown): never => {
     if (options.signal?.aborted) throw error;
     if (NoObjectGeneratedError.isInstance(error)) {
       let cause: unknown = error.cause;
@@ -127,7 +139,7 @@ export function createGroqProvider(
       );
     }
     if (error instanceof z.ZodError)
-      throw new GroqDraftError("schema", schemaIssues(error));
+      throw new GroqDraftError("schema", schemaIssues(error), rejectedDraft);
     if (NoOutputGeneratedError.isInstance(error))
       throw new GroqDraftError("schema");
     if (APICallError.isInstance(error) && error.statusCode === 400) {
@@ -165,6 +177,7 @@ export function createGroqProvider(
           ? 512
           : 1600;
       for (;;) {
+        let rejectedDraft: unknown;
         try {
           if (options.signal?.aborted) throw options.signal.reason;
           if (Date.now() >= deadline) throw new GroqUnavailable("unavailable");
@@ -198,7 +211,14 @@ export function createGroqProvider(
               },
             },
           });
-          const parsed = schema.parse(result.output);
+          const output = result.output;
+          if (
+            stage === "devotional" &&
+            JSON.stringify(output).length <= 12_000
+          ) {
+            rejectedDraft = output;
+          }
+          const parsed = schema.parse(output);
           if (planStage)
             console.info("[Still Groq request]", {
               stage,
@@ -212,7 +232,7 @@ export function createGroqProvider(
           // One small retry boundary for network/5xx failures and short token
           // windows. Long/daily limits return the honest guided fallback. No
           // provider switching, and no retries after cancellation/deadline.
-          if (!options.signal?.aborted && planStage && transientRetries > 0) {
+          if (!options.signal?.aborted && planStage) {
             const status = APICallError.isInstance(error)
               ? error.statusCode
               : undefined;
@@ -222,16 +242,19 @@ export function createGroqProvider(
             const seconds = retryAfter ? Number(retryAfter) : NaN;
             const wait =
               status === 429 &&
+              shortRateLimitRetries > 0 &&
               Number.isFinite(seconds) &&
               seconds >= 0 &&
               seconds <= 60
-                ? Math.max(100, Math.ceil(seconds * 1000))
-                : error instanceof TypeError ||
-                    (status !== undefined && status >= 500)
+                ? Math.max(4000, Math.ceil(seconds * 1000))
+                : transientRetries > 0 &&
+                    (error instanceof TypeError ||
+                      (status !== undefined && status >= 500))
                   ? 1000
                   : undefined;
             if (wait !== undefined && Date.now() + wait + 5000 < deadline) {
-              transientRetries--;
+              if (status === 429) shortRateLimitRetries--;
+              else transientRetries--;
               console.warn("[Still Groq request]", {
                 stage,
                 outcome: "retry",
@@ -242,7 +265,7 @@ export function createGroqProvider(
               continue;
             }
           }
-          return failed(error);
+          return failed(error, rejectedDraft);
         }
       }
     },

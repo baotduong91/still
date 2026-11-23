@@ -54,10 +54,16 @@ export const quietReflection = z
 function wordRange(min: number, max: number) {
   return z
     .string()
-    .refine(
-      (text) => wordCount(text) >= min && wordCount(text) <= max,
-      `Must contain ${min}–${max} words.`,
-    )
+    .superRefine((text, ctx) => {
+      const actualWords = wordCount(text);
+      if (actualWords < min || actualWords > max) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Must contain ${min}–${max} words.`,
+          params: { actualWords, minimumWords: min, maximumWords: max },
+        });
+      }
+    })
     .describe(`${min}–${max} words`);
 }
 
@@ -65,8 +71,6 @@ export const todayDevotionalDay = z
   .object({
     number: z.number().int().positive(),
     reflection: wordRange(130, 180),
-    connection: z.string().min(15).max(200),
-    questions: z.array(z.string().min(10).max(140)).length(2),
     prayer: wordRange(35, 55),
     action: z
       .string()
@@ -76,20 +80,12 @@ export const todayDevotionalDay = z
         (text) => text.trim().split(/(?<=[.!?])\s+(?=[A-Z])/u).length === 1,
         "Use one writing invitation.",
       ),
-    interpretation: z.string().min(20).max(200),
   })
   .strict();
 
 export function validateQuietCopy(day: z.infer<typeof todayDevotionalDay>) {
   todayDevotionalDay.parse(day);
-  for (const value of [
-    day.reflection,
-    day.connection,
-    day.prayer,
-    day.action,
-    day.interpretation,
-    ...day.questions,
-  ])
+  for (const value of [day.reflection, day.prayer, day.action])
     if (cliche.test(value))
       throw new AppError(
         "PLAN_GENERATION_FAILED",

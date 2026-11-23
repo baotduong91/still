@@ -4,7 +4,11 @@ import { GenerateInput, type PlanType, type DayType } from "@/lib/schemas";
 import { AppError } from "@/lib/awp/errors";
 import { validatePlan } from "./orchestrator";
 import { validateCommentary, type ModelProvider } from "./providers";
-import { GroqDraftError, GroqUnavailable } from "./providers/groq";
+import {
+  GroqDraftError,
+  GroqUnavailable,
+  schemaIssues,
+} from "./providers/groq";
 import { themes } from "./themes";
 import { todayDevotionalDay, validateQuietCopy } from "./today-content";
 
@@ -60,14 +64,82 @@ class ReferenceRepair extends AppError {
     super("SCRIPTURE_NOT_FOUND", "Outline references need correction.");
   }
 }
-function draftFailure() {
-  return new GroqDraftError("validation");
+function draftFailure(code?: string, path = "days") {
+  return new GroqDraftError("validation", code ? [{ path, code }] : []);
 }
 function repairReason(error: unknown) {
   if (error instanceof GroqDraftError) return error.reason;
   if (error instanceof AppError && error.code === "SCRIPTURE_NOT_FOUND")
     return "reference";
   return "validation";
+}
+
+async function repairDevotionalFields(
+  provider: ModelProvider,
+  system: string,
+  payload: Record<string, unknown>,
+  original: unknown,
+  issues: GroqDraftError["issues"],
+) {
+  if (!issues.length || !original || !Array.isArray(payload.days)) return;
+  const draft = structuredClone(original) as {
+    days?: Record<string, unknown>[];
+  };
+  if (!Array.isArray(draft.days)) return;
+  const edits = [];
+  for (const issue of issues) {
+    const match = /^days\.(\d+)\.(reflection|prayer)$/u.exec(issue.path);
+    if (!match) return;
+    const index = Number(match[1]);
+    const field = match[2];
+    const originalText = draft.days[index]?.[field];
+    if (typeof originalText !== "string" || !payload.days[index]) return;
+    const minimum = field === "reflection" ? 130 : 35;
+    const maximum = field === "reflection" ? 180 : 55;
+    const count = issue.actualWords;
+    const append =
+      count !== undefined &&
+      count >= (field === "reflection" ? 60 : 17) &&
+      count < minimum;
+    const rewrite =
+      issue.code === "quotation_or_reference" ||
+      (count !== undefined && count > maximum);
+    if (!append && !rewrite) return;
+    const retainedWords = append ? count : 0;
+    edits.push({
+      index,
+      day: payload.days[index],
+      field,
+      originalText,
+      operation: append ? "append" : "replace",
+      minimumNewWords: minimum - retainedWords,
+      targetNewWords: Math.round((minimum + maximum) / 2) - retainedWords,
+      maximumNewWords: maximum - retainedWords,
+    });
+  }
+  const editSchema = z.object({
+    additions: z.array(z.string().min(10)).length(edits.length),
+  });
+  const { additions } = await provider.generate(
+    editSchema,
+    system +
+      " For this editing task, output only the edited strings requested below. Follow each item's explicit word bounds for the newly written text.",
+    JSON.stringify({
+      stage: "devotional",
+      goal: payload.goal,
+      days: edits,
+      instruction:
+        "Return one string per item in the same order. For append, write only a new paragraph that develops an observation or application without repeating the existing prose. For replace, rewrite the whole field in original words, retaining its insight and removing quotations and inline citations. Each new string must be within minimumNewWords and maximumNewWords. Use only the supplied passage.",
+    }),
+  );
+  edits.forEach(({ index, field, operation, originalText }, i) => {
+    const revisedText = additions[i].trim();
+    draft.days![index][field] =
+      operation === "append"
+        ? `${originalText.trim()}\n\n${revisedText}`
+        : revisedText;
+  });
+  return draft;
 }
 
 async function verified<T>(
@@ -80,35 +152,83 @@ async function verified<T>(
 ): Promise<T> {
   let reason: string | undefined;
   let fieldIssues: GroqDraftError["issues"] = [];
+  let rejectedDraft: unknown;
   let corrections: ReferenceRepair["corrections"] | undefined;
   let validDays: ReferenceRepair["validDays"] = [];
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; ; attempt++) {
+    let parsedDraft: T | undefined;
     try {
       // Generation/parsing must be inside the repair boundary too: truncated
       // JSON fails before a draft exists. Only this outline/batch is repeated.
-      const draft = schema.parse(
-        await provider.generate(
-          schema,
-          system,
-          JSON.stringify({
-            ...payload,
-            stage,
-            ...(reason
-              ? {
-                  repair: {
-                    reason,
-                    fieldIssues,
-                    ...(corrections
-                      ? { corrections, preserveDays: validDays }
-                      : {}),
-                    instruction:
-                      "The previous attempt failed verification. Return every requested day exactly once, with unique titles/practices, real short canonical references, and commentary without quotations or reference patterns. For prose repairs rewrite repeated reflections around different textual details and concrete applications. Check 130–180 reflection words, 35–55 prayer words and one writing invitation.",
-                  },
-                }
-              : {}),
-          }),
-        ),
-      );
+      const expanded =
+        attempt > 0 && stage === "devotional"
+          ? await repairDevotionalFields(
+              provider,
+              system,
+              payload,
+              rejectedDraft,
+              fieldIssues,
+            )
+          : undefined;
+      let draft: T;
+      if (expanded) {
+        const parsed = schema.safeParse(expanded);
+        if (!parsed.success)
+          throw new GroqDraftError(
+            "schema",
+            schemaIssues(parsed.error),
+            expanded,
+          );
+        draft = parsed.data;
+      } else {
+        draft = schema.parse(
+          await provider.generate(
+            schema,
+            system,
+            JSON.stringify({
+              ...payload,
+              stage,
+              ...(reason
+                ? {
+                    repair: {
+                      reason,
+                      fieldIssues,
+                      rejectedDraft,
+                      wordEdits: fieldIssues.flatMap(
+                        ({ path, actualWords, minimumWords, maximumWords }) => {
+                          if (
+                            actualWords === undefined ||
+                            minimumWords === undefined ||
+                            maximumWords === undefined
+                          )
+                            return [];
+                          const target = Math.round(
+                            (minimumWords + maximumWords) / 2,
+                          );
+                          const difference = target - actualWords;
+                          return [
+                            {
+                              path,
+                              edit:
+                                difference > 0
+                                  ? `Add about ${difference} words of new, passage-specific substance to this field. Keep its existing insight and develop it with full sentences.`
+                                  : `Remove about ${-difference} words from this field by cutting filler and repetition.`,
+                            },
+                          ];
+                        },
+                      ),
+                      ...(corrections
+                        ? { corrections, preserveDays: validDays }
+                        : {}),
+                      instruction:
+                        "The previous attempt failed verification. Return every requested day exactly once, with unique titles/practices, real short canonical references, and commentary without quotations or reference patterns. When rejectedDraft is present, revise it using each fieldIssues path and its actualWords as the baseline. Apply the explicit wordEdits to the supplied text. An underlength field needs new sentences, not a restatement of the same length. Copy all unaffected fields verbatim. For quotation_or_reference, rewrite just that string in original words and remove any inline Bible citations. For stock_phrase, replace the stock language with a specific observation. Rewrite any repeated reflections around different textual details and concrete applications. Check 130–180 reflection words, 35–55 prayer words and one writing invitation.",
+                    },
+                  }
+                : {}),
+            }),
+          ),
+        );
+      }
       if (stage === "outline" && validDays.length) {
         const outlined = draft as { days: z.infer<typeof outlineDay>[] };
         outlined.days = outlined.days.map(
@@ -116,6 +236,7 @@ async function verified<T>(
             validDays.find((valid) => valid.number === day.number) ?? day,
         );
       }
+      parsedDraft = draft;
       check(draft);
       return draft;
     } catch (error) {
@@ -130,7 +251,14 @@ async function verified<T>(
         )
       )
         throw error;
+      const previousReason = reason;
       reason = repairReason(error);
+      rejectedDraft =
+        stage === "devotional"
+          ? ((error instanceof GroqDraftError
+              ? error.rejectedDraft
+              : undefined) ?? parsedDraft)
+          : undefined;
       fieldIssues =
         error instanceof GroqDraftError
           ? error.issues
@@ -143,6 +271,24 @@ async function verified<T>(
       corrections =
         error instanceof ReferenceRepair ? error.corrections : undefined;
       validDays = error instanceof ReferenceRepair ? error.validDays : [];
+      // A complete devotional draft can receive bounded repairs.
+      const canRetry =
+        attempt === 0 ||
+        (attempt === 1 &&
+          ((stage === "devotional" &&
+            rejectedDraft !== undefined &&
+            fieldIssues.length > 0) ||
+            (error instanceof ReferenceRepair &&
+              previousReason !== "reference"))) ||
+        (attempt === 2 &&
+          stage === "devotional" &&
+          rejectedDraft !== undefined &&
+          fieldIssues.length > 0 &&
+          fieldIssues.every(
+            (issue) =>
+              issue.code === "quotation_or_reference" ||
+              issue.actualWords !== undefined,
+          ));
       // Operational metadata only. Never log the prompt, draft, passages, key,
       // raw SDK error, or provider response body.
       console.warn("[Still Groq plan]", {
@@ -150,9 +296,9 @@ async function verified<T>(
         attempt: attempt + 1,
         reason,
         fieldIssues,
-        outcome: attempt === 0 ? "repair" : "rejected",
+        outcome: canRetry ? "repair" : "rejected",
       });
-      if (attempt === 1) {
+      if (!canRetry) {
         if (error instanceof ReferenceRepair)
           throw new AppError(
             "PLAN_GENERATION_FAILED",
@@ -166,7 +312,6 @@ async function verified<T>(
       }
     }
   }
-  throw draftFailure();
 }
 
 export async function generateGroqPlan(
@@ -177,9 +322,7 @@ export async function generateGroqPlan(
 ): Promise<PlanType> {
   const schema = z.object({
     title: z.string().min(5).max(100),
-    themes: z
-      .array(z.enum(Object.keys(themes) as [string, ...string[]]))
-      .min(1),
+    themes: z.array(z.string()),
     pace: z.enum(["gentle", "standard"]),
     days: z.array(outlineDay).length(input.days),
   });
@@ -192,8 +335,9 @@ export async function generateGroqPlan(
       goal: input.prompt,
       count: input.days,
       installedBooks: bible.books(),
+      allowedThemes: Object.keys(themes),
       instruction:
-        "Extract only supported themes/pace and design a coherent progressive journey around this exact goal. Choose one to three supported themes as metadata, not a restriction to a curated curriculum. Supply consecutive day numbers and distinct titles/objectives. Use canonical references in Book Chapter:Verse-Verse format within one chapter, choose 1–3 consecutive verses per passage. Give each day a distinct passage-supported insight in its objective; vary application across the journey. No quotes or reference patterns in commentary. Keep context to 1-2 sentences and bridge to one sentence.",
+        "Extract only supported themes/pace and design a coherent progressive journey around this exact goal. Choose one to three entries from allowedThemes as metadata, not a restriction to a curated curriculum. Supply consecutive day numbers and distinct titles/objectives. Use canonical references in Book Chapter:Verse-Verse format within one chapter, choose 1–3 consecutive verses per passage. Give each day a distinct passage-supported insight in its objective; vary application across the journey. No quotes or reference patterns in commentary. Keep context to 1-2 sentences and bridge to one sentence.",
     },
     (draft) => {
       checkText([draft.title]);
@@ -208,7 +352,7 @@ export async function generateGroqPlan(
         if (day.number !== index + 1) throw draftFailure();
         checkText([day.title, day.objective, day.context, day.bridge]);
         try {
-          const selection = bible.planReference(day.reference);
+          const selection = bible.planReference(day.reference, 3);
           const passage = bible.lookup(selection.reference, input.translation);
           if (passage.verses.length > 3) {
             corrections.push({
@@ -229,7 +373,7 @@ export async function generateGroqPlan(
           corrections.push({
             day: day.number,
             reference: day.reference,
-            validReferences: bible.planReference(day.reference).candidates,
+            validReferences: bible.planReference(day.reference, 3).candidates,
             issue:
               error.message +
               " Use an exact installedBooks name and a valid verse range; do not use abbreviations or cross-chapter ranges.",
@@ -285,32 +429,48 @@ export async function generateGroqPlan(
         ),
         previousPractices: days.map((day) => day.action),
         instruction:
-          "Write only these requested days, preserving their original numbers. Use only the retrieved WEB passage to support the daily objective. Vary openings, insights and applications across this batch and earlier days. Aim for 150 words of reflection and 45 words of prayer, addressed to God and responding to this passage. Put the single Write It Down invitation in action. Connection, interpretation and two brief questions are internal plan metadata. Exact Scripture is attached separately.",
+          "Write only these requested days, preserving their original numbers. Use only the retrieved WEB passage to support the daily objective. Vary openings, insights and applications across this batch and earlier days. For each reflection write four developed paragraphs of about 40 words each: notice a concrete detail, explain its setting, develop its meaning, and make one ordinary application. For the prayer aim for 44–48 words across three full sentences addressed to God. Count each day separately before submitting. Put the single Write It Down invitation in action. Exact Scripture is attached separately.",
       },
       (draft) => {
+        const commentaryIssues: GroqDraftError["issues"] = [];
         draft.days.forEach((day, index) => {
-          if (day.number !== batch[index].number) throw draftFailure();
-          validateQuietCopy(day);
-          checkText([
-            day.reflection,
-            day.connection,
-            day.prayer,
-            day.action,
-            day.interpretation,
-            ...day.questions,
-          ]);
+          if (day.number !== batch[index].number)
+            throw draftFailure("wrong_day", `days.${index}.number`);
+          try {
+            validateQuietCopy(day);
+          } catch (error) {
+            if (!(error instanceof AppError)) throw error;
+            throw draftFailure("stock_phrase", `days.${index}`);
+          }
+          for (const [field, value] of Object.entries(day)) {
+            if (typeof value === "number") continue;
+            try {
+              checkText(Array.isArray(value) ? value : [value]);
+            } catch (error) {
+              if (!(error instanceof AppError)) throw error;
+              commentaryIssues.push({
+                code: "quotation_or_reference",
+                path: `days.${index}.${field}`,
+              });
+            }
+          }
         });
+        if (commentaryIssues.length)
+          throw new GroqDraftError("validation", commentaryIssues);
         if (
           repeatedReflection([
             ...days.map((day) => day.reflection),
             ...draft.days.map((day) => day.reflection),
-          ]) ||
+          ])
+        )
+          throw draftFailure("repeated_reflection");
+        if (
           !distinct([
             ...days.map((day) => day.action),
             ...draft.days.map((day) => day.action),
           ])
         )
-          throw draftFailure();
+          throw draftFailure("repeated_writing_prompt");
       },
     );
     batch.forEach((day, index) => {
@@ -320,6 +480,9 @@ export async function generateGroqPlan(
         ...prose,
         passage: passages[index],
         explanation: day.context,
+        connection: day.objective,
+        interpretation: "",
+        questions: ["What stands out in today’s Scripture?", prose.action],
         devotionalFormat: "baptist-daily",
         journalPrompt: prose.action,
         completedAt: null,
@@ -327,6 +490,11 @@ export async function generateGroqPlan(
       });
     });
   }
+  const supportedThemes = [
+    ...new Set(outline.themes.map((theme) => theme.trim().toLowerCase())),
+  ]
+    .filter((theme) => Object.hasOwn(themes, theme))
+    .slice(0, 3);
   // No curated seed is validated or mixed into a generated journey. Only a
   // complete, independently verified model journey receives provider=groq.
   return validatePlan(
@@ -338,7 +506,7 @@ export async function generateGroqPlan(
         focus: input.prompt,
         // Theme ranking is metadata, not Scripture verification. Extra valid
         // themes must not discard an otherwise complete, verified journey.
-        themes: [...new Set(outline.themes)].slice(0, 3),
+        themes: supportedThemes.length ? supportedThemes : ["contemplation"],
         pace: outline.pace,
       },
       translation: input.translation,

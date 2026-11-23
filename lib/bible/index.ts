@@ -97,7 +97,7 @@ export class Bible {
     };
   }
   /** Bounded references grounded in installed verses, for plan selection only. */
-  planReference(input: string) {
+  planReference(input: string, maxVerses = 8) {
     const normalized = input
       .trim()
       .replace(/[–—−]/g, "-")
@@ -110,9 +110,9 @@ export class Bible {
       ...(this.index.get(`${book} ${Number(match[2])}`) ?? []),
     ].sort((a, b) => a.verse - b.verse);
     const candidates: string[] = [];
-    for (let i = 0; i < verses.length; i += 8) {
+    for (let i = 0; i < verses.length; i += maxVerses) {
       const start = verses[i].verse,
-        end = verses[Math.min(i + 7, verses.length - 1)].verse;
+        end = verses[Math.min(i + maxVerses - 1, verses.length - 1)].verse;
       const ref = `${book} ${Number(match[2])}:${start}${end === start ? "" : `-${end}`}`;
       try {
         this.lookup(ref);
@@ -126,7 +126,11 @@ export class Bible {
       requestedEnd = Number(match[4] ?? match[3]);
     if (!verses.some((v) => v.verse === start) || requestedEnd < start)
       return { reference: input, candidates };
-    const end = Math.min(requestedEnd, verses.at(-1)!.verse, start + 7);
+    const end = Math.min(
+      requestedEnd,
+      verses.at(-1)!.verse,
+      start + maxVerses - 1,
+    );
     // Only trim a valid starting selection. Never invent or move its start.
     try {
       const passage = this.lookup(
