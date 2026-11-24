@@ -2944,3 +2944,16 @@ body.still-listening { background: #112d3c; color: #faf5e8; overflow-x: clip; }
   .still-listening .today-player { padding-bottom: 8px; }
   .reader-continuation { scroll-margin-bottom: 240px; }
 }
+
+.today-music-toggle {
+  flex-direction: column;
+  gap: 1px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+.still-listening .today-music-toggle.is-on {
+  background: #e9c47d;
+  border-color: #e9c47d;
+  color: #142a35;
+}

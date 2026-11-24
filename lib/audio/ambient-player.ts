@@ -8,6 +8,7 @@ let buffer: AudioBuffer | null = null;
 let epoch = 0;
 let offset = 0;
 let startedAt = 0;
+let targetVolume = 0;
 let loading: Promise<AudioBuffer> | null = null;
 
 export async function unlockAmbientAudio(): Promise<AudioContext> {
@@ -67,6 +68,7 @@ export async function startAmbientLoop(volume: number) {
   if (token !== epoch) return;
   if (!gain) {
     gain = ctx.createGain();
+    gain.gain.value = 0;
     gain.connect(ctx.destination);
   }
   setAmbientVolume(volume);
@@ -75,22 +77,36 @@ export async function startAmbientLoop(volume: number) {
   const next = ctx.createBufferSource();
   next.buffer = buffer;
   next.loop = true;
+  gain.gain.cancelScheduledValues(ctx.currentTime);
+  gain.gain.setValueAtTime(0, ctx.currentTime);
   next.connect(gain);
   next.start(0, offset % buffer!.duration);
   startedAt = ctx.currentTime;
   source = next;
+  applyAmbientVolume();
 }
 
 export function setAmbientVolume(volume: number) {
-  if (gain && context) {
-    const now = context.currentTime;
-    gain.gain.cancelScheduledValues(now);
-    gain.gain.setValueAtTime(gain.gain.value, now);
-    gain.gain.linearRampToValueAtTime(
-      Math.max(0, Math.min(1, volume)),
-      now + 0.15,
-    );
+  const target = Math.max(0, Math.min(1, volume));
+  if (target === targetVolume) return;
+  targetVolume = target;
+  applyAmbientVolume();
+}
+
+function applyAmbientVolume() {
+  if (!gain || !context || !source) return;
+  const param = gain.gain;
+  const now = context.currentTime;
+  const ducking = targetVolume < param.value;
+  if (typeof param.cancelAndHoldAtTime === "function") {
+    param.cancelAndHoldAtTime(now);
+  } else {
+    const current = param.value;
+    param.cancelScheduledValues(now);
+    param.setValueAtTime(current, now);
   }
+  // Lower the bed promptly for speech and bring it back more gradually.
+  param.linearRampToValueAtTime(targetVolume, now + (ducking ? 0.16 : 0.65));
 }
 
 export function stopAmbientLoop() {

@@ -32,7 +32,9 @@ export function ReadingAudio({
   payload,
   compact = false,
   pending = false,
+  label,
 }: {
+  label?: string;
   pending?: boolean;
   payload: ReadingPayload;
   compact?: boolean;
@@ -44,6 +46,7 @@ export function ReadingAudio({
       reader={reader}
       compact={compact}
       scripturePending={pending}
+      label={label}
     />
   );
 }
@@ -56,8 +59,10 @@ export function ReadingControls({
   scripturePending,
   autoplay,
   onAutoplayChange,
+  label = labels[payload.kind],
 }: {
   payload: ReadingPayload;
+  label?: string;
   reader: ReturnType<typeof useReadingAudio>;
   compact?: boolean;
   minimal?: boolean;
@@ -80,7 +85,6 @@ export function ReadingControls({
     canKeepWaiting,
     keepWaiting,
   } = reader;
-  const label = labels[payload.kind];
   return (
     <div
       className={`scripture-audio${compact ? " reading-audio--compact" : ""}${minimal ? " reading-audio--minimal" : ""}`}

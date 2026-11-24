@@ -8,7 +8,6 @@ import type { useReadingAudio } from "@/components/scripture/use-reading-audio";
 import {
   LoaderCircle,
   Music2,
-  Music4,
   Pause,
   Play,
   RotateCcw,
@@ -67,11 +66,12 @@ export function TodayAudioDock({
     Math.max(0, Math.min(1, state.todayMusicLevel ?? 0.5)) / 0.5,
   );
   const [musicNotice, setMusicNotice] = useState("");
-  function startMusic() {
+  function startMusic(withVoice: boolean) {
     setMusicNotice("");
     void primeAmbientFromGesture(
       true,
       Math.max(0, Math.min(1, state.todayMusicLevel ?? 0.5)) / 0.5,
+      withVoice,
     ).catch(() =>
       setMusicNotice(
         "Music could not start. Tap the music button to try again.",
@@ -107,14 +107,14 @@ export function TodayAudioDock({
   async function transport() {
     if (!voiceOn) {
       setMusicOnlyPlaying(!musicOnlyPlaying);
-      if (!musicOnlyPlaying && ambientOn) startMusic();
+      if (!musicOnlyPlaying && ambientOn) startMusic(false);
       else stopAmbientLoop();
       return;
     }
     // Unlock Web Audio inside the gesture, but never wait for music decoding
     // before starting narration. The bed joins as soon as it is decoded.
     setMusicOnlyPlaying(false);
-    if (!playing && ambientOn) startMusic();
+    if (!playing && ambientOn) startMusic(true);
     await play();
   }
 
@@ -231,17 +231,15 @@ export function TodayAudioDock({
         )}
         <button
           type="button"
-          className={`today-corner-toggle${ambientOn ? " is-on" : ""}`}
+          className={`today-corner-toggle today-music-toggle${ambientOn ? " is-on" : ""}`}
           aria-pressed={ambientOn}
-          aria-label={
-            ambientOn ? "Turn background music off" : "Turn background music on"
-          }
+          aria-label="Background music"
           onClick={() => {
             const next = !ambientOn;
             void update((s) => ({ ...s, todayAmbientOn: next }));
             if (next) {
               setMusicOnlyPlaying(!voiceActive);
-              startMusic();
+              startMusic(voiceActive);
             } else {
               setMusicNotice("");
             }
@@ -251,8 +249,8 @@ export function TodayAudioDock({
             }
           }}
         >
-          {ambientOn ? <Music2 size={22} /> : <Music4 size={22} />}
-          <span className="sr-only">Background music</span>
+          <Music2 size={18} aria-hidden="true" />
+          <span aria-hidden="true">{ambientOn ? "On" : "Off"}</span>
         </button>
       </div>
       <button

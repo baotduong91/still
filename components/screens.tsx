@@ -1089,16 +1089,16 @@ function Chat() {
               </div>
               <p className="chat-answer">{m.response.answer}</p>
               <p className="fine-print">{m.response.interpretation}</p>
-              {m.response.citations.length > 0 &&
-                m.response.interpretation.trim() && (
-                  <ReadingAudio
-                    compact
-                    payload={{
-                      kind: "interpretation",
-                      text: m.response.interpretation,
-                    }}
-                  />
-                )}
+              {m.response.citations.length > 0 && m.response.answer.trim() && (
+                <ReadingAudio
+                  compact
+                  label="answer"
+                  payload={{
+                    kind: "interpretation",
+                    text: m.response.answer,
+                  }}
+                />
+              )}
               {m.response.citations.map((p) => (
                 <details key={p.reference}>
                   <summary>

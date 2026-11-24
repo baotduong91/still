@@ -1,14 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import {
-  setAmbientVolume,
-  startAmbientLoop,
-  stopAmbientLoop,
-} from "@/lib/audio/ambient-player";
+import { startAmbientLoop, stopAmbientLoop } from "@/lib/audio/ambient-player";
 /** Tuned for Angelic Pad Loop @ −17 LUFS; music slider 0.5 scales both gains. */
-const ACTIVE_VOLUME = 0.45;
+const ACTIVE_VOLUME = 0.42;
 /** Background level while narration is playing. */
-const DUCKED_VOLUME = 0.3;
+const DUCKED_VOLUME = 0.18;
 export function useAmbientAudio(
   enabled: boolean,
   voiceActive: boolean,
@@ -31,7 +27,6 @@ export function useAmbientAudio(
           setError("Music could not start. Tap the music button to try again.");
       });
     void start();
-    setAmbientVolume(volume);
     const resume = () => {
       if (document.visibilityState === "visible") void start();
     };
@@ -47,6 +42,10 @@ export function useAmbientAudio(
 export async function primeAmbientFromGesture(
   enabled: boolean,
   volumeScale = 1,
+  voiceActive = true,
 ) {
-  if (enabled) await startAmbientLoop(DUCKED_VOLUME * volumeScale);
+  if (enabled)
+    await startAmbientLoop(
+      (voiceActive ? DUCKED_VOLUME : ACTIVE_VOLUME) * volumeScale,
+    );
 }

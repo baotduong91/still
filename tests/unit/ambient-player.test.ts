@@ -7,9 +7,11 @@ const sources: {
   loop: boolean;
 }[] = [];
 let ctx: { currentTime: number };
+const ramp = vi.fn();
 beforeEach(() => {
   vi.resetModules();
   sources.length = 0;
+  ramp.mockClear();
   vi.stubGlobal(
     "AudioContext",
     class {
@@ -26,7 +28,7 @@ beforeEach(() => {
             value: 0,
             cancelScheduledValues() {},
             setValueAtTime() {},
-            linearRampToValueAtTime: vi.fn(),
+            linearRampToValueAtTime: ramp,
           },
         };
       }
@@ -102,5 +104,24 @@ it("never starts late music when stopped while the file is downloading", async (
   expect(sources).toHaveLength(0);
   await player.startAmbientLoop(0.2);
   expect(sources).toHaveLength(1);
+  player.stopAmbientLoop();
+});
+
+it("fades in at the latest mix level when narration starts during decoding", async () => {
+  let release!: (response: Response) => void;
+  vi.mocked(fetch).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  const player = await import("@/lib/audio/ambient-player");
+  const music = player.startAmbientLoop(0.42);
+  await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+  const narration = player.startAmbientLoop(0.18);
+  release(new Response(new ArrayBuffer(8)));
+  await Promise.all([music, narration]);
+  expect(sources).toHaveLength(1);
+  expect(ramp).toHaveBeenCalledExactlyOnceWith(0.18, 0.65);
   player.stopAmbientLoop();
 });

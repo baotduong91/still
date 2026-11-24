@@ -664,54 +664,63 @@ test("changing step cancels a pending local reader before its audio arrives", as
   ).toBeEnabled();
 });
 
-test("chat interpretation is local and starting a Scripture citation stops it", async ({
+test("the chat answer is read locally without the interpretation note and starting a Scripture citation stops it", async ({
   page,
 }) => {
-  let edgeCalls = 0;
-  await page.context().route("**/api/tts", (route) => {
-    if (route.request().method() === "HEAD")
-      return route.fulfill({ status: 204 });
-    edgeCalls++;
-    return route.fulfill({
-      contentType: "audio/mpeg",
-      body: Buffer.from([0xff, 0xfb, 0x90, 0x00]),
-    });
+  await page.addInitScript(() => {
+    const original = window.fetch;
+    const state = Object.assign(window, { chatEdgeCalls: 0 });
+    window.fetch = function (input, init) {
+      if (String(input) === "/api/tts" && init?.method === "POST") {
+        state.chatEdgeCalls++;
+        return Promise.resolve(
+          new Response(Uint8Array.of(0xff, 0xfb, 0x90, 0x00), {
+            headers: { "Content-Type": "audio/mpeg" },
+          }),
+        );
+      }
+      return original.call(this, input, init);
+    };
   });
+  const edgeCalls = () =>
+    page.evaluate(
+      () => (window as unknown as { chatEdgeCalls: number }).chatEdgeCalls,
+    );
   await page.goto("/chat");
   await page
     .getByLabel("Your Bible question")
     .fill("What does Scripture say about anxiety?");
   await page.getByRole("button", { name: "Send question" }).click();
   await expect(
-    page.getByRole("button", { name: "Read interpretation aloud" }),
+    page.getByRole("button", { name: "Read answer aloud" }),
   ).toBeVisible();
-  const interpretation = (await page
-    .locator(".answer > .fine-print")
+  const answer = (await page
+    .locator(".answer > .chat-answer")
     .textContent())!.trim();
-  await page.getByRole("button", { name: "Read interpretation aloud" }).click();
+  await page.getByRole("button", { name: "Read answer aloud" }).click();
   await expect(
-    page.getByRole("button", { name: "Pause interpretation" }),
+    page.getByRole("button", { name: "Pause answer" }),
   ).toBeVisible();
   expect(
     await page.evaluate(
       () => (window as unknown as { localReading: string }).localReading,
     ),
-  ).toBe(interpretation);
-  expect(edgeCalls).toBe(0);
+  ).toBe(answer);
+  expect(await edgeCalls()).toBe(0);
   await page.locator(".answer summary").first().click();
   await page.getByRole("button", { name: "Play Scripture" }).click();
   await expect(
     page.getByRole("button", { name: "Pause Scripture" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Read interpretation aloud" }),
+    page.getByRole("button", { name: "Read answer aloud" }),
   ).toBeVisible();
   expect(
     await page.evaluate(
       () => (window as unknown as { activeReaders: number }).activeReaders,
     ),
   ).toBe(1);
-  expect(edgeCalls).toBe(1);
+  expect(await edgeCalls()).toBe(1);
 });
 
 test("locking the PIN boundary stops a curated reader", async ({ page }) => {

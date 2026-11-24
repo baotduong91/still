@@ -93,7 +93,13 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
     if (request.url().includes("angelic-pad-loop.mp3")) downloads++;
   });
   await page.goto("/today");
-  await page.getByRole("button", { name: "Turn background music on" }).click();
+  const musicToggle = page.getByRole("button", { name: "Background music" });
+  await expect(musicToggle).toHaveText("Off");
+  const icon = await musicToggle.locator("svg").getAttribute("class");
+  await musicToggle.click();
+  await expect(musicToggle).toHaveAttribute("aria-pressed", "true");
+  await expect(musicToggle).toHaveText("On");
+  await expect(musicToggle.locator("svg")).toHaveAttribute("class", icon!);
   await page
     .getByRole("button", { name: "Play Scripture", exact: true })
     .click();
@@ -142,7 +148,9 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
       ),
     )
     .toBe(2);
-  await page.getByRole("button", { name: "Turn background music off" }).click();
+  await page
+    .getByRole("button", { name: "Background music", pressed: true })
+    .click();
   await expect
     .poll(() =>
       page.evaluate(
@@ -159,7 +167,9 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
     ),
   ).toBeGreaterThan(0.05);
   expect(downloads).toBeGreaterThan(0);
-  await page.getByRole("button", { name: "Turn background music on" }).click();
+  await page
+    .getByRole("button", { name: "Background music", pressed: false })
+    .click();
   await expect
     .poll(() =>
       page.evaluate(
@@ -190,7 +200,9 @@ test("an unavailable music asset reports a quiet error without blocking narratio
     route.fulfill({ status: 503, body: "Unavailable" }),
   );
   await page.goto("/today");
-  await page.getByRole("button", { name: "Turn background music on" }).click();
+  await page
+    .getByRole("button", { name: "Background music", pressed: false })
+    .click();
   await expect(
     page.getByRole("status").filter({ hasText: "Music could not start" }),
   ).toBeVisible();
@@ -233,7 +245,9 @@ test("music has an audible output signal while the online-voice audio element pl
   await page.goto("/settings");
   await page.getByLabel("Reading voice engine").selectOption("edge");
   await page.goto("/today");
-  await page.getByRole("button", { name: "Turn background music on" }).click();
+  await page
+    .getByRole("button", { name: "Background music", pressed: false })
+    .click();
   await page
     .getByRole("button", { name: "Play Scripture", exact: true })
     .click();
@@ -251,7 +265,10 @@ test("music has an audible output signal while the online-voice audio element pl
         return Math.sqrt(pcm.reduce((sum, x) => sum + x * x, 0) / pcm.length);
       }),
     )
-    .toBeGreaterThan(0.025);
+    .toBeGreaterThan(0.008);
+  await expect(
+    page.getByRole("button", { name: "Pause Scripture", exact: true }),
+  ).toBeVisible();
 });
 
 test("pads continue after all four sections and stop explicitly", async ({
@@ -278,7 +295,9 @@ test("pads continue after all four sections and stop explicitly", async ({
     };
   });
   await page.goto("/today");
-  await page.getByRole("button", { name: "Turn background music on" }).click();
+  await page
+    .getByRole("button", { name: "Background music", pressed: false })
+    .click();
   await page
     .getByRole("button", { name: "Play Scripture", exact: true })
     .click();
