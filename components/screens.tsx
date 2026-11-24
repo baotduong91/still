@@ -86,12 +86,15 @@ function Create() {
     [days, setDays] = useState(7),
     [busy, setBusy] = useState(false),
     [cloudProblem, setCloudProblem] = useState(""),
+    [cloudVendor, setCloudVendor] = useState<string | null>(null),
     [available, setAvailable] = useState<TranslationId[]>(["WEB"]),
     [journeyTranslation, setJourneyTranslation] = useState<TranslationId>(
       state.translation,
     );
   const journeyTranslationTouched = useRef(false);
   const generating = useRef(false);
+  const cloudName = cloudVendor === "groq" ? "Groq" : "your cloud model";
+  useEffect(() => setCloudVendor(readCloudVendor()), [state.provider]);
   useEffect(() => {
     if (!online) return;
     api<TranslationsStatus>("translations")
@@ -123,6 +126,8 @@ function Create() {
     try {
       const cloudConsent =
         !guided && (await alignCloudConsentForGroq(state, update));
+      const vendor = readCloudVendor();
+      setCloudVendor(vendor);
       const input = {
         prompt,
         days,
@@ -135,7 +140,11 @@ function Create() {
             }),
       };
       if (guided) {
-        await savePlan(groqGuidedPlan(input, await getBible("WEB")));
+        await savePlan(
+          vendor === "groq"
+            ? groqGuidedPlan(input, await getBible("WEB"))
+            : buildGuidedPlan(input, bible),
+        );
       } else if (online || input.provider === "ollama") {
         let plan: PlanType;
         let remote = true;
@@ -159,13 +168,13 @@ function Create() {
           remote = false;
         }
         if (input.provider === "cloud" && plan.provider === "curated") {
-          setCloudProblem("Groq could not finish this journey.");
+          setCloudProblem("The cloud model could not finish this journey.");
           return;
         }
         if (plan.provider === "groq") recordCloudStatus("connected", false);
         await savePlan(plan, remote);
       } else if (input.provider === "cloud") {
-        setCloudProblem("Reconnect to generate your journey with Groq.");
+        setCloudProblem("Reconnect to generate this journey in the cloud.");
         return;
       } else {
         if (input.provider !== "curated")
@@ -208,8 +217,10 @@ function Create() {
           </p>
           <p className="field-hint">
             {state.provider === "cloud"
-              ? "Describe your season in your own words. Still retrieves exact WEB verses; Groq shapes the journey around your prompt."
-              : "Guided mode accepts a theme such as anxiety or a reference such as John 3:16. Nothing is sent to a cloud model."}
+              ? "Describe your season in your own words. Still retrieves exact WEB verses, and the cloud model shapes the journey around your prompt."
+              : state.provider === "ollama"
+                ? "Your Ollama model drafts the journey around your prompt using retrieved Scripture."
+                : "Guided mode accepts a theme such as anxiety or a reference such as John 3:16."}
           </p>
           <button
             type="button"
@@ -280,7 +291,9 @@ function Create() {
                   ? "Guided study"
                   : state.provider === "ollama"
                     ? "Your Mac · Ollama"
-                    : "Custom journey · Groq"}
+                    : cloudVendor === "groq"
+                      ? "Custom journey · Groq"
+                      : "Custom journey · cloud"}
               </p>
               <Link className="text-link" href="/settings">
                 {state.provider === "cloud"
@@ -299,9 +312,10 @@ function Create() {
           )}
           {state.provider === "cloud" && (
             <p className="notice">
-              Your goal is sent to Groq to draft this {days}-day journey. Verse
-              references are validated against Still’s local WEB Bible; wording
-              online follows your edition when API.Bible access is enabled.
+              {state.cloudConsent
+                ? `Your goal is shared with ${cloudName} to draft this ${days}-day journey.`
+                : "Enable cloud sharing in Settings before sending your goal."}{" "}
+              Still verifies references against the local WEB Bible.
             </p>
           )}
           {cloudProblem && (
@@ -323,7 +337,9 @@ function Create() {
               : !bible
                 ? "Loading Scripture…"
                 : cloudProblem
-                  ? "Retry Groq"
+                  ? cloudVendor === "groq"
+                    ? "Retry Groq"
+                    : "Retry cloud"
                   : "Begin my journey"}
             <ArrowRight size={17} />
           </Button>
@@ -895,10 +911,10 @@ function Chat() {
     text: string;
     citations: PassageType[];
   } | null>(null);
-  const streamAbort = useRef<AbortController | null>(null);
+  const chatRequest = useRef<AbortController | null>(null);
   useEffect(
     () => () => {
-      streamAbort.current?.abort();
+      chatRequest.current?.abort();
     },
     [],
   );
@@ -923,9 +939,13 @@ function Chat() {
       setError("Still is loading Scripture. Wait a moment, then try again.");
       return;
     }
+    if (chatRequest.current) return;
+    const controller = new AbortController();
+    chatRequest.current = controller;
     setBusy(true);
     try {
       const cloudConsent = await alignCloudConsentForGroq(state, update);
+      if (controller.signal.aborted) return;
       const input = {
         question,
         translation: state.onlineScripture ? state.translation : "WEB",
@@ -945,14 +965,14 @@ function Chat() {
       try {
         let useGroq = groq;
         if (online && input.provider === "cloud" && useGroq === null) {
-          const status = await fetch("/api/modes").then((r) => r.json());
+          const status = await fetch("/api/modes", {
+            signal: controller.signal,
+          }).then((r) => r.json());
           recordCloudVendor(status.modes.cloud.vendor);
           useGroq = status.modes.cloud.vendor === "groq";
           setGroq(useGroq);
         }
         if (online && input.provider === "cloud" && useGroq) {
-          const controller = new AbortController();
-          streamAbort.current = controller;
           setDraft({ text: "", citations: [] });
           response = await readChatStream(
             input,
@@ -977,13 +997,14 @@ function Chat() {
             online || input.provider === "ollama"
               ? await api<ChatType>("chat", input, {
                   cloudConsent,
+                  signal: controller.signal,
                 })
               : answerQuestion(input, bible);
           if (!online && input.provider === "cloud")
             recordCloudStatus("unavailable", true);
         }
       } catch (error) {
-        if (streamAbort.current?.signal.aborted) return;
+        if (controller.signal.aborted) return;
         if (
           input.provider === "cloud" &&
           readCloudVendor() === "groq" &&
@@ -996,13 +1017,14 @@ function Chat() {
           response = answerQuestion(input, bible);
         }
       }
+      if (controller.signal.aborted) return;
       setMessages((m) => [...m, { question, response }]);
-      setQuestion("");
+      setQuestion((current) => (current === question ? "" : current));
     } catch (e) {
-      setError((e as Error).message);
+      if (!controller.signal.aborted) setError((e as Error).message);
     } finally {
       setDraft(null);
-      streamAbort.current = null;
+      chatRequest.current = null;
       setBusy(false);
     }
   }
@@ -1089,7 +1111,7 @@ function Chat() {
               </div>
               <p className="chat-answer">{m.response.answer}</p>
               <p className="fine-print">{m.response.interpretation}</p>
-              {m.response.citations.length > 0 && m.response.answer.trim() && (
+              {m.response.answer.trim() && (
                 <ReadingAudio
                   compact
                   label="answer"

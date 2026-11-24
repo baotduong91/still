@@ -296,3 +296,69 @@ test("generation modal freezes the prompt and releases it after failure", async 
   await expect(prompt).toHaveValue("Trust God in everyday moments");
   expect(calls).toBe(1);
 });
+
+test("receiving an answer preserves a follow-up question typed while waiting", async ({
+  page,
+}) => {
+  const followUp = "How can I practice this today?";
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/chat/stream", async (route) => {
+    await pending;
+    await route.fulfill({
+      contentType: "application/x-ndjson",
+      body: JSON.stringify({ type: "result", response }) + "\n",
+    });
+  });
+  await page.goto("/chat");
+  const question = page.getByLabel("Your Bible question");
+  await question.fill("Help me understand prayer.");
+  const sent = page.waitForRequest("**/api/chat/stream");
+  await page.getByRole("button", { name: "Send question" }).click();
+  await sent;
+  await question.fill(followUp);
+  release();
+  await expect(page.locator(".chat-answer")).toHaveText(response.answer);
+  await expect(question).toHaveValue(followUp);
+});
+
+test("leaving Chat cancels a pending guided answer", async ({ page }) => {
+  await page.goto("/settings");
+  await page
+    .getByLabel("How should journeys be written?", { exact: true })
+    .selectOption("curated");
+  await page.goto("/chat");
+  await page.evaluate(() => {
+    const original = window.fetch;
+    window.fetch = function (input, init) {
+      if (String(input) !== "/api/awp/chat")
+        return original.call(this, input, init);
+      sessionStorage.setItem("chat-request-state", "pending");
+      return new Promise<Response>((_, reject) =>
+        init?.signal?.addEventListener(
+          "abort",
+          () => {
+            sessionStorage.setItem("chat-request-state", "aborted");
+            reject(new DOMException("Aborted", "AbortError"));
+          },
+          { once: true },
+        ),
+      );
+    };
+  });
+  await page
+    .getByLabel("Your Bible question")
+    .fill("How can I practice patience?");
+  await page.getByRole("button", { name: "Send question" }).click();
+  const requestState = () =>
+    page.evaluate(() => sessionStorage.getItem("chat-request-state"));
+  await expect.poll(requestState).toBe("pending");
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: "Journal", exact: true })
+    .click();
+  await expect.poll(requestState).toBe("aborted");
+  await expect(page.locator(".error-banner")).toHaveCount(0);
+});

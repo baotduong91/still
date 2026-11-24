@@ -299,58 +299,108 @@ test("personal prayers persist in the journal and WEB is the new default", async
   await expect(page.getByLabel("Your participation")).toBeVisible();
 });
 
-test("cloud requires explicit sharing and sends only to the selected mode", async ({
+test("retrying a failed mobile prayer save preserves the draft and writes one entry", async ({
   page,
 }) => {
-  await page.route("**/api/modes", (r) =>
-    r.fulfill({
-      json: {
-        modes: {
-          guided: { configured: true },
-          ollama: { configured: true, hostedLoopback: false },
-          cloud: { configured: true },
-        },
-        ollamaReachable: null,
-      },
-    }),
-  );
-  const calls: string[] = [];
-  await page.route("**/api/awp/chat", (r) => {
-    calls.push(r.request().postDataJSON().provider);
-    return r.fulfill({
-      json: {
-        answer: "An interpretation from the chosen fixture provider.",
-        citations: [],
-        context: "Test mode routing.",
-        interpretation: "This is interpretation, not a Scripture quotation.",
-        provider: r.request().postDataJSON().provider,
-        limited: true,
-      },
-    });
-  });
-  await page.goto("/settings");
-  await page.getByLabel("Guide", { exact: true }).selectOption("cloud");
-  await page.goto("/chat");
-  await page.getByLabel("Your Bible question").fill("Why is there suffering?");
-  await page.getByRole("button", { name: "Send question" }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/today");
+  await page.getByRole("link", { name: "03 Prayer", exact: true }).click();
+  await page.locator(".flow-personal-prayer > summary").click();
+  const prayer = page.getByLabel("God, today I bring…");
+  const words = "Help me show patience today.";
+  await prayer.fill(words);
+  await page.evaluate((prayerText) => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (
+        this === localStorage &&
+        key === "still-pending-save" &&
+        value.includes(prayerText)
+      ) {
+        Storage.prototype.setItem = original;
+        throw new DOMException(
+          "Storage temporarily unavailable",
+          "QuotaExceededError",
+        );
+      }
+      original.call(this, key, value);
+    };
+  }, words);
+  const save = page.getByRole("button", { name: "Keep this prayer" });
+  await save.click();
   await expect(page.locator(".error-banner")).toContainText(
-    "Enable cloud sharing",
+    /local save did not finish|browser could not save this change/,
   );
-  expect(calls).toEqual([]);
-  await page.goto("/settings");
-  await page.getByRole("checkbox", { name: /I choose to send/ }).check();
-  await page.goto("/chat");
-  await page.getByLabel("Your Bible question").fill("Why is there suffering?");
-  await page.getByRole("button", { name: "Send question" }).click();
-  await expect.poll(() => calls).toEqual(["cloud"]);
-  await page.goto("/settings");
-  await page.getByLabel("Guide", { exact: true }).selectOption("ollama");
-  await page.goto("/chat");
-  await page
-    .getByLabel("Your Bible question")
-    .fill("Help me understand patience");
-  await page.getByRole("button", { name: "Send question" }).click();
-  await expect.poll(() => calls).toEqual(["cloud", "ollama"]);
+  await expect(prayer).toHaveValue(words);
+  await save.click();
+  await expect(
+    page.getByText("Saved privately in your journal on this device."),
+  ).toBeVisible();
+  await expect(page.locator(".error-banner")).toHaveCount(0);
+  await page.goto("/journal");
+  await expect(page.getByText(words, { exact: false })).toHaveCount(1);
+});
+
+test.describe("gateway consent", () => {
+  test.use({ serviceWorkers: "block" });
+
+  test("cloud requires explicit sharing and sends only to the selected mode", async ({
+    page,
+  }) => {
+    await page.context().route("**/api/modes", (r) =>
+      r.fulfill({
+        json: {
+          modes: {
+            guided: { configured: true },
+            ollama: { configured: true, hostedLoopback: false },
+            cloud: { configured: true, vendor: "gateway" },
+          },
+          ollamaReachable: null,
+        },
+      }),
+    );
+    const calls: string[] = [];
+    await page.context().route("**/api/awp/chat", (r) => {
+      calls.push(r.request().postDataJSON().provider);
+      return r.fulfill({
+        json: {
+          answer: "An interpretation from the chosen fixture provider.",
+          citations: [],
+          context: "Test mode routing.",
+          interpretation: "This is interpretation, not a Scripture quotation.",
+          provider: r.request().postDataJSON().provider,
+          limited: true,
+        },
+      });
+    });
+    await page.goto("/settings");
+    await page.getByLabel("Guide", { exact: true }).selectOption("cloud");
+    await page.goto("/chat");
+    await page
+      .getByLabel("Your Bible question")
+      .fill("Why is there suffering?");
+    await page.getByRole("button", { name: "Send question" }).click();
+    await expect(page.locator(".error-banner")).toContainText(
+      "Enable cloud sharing",
+    );
+    expect(calls).toEqual([]);
+    await page.goto("/settings");
+    await page.getByRole("checkbox", { name: /I choose to send/ }).check();
+    await page.goto("/chat");
+    await page
+      .getByLabel("Your Bible question")
+      .fill("Why is there suffering?");
+    await page.getByRole("button", { name: "Send question" }).click();
+    await expect.poll(() => calls).toEqual(["cloud"]);
+    await page.goto("/settings");
+    await page.getByLabel("Guide", { exact: true }).selectOption("ollama");
+    await page.goto("/chat");
+    await page
+      .getByLabel("Your Bible question")
+      .fill("Help me understand patience");
+    await page.getByRole("button", { name: "Send question" }).click();
+    await expect.poll(() => calls).toEqual(["cloud", "ollama"]);
+  });
 });
 
 test("reference-driven guided journeys start offline without a model", async ({

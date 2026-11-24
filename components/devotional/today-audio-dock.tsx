@@ -58,8 +58,10 @@ export function TodayAudioDock({
   // Pause/Stop, the music toggle, and unmount still end it explicitly.
   useEffect(() => {
     if (voiceActive && ambientOn) setMusicOnlyPlaying(true);
+  }, [voiceActive, ambientOn]);
+  useEffect(() => {
     if (reader.status === "paused") setMusicOnlyPlaying(false);
-  }, [voiceActive, ambientOn, reader.status]);
+  }, [reader.status]);
   const musicError = useAmbientAudio(
     ambientOn && (musicOnlyPlaying || voiceActive),
     voiceActive,
@@ -92,8 +94,9 @@ export function TodayAudioDock({
     restartSection,
   } = reader;
 
-  const readingLabel =
-    payload.kind === "scripture"
+  const readingLabel = !voiceOn
+    ? "background music"
+    : payload.kind === "scripture"
       ? "Scripture"
       : payload.kind === "devotional"
         ? "reflection"
@@ -150,10 +153,9 @@ export function TodayAudioDock({
           type="button"
           className="today-play"
           disabled={
-            empty ||
-            status === "loading" ||
-            scripturePending ||
-            (!voiceOn && !ambientOn)
+            voiceOn
+              ? empty || status === "loading" || scripturePending
+              : !ambientOn
           }
           style={
             {
@@ -163,13 +165,15 @@ export function TodayAudioDock({
           aria-label={
             playing
               ? `Pause ${readingLabel}`
-              : payload.kind === "scripture"
-                ? "Play Scripture"
-                : `Read ${readingLabel} aloud`
+              : !voiceOn
+                ? "Play background music"
+                : payload.kind === "scripture"
+                  ? "Play Scripture"
+                  : `Read ${readingLabel} aloud`
           }
           onClick={() => void transport()}
         >
-          {status === "loading" ? (
+          {voiceOn && status === "loading" ? (
             <LoaderCircle className="audio-loading" size={28} />
           ) : playing ? (
             <Pause size={28} />
@@ -210,8 +214,6 @@ export function TodayAudioDock({
               const next = { ...s, todayVoiceOn: !voiceOn };
               return next;
             });
-            setMusicOnlyPlaying(false);
-            stopAmbientLoop();
             if (voiceOn && status !== "idle") stop();
           }}
         >

@@ -333,3 +333,26 @@ test("pads continue after all four sections and stop explicitly", async ({
     )
     .toBe(1);
 });
+
+test("muting narration keeps the enabled pad playing with its own pause and play controls", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 402, height: 874 });
+  await installVoiceHarness(page);
+  await page.goto("/today");
+  await page
+    .getByRole("button", { name: "Background music", pressed: false })
+    .click();
+  await page
+    .getByRole("button", { name: "Play Scripture", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Pause Scripture", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Turn voice reading off" }).click();
+  await page.getByRole("button", { name: "Pause background music" }).click();
+  await page.getByRole("button", { name: "Play background music" }).click();
+  await expect(
+    page.getByRole("button", { name: "Pause background music" }),
+  ).toBeEnabled();
+});

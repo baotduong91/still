@@ -25,7 +25,7 @@ export async function unlockAmbientAudio(): Promise<AudioContext> {
     gain = null;
     source = null;
   }
-  if (context.state !== "running") await context.resume().catch(() => {});
+  if (context.state !== "running") await context.resume();
   return context;
 }
 
@@ -64,6 +64,7 @@ async function loadBuffer(ctx: AudioContext) {
 
 export async function startAmbientLoop(volume: number) {
   const token = epoch;
+  setAmbientVolume(volume);
   const ctx = await unlockAmbientAudio();
   if (token !== epoch) return;
   if (!gain) {
@@ -71,7 +72,6 @@ export async function startAmbientLoop(volume: number) {
     gain.gain.value = 0;
     gain.connect(ctx.destination);
   }
-  setAmbientVolume(volume);
   await loadBuffer(ctx);
   if (token !== epoch || source) return;
   const next = ctx.createBufferSource();

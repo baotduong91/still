@@ -465,7 +465,7 @@ test.describe("deterministic provider requests", () => {
           modes: {
             guided: { configured: true },
             ollama: { configured: true, hostedLoopback: false },
-            cloud: { configured: true },
+            cloud: { configured: true, vendor: "gateway" },
           },
           ollamaReachable: null,
         },
@@ -574,8 +574,22 @@ test.describe("deterministic provider requests", () => {
       await page
         .getByRole("button", { name: "Begin my journey", exact: true })
         .click();
-      await expect(page.locator(".error-banner")).toContainText(
-        "Fixture model unavailable",
+      if (provider === "cloud") {
+        await expect(
+          page
+            .getByRole("status")
+            .filter({ hasText: "Fixture model unavailable" }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("button", { name: "Retry cloud" }),
+        ).toBeEnabled();
+      } else {
+        await expect(page.locator(".error-banner")).toContainText(
+          "Fixture model unavailable",
+        );
+      }
+      await expect(page.getByLabel("I’d like to explore…")).toHaveValue(
+        "fixture failure",
       );
       expect(calls.slice(beforePlanFailure)).toEqual([
         { endpoint: "plans/generate", provider },
