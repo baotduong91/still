@@ -2,6 +2,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowDown,
+  ArrowRight,
+  ChevronLeft,
   ArrowUpRight,
   BookOpen,
   Check,
@@ -46,12 +48,18 @@ export function DailyFlow({
   day,
   busy,
   onComplete,
+  onOpenDay,
+  immersive,
+  setImmersive,
 }: {
   localPassage: PassageType;
   plan: PlanType;
   day: DayType;
   busy: boolean;
-  onComplete: () => Promise<void>;
+  onComplete: (response: string) => Promise<void>;
+  onOpenDay: (index: number) => void;
+  immersive: boolean;
+  setImmersive: (value: boolean) => void;
 }) {
   const devotional = day.devotionalFormat === "baptist-daily";
   const sections = [
@@ -65,13 +73,16 @@ export function DailyFlow({
   const voice = privateVoice(state.speechEngine);
   const { passage, resolving: passageResolving } = usePassage(localPassage);
   const [active, setActive] = useState(0);
-  const [immersive, setImmersive] = useState(false);
+  const previous = plan.days
+    .slice(0, day.number - 1)
+    .reverse()
+    .find((d) => d.completedAt);
+  const nextDay = plan.days[day.number];
   const menu = useRef<HTMLDetailsElement>(null);
   const viewAnchor = useRef<{ element: HTMLElement; top: number } | null>(null);
   useEffect(() => {
     document.body.classList.add("still-listening");
-    return () =>
-      document.body.classList.remove("still-listening", "still-reading");
+    return () => document.body.classList.remove("still-listening");
   }, []);
   useLayoutEffect(() => {
     document.body.classList.toggle("still-reading", immersive);
@@ -83,6 +94,7 @@ export function DailyFlow({
         behavior: "instant",
       });
     }
+    return () => document.body.classList.remove("still-reading");
   }, [immersive]);
   useEffect(() => {
     const dismiss = (event: PointerEvent) => {
@@ -404,9 +416,21 @@ export function DailyFlow({
               <Leaf size={22} />
             </Link>
           )}
-          <span>
-            Day {day.number} of {plan.days.length}
-          </span>
+          <div className="reader-day-position">
+            {previous && (
+              <button
+                type="button"
+                disabled={busy}
+                aria-label={`Revisit completed day ${previous.number}`}
+                onClick={() => onOpenDay(previous.number - 1)}
+              >
+                <ChevronLeft size={17} />
+              </button>
+            )}
+            <span>
+              Day {day.number} of {plan.days.length}
+            </span>
+          </div>
           <details className="listening-menu" ref={menu}>
             <summary aria-label="Listening options">
               <MoreHorizontal size={22} />
@@ -657,9 +681,25 @@ export function DailyFlow({
           )}
         </Button>
         {day.completedAt && (
-          <p className="completion-note">
-            <Check size={18} /> You made space today. That is enough.
-          </p>
+          <div className="reader-continuation">
+            <p role="status">
+              {plan.days.every((d) => d.completedAt)
+                ? "You’ve completed this journey."
+                : "You made space today."}
+            </p>
+            {nextDay ? (
+              <button
+                type="button"
+                onClick={() => onOpenDay(nextDay.number - 1)}
+              >
+                Continue to Day {nextDay.number} <ArrowRight size={16} />
+              </button>
+            ) : (
+              <Link href="/journey">
+                View my journeys <ArrowRight size={16} />
+              </Link>
+            )}
+          </div>
         )}
       </section>
       <div className="today-player" data-voice-ready={privateReady}>

@@ -21,6 +21,7 @@ import { localDate } from "@/lib/utils";
 import type { PlanType } from "@/lib/schemas";
 export function Today() {
   const { state, update, bible, savePlan, online, setError } = useApp();
+  const [immersive, setImmersive] = useState(false);
   const [chosen, setChosen] = useState<number | null>(null),
     [feedback, setFeedback] = useState(""),
     [busy, setBusy] = useState(false),
@@ -48,18 +49,38 @@ export function Today() {
     `${focal.book} ${focal.chapter}:${focal.verse}`,
     state.translation,
   );
-  async function complete() {
+  function openDay(index: number) {
+    if (index < 0 || index >= plan.days.length || busy) return;
+    setChosen(index);
+    setFeedback("");
+    setFeedbackSaved(false);
+    if (window.location.hash.startsWith("#today-")) {
+      history.replaceState(
+        history.state,
+        "",
+        location.pathname + location.search,
+      );
+    }
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "instant" });
+      document.getElementById("verse-heading")?.focus({ preventScroll: true });
+    });
+  }
+  async function complete(response: string) {
+    setChosen(current);
     setBusy(true);
     try {
       const remote = state.remoteIds.includes(plan.id);
       const body = { planId: plan.id, day: day.number, date: localDate() };
       const copy = structuredClone(plan);
+      copy.days[current].practiceResponse = response;
       copy.days[current].completedAt ??= new Date().toISOString();
       copy.days[current].completedDate ??= localDate();
       copy.revision++;
       if (online && remote) {
         try {
           const result = await api<{ plan: PlanType }>("plans/complete", body);
+          result.plan.days[current].practiceResponse = response;
           await savePlan(result.plan);
         } catch (error) {
           if (!recoverable(error)) throw error;
@@ -80,7 +101,6 @@ export function Today() {
             outbox: [...s.outbox, { path: "plans/complete", body }],
           }));
       }
-      setChosen(current);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -132,6 +152,9 @@ export function Today() {
           plan={plan}
           day={day}
           busy={busy}
+          immersive={immersive}
+          setImmersive={setImmersive}
+          onOpenDay={openDay}
           onComplete={complete}
         />
         <aside className="today-aside">
@@ -161,23 +184,7 @@ export function Today() {
                   aria-label={`Open day ${d.number}`}
                   aria-current={current === i ? "step" : undefined}
                   className={`${current === i ? "current" : ""} ${d.completedAt ? "done" : ""}`}
-                  onClick={() => {
-                    setChosen(i);
-                    setFeedback("");
-                    requestAnimationFrame(() =>
-                      document
-                        .getElementById("today-scripture")
-                        ?.scrollIntoView({
-                          block: "start",
-                          behavior: window.matchMedia(
-                            "(prefers-reduced-motion: reduce)",
-                          ).matches
-                            ? "instant"
-                            : "smooth",
-                        }),
-                    );
-                    setFeedbackSaved(false);
-                  }}
+                  onClick={() => openDay(i)}
                 >
                   {d.completedAt ? <Check size={12} /> : d.number}
                 </button>

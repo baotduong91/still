@@ -10,7 +10,7 @@ export function PracticeWriter({
 }: {
   plan: PlanType;
   day: DayType;
-  onComplete: () => Promise<void>;
+  onComplete: (response: string) => Promise<void>;
 }) {
   const { savePlan, setError } = useApp();
   const [text, setText] = useState(day.practiceResponse ?? ""),
@@ -30,8 +30,7 @@ export function PracticeWriter({
         e.preventDefault();
         setBusy(true);
         try {
-          await save();
-          await onComplete();
+          await onComplete(text);
         } catch (e) {
           setError((e as Error).message);
         } finally {

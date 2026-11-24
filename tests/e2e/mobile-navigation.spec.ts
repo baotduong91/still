@@ -187,3 +187,44 @@ test("iPhone 16 Pro navigation keeps settings exit, reader tools and saved Pract
   }
   expect(errors).toEqual([]);
 });
+
+test("complete, continue, revisit and switch tabs directly from the focused reader", async ({
+  page,
+}) => {
+  await installVoiceHarness(page);
+  await page.goto("/today");
+  await page.getByRole("button", { name: "Read", exact: true }).click();
+  await page.getByRole("link", { name: "04 Practice", exact: true }).click();
+  await page
+    .getByLabel("My response for today")
+    .fill("Make time for a neighbor.");
+  await page
+    .getByRole("button", { name: "Complete today", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Continue to Day 2" }).click();
+  await expect(page.locator(".reader-day-position")).toContainText(
+    "Day 2 of 7",
+  );
+  await expect(page.locator("body")).toHaveClass(/still-reading/);
+  await expect(page.locator("#verse-heading")).toBeInViewport();
+  await page.getByRole("button", { name: "Revisit completed day 1" }).click();
+  await page.getByRole("link", { name: "04 Practice", exact: true }).click();
+  await expect(page.getByLabel("My response for today")).toHaveValue(
+    "Make time for a neighbor.",
+  );
+  const nav = page.getByRole("navigation", { name: "Main navigation" });
+  const bounds = await nav.boundingBox();
+  const player = await page.locator(".today-player").boundingBox();
+  expect(player!.y + player!.height).toBeLessThanOrEqual(bounds!.y + 1);
+  await nav.getByRole("link", { name: "Journal", exact: true }).click();
+  await expect(page).toHaveURL(/\/journal$/);
+  await expect(page.locator(".today-player")).toHaveCount(0);
+  await nav.getByRole("link", { name: "Today", exact: true }).click();
+  await expect(page.locator(".daily-flow")).toHaveAttribute(
+    "data-view",
+    "overview",
+  );
+  await expect(page.locator(".reader-day-position")).toContainText(
+    "Day 2 of 7",
+  );
+});
