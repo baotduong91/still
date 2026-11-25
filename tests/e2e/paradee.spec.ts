@@ -37,7 +37,7 @@ test("Today automatically starts Paradee setup and migrates a saved voice select
   await expect(
     page.getByLabel("Reading voice engine").locator("option"),
   ).toHaveText([
-    "Edge + Paradee 1.1 · Heart · recommended",
+    "Paradee 1.1 · Heart · recommended",
     "Edge · Jenny · online preferred",
     "Device voice · instant · no model download",
   ]);

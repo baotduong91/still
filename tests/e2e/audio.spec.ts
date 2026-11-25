@@ -403,36 +403,10 @@ test("two hard Paradee errors offer a device choice without automatically speaki
     page.getByRole("button", { name: "Use device voice · no download" }),
   ).toBeVisible();
 });
-test("only Play sends exact Scripture to Edge; controls and navigation stop audio", async ({
+test("Play reads exact Scripture on Paradee; controls and navigation stop audio", async ({
   page,
 }) => {
-  let sent: { text: string; reference: string } | null = null;
-  // WebKit may omit POST bodies from routed requests controlled by a service worker.
-  // Capture the browser fetch input as well, so the byte assertion stays meaningful.
-  await page.addInitScript(() => {
-    const original = window.fetch;
-    window.fetch = function (input, init) {
-      if (String(input) === "/api/tts" && init?.method === "POST")
-        Object.assign(window, {
-          capturedScripture: JSON.parse(String(init.body)),
-        });
-      return original.call(this, input, init);
-    };
-  });
-  await page.context().route("**/api/tts", (route) => {
-    if (route.request().method() === "HEAD")
-      return route.fulfill({ status: 204 });
-    sent = route.request().postDataJSON();
-    return route.fulfill({
-      contentType: "audio/mpeg",
-      body: Buffer.from([0xff, 0xfb, 0x90, 0x00]),
-    });
-  });
   await page.goto("/today");
-  await expect(
-    page.getByRole("button", { name: "Play Scripture" }),
-  ).toBeVisible();
-  expect(sent).toBeNull();
   const exact = await page
     .locator("blockquote span")
     .first()
@@ -441,16 +415,12 @@ test("only Play sends exact Scripture to Edge; controls and navigation stop audi
   await expect(
     page.getByRole("button", { name: "Pause Scripture" }),
   ).toBeVisible();
-  sent ??= await page.evaluate(
-    () =>
-      (
-        window as unknown as {
-          capturedScripture: { text: string; reference: string };
-        }
-      ).capturedScripture,
+  const spoken = await page.evaluate(() =>
+    (
+      window as unknown as { localVoiceJobs: { text: string | null }[] }
+    ).localVoiceJobs.map((job) => job.text),
   );
-  expect(sent!.text).toBe(exact);
-  expect(sent!.reference).toBe("Matthew 6:34");
+  expect(spoken).toContain(`${exact}\n\nMatthew 6:34`);
   await page.getByLabel("Listening options").click();
   await page.getByLabel("Reading speed").selectOption("1.2");
   await page.getByLabel("Listening options").click();
@@ -470,7 +440,7 @@ test("only Play sends exact Scripture to Edge; controls and navigation stop audi
     ),
   ).toBe(true);
 });
-test("Paradee preference survives reload and falls back locally when online Scripture fails", async ({
+test("Paradee preference survives reload and keeps Today Scripture local", async ({
   page,
 }) => {
   let edgeCalls = 0;
@@ -491,7 +461,7 @@ test("Paradee preference survives reload and falls back locally when online Scri
   await expect(page.locator(".audio-engine")).toContainText(
     "Paradee 1.1 · Heart · WASM",
   );
-  expect(edgeCalls).toBe(1);
+  expect(edgeCalls).toBe(0);
   expect(
     await page.evaluate(() =>
       (
@@ -500,9 +470,7 @@ test("Paradee preference survives reload and falls back locally when online Scri
     ),
   ).toContainEqual(expect.stringContaining("\n\nMatthew 6:34"));
 });
-test("Edge failure falls back to local Paradee with no cloud model request", async ({
-  page,
-}) => {
+test("Today uses Paradee even with Edge selected", async ({ page }) => {
   let cloudCalls = 0;
   await page.context().route("**/api/tts", (r) =>
     r.request().method() === "HEAD"
@@ -517,6 +485,8 @@ test("Edge failure falls back to local Paradee with no cloud model request", asy
     cloudCalls++;
     return r.abort();
   });
+  await page.goto("/settings#reading-voice");
+  await page.getByLabel("Reading voice engine").selectOption("edge");
   await page.goto("/today");
   await page.getByRole("button", { name: "Play Scripture" }).click();
   await expect(
@@ -720,7 +690,7 @@ test("the chat answer is read locally without the interpretation note and starti
       () => (window as unknown as { activeReaders: number }).activeReaders,
     ),
   ).toBe(1);
-  expect(await edgeCalls()).toBe(1);
+  expect(await edgeCalls()).toBe(0);
 });
 
 test("locking the PIN boundary stops a curated reader", async ({ page }) => {
@@ -961,10 +931,14 @@ test("Today is one vertical flow; finishing audio gently moves to reflection wit
   await page.evaluate(() => {
     const players = (
       window as unknown as {
-        testPlayers: { pause: () => void; onended?: () => void }[];
+        testPlayers: {
+          active: boolean;
+          pause: () => void;
+          onended?: () => void;
+        }[];
       }
     ).testPlayers;
-    const player = players.at(-1)!;
+    const player = players.find((player) => player.active)!;
     player.pause();
     player.onended?.();
   });
@@ -1047,9 +1021,13 @@ test("Today preloads the next section and reuses its player at the autoplay hand
   await page.evaluate(() => {
     const player = (
       window as unknown as {
-        testPlayers: { pause: () => void; onended?: () => void }[];
+        testPlayers: {
+          active: boolean;
+          pause: () => void;
+          onended?: () => void;
+        }[];
       }
-    ).testPlayers.at(-1)!;
+    ).testPlayers.find((player) => player.active)!;
     player.pause();
     player.onended?.();
   });
@@ -1061,9 +1039,9 @@ test("Today preloads the next section and reuses its player at the autoplay hand
       (window as unknown as { localVoiceJobs: { mode?: string }[] })
         .localVoiceJobs,
   );
-  // The foreground read consumes the preloaded reflection. Only prayer may
-  // enqueue new work once reflection starts; no redundant synthesis or warm-up.
-  expect(jobsAfterAutoplay.length).toBeLessThanOrEqual(jobsBeforeFlow + 1);
+  // Scripture synthesizes locally and reflection reuses the preloaded player.
+  // Prayer may enqueue one new lookahead job.
+  expect(jobsAfterAutoplay.length).toBeLessThanOrEqual(jobsBeforeFlow + 2);
   expect(
     await page.evaluate(
       () =>

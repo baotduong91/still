@@ -14,9 +14,7 @@ it("keeps Paradee private content on-device and Edge limited to online Scripture
       "interpretation",
     ] as const)
       expect(engineForKind(kind, "paradee", online)).toBe("paradee");
-    expect(engineForKind("scripture", "paradee", online)).toBe(
-      online ? "edge" : "paradee",
-    );
+    expect(engineForKind("scripture", "paradee", online)).toBe("paradee");
   }
   expect(engineForKind("devotional", "device", true)).toBe("device");
 });

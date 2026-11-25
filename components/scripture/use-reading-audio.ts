@@ -24,12 +24,16 @@ function playbackIdentity(payload: ReadingPayload) {
 }
 export function useReadingAudio(
   payload: ReadingPayload,
-  options?: { licensedTextPending?: boolean },
+  options?: { licensedTextPending?: boolean; matchReflectionVoice?: boolean },
 ) {
   const { state, online } = useApp(),
     id = useId(),
     path = usePathname();
-  const voice = privateVoice(state.speechEngine);
+  const preference =
+    options?.matchReflectionVoice && state.speechEngine === "edge"
+      ? "paradee"
+      : state.speechEngine;
+  const voice = privateVoice(preference);
   const [status, setStatus] = useState<Status>("idle"),
     [engine, setEngine] = useState(""),
     [message, setMessage] = useState(""),
@@ -62,7 +66,7 @@ export function useReadingAudio(
   }
   async function prepareNext(next: ReadingPayload, allowDownload = false) {
     // Lookahead is strictly local; it never requests Edge or another cloud voice.
-    if (engineForKind(next.kind, state.speechEngine, online) !== "paradee")
+    if (engineForKind(next.kind, preference, online) !== "paradee")
       return false;
     const text = buildSpokenText(next);
     if (nextAudio.current?.text === text) return true;
@@ -94,11 +98,7 @@ export function useReadingAudio(
   speedRef.current = speed;
   const input = { text: payload.text, reference: payload.reference },
     spoken = buildSpokenText(payload);
-  const preferredEngine = engineForKind(
-    payload.kind,
-    state.speechEngine,
-    online,
-  );
+  const preferredEngine = engineForKind(payload.kind, preference, online);
   const playbackKey = JSON.stringify([
     playbackIdentity(payload),
     state.speechEngine,

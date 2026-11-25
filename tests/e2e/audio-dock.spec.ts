@@ -60,12 +60,23 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
   await page.addInitScript(() => {
     const state = {
       starts: 0,
+      ramps: [] as { value: number; duration: number }[],
       rms: 0,
       stops: 0,
       loops: [] as boolean[],
       fetches: 0,
     };
     Object.assign(window, { ambientTest: state });
+    const createGain = AudioContext.prototype.createGain;
+    AudioContext.prototype.createGain = function () {
+      const node = createGain.call(this);
+      const ramp = node.gain.linearRampToValueAtTime.bind(node.gain);
+      node.gain.linearRampToValueAtTime = (value, endTime) => {
+        state.ramps.push({ value, duration: endTime - this.currentTime });
+        return ramp(value, endTime);
+      };
+      return node;
+    };
     const original = AudioContext.prototype.createBufferSource;
     AudioContext.prototype.createBufferSource = function () {
       const source = original.call(this);
@@ -112,6 +123,15 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
       ),
     )
     .toBe(1);
+  const latestRamp = () =>
+    page.evaluate(() =>
+      (
+        window as unknown as {
+          ambientTest: { ramps: { value: number; duration: number }[] };
+        }
+      ).ambientTest.ramps.at(-1),
+    );
+  await expect.poll(async () => (await latestRamp())?.value).toBe(0.34);
   // At 16x playback this spans the actual decoded loop boundary (~2 seconds).
   await page.waitForTimeout(2300);
   expect(
@@ -127,27 +147,22 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
   await page
     .getByRole("button", { name: "Pause Scripture", exact: true })
     .click();
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          (window as unknown as { ambientTest: { stops: number } }).ambientTest
-            .stops,
-      ),
-    )
-    .toBe(1);
+  await expect.poll(async () => (await latestRamp())?.value).toBe(0.44);
+  expect((await latestRamp())?.duration).toBeCloseTo(0.65, 1);
   await page
     .getByRole("button", { name: "Play Scripture", exact: true })
     .click();
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          (window as unknown as { ambientTest: { starts: number } }).ambientTest
-            .starts,
-      ),
-    )
-    .toBe(2);
+  await expect.poll(async () => (await latestRamp())?.value).toBe(0.34);
+  expect(
+    await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            ambientTest: { starts: number; stops: number };
+          }
+        ).ambientTest,
+    ),
+  ).toMatchObject({ starts: 1, stops: 0 });
   await page
     .getByRole("button", { name: "Background music", pressed: true })
     .click();
@@ -159,7 +174,7 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
             .stops,
       ),
     )
-    .toBe(2);
+    .toBe(1);
   expect(
     await page.evaluate(
       () =>
@@ -178,7 +193,7 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
             .starts,
       ),
     )
-    .toBe(3);
+    .toBe(2);
 
   await page.locator('a[href="/journal"]').first().click();
   await expect
@@ -189,7 +204,7 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
             .stops,
       ),
     )
-    .toBe(3);
+    .toBe(2);
 });
 
 test("an unavailable music asset reports a quiet error without blocking narration", async ({

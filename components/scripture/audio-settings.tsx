@@ -38,19 +38,16 @@ export function AudioSettings() {
           }));
         }}
       >
-        <option value="paradee">
-          Edge + Paradee 1.1 · Heart · recommended
-        </option>
-        <option value="edge">Edge · Jenny · online preferred</option>
+        <option value="paradee">Paradee 1.1 · Heart · recommended</option>
+        <option value="edge">Edge · Jenny · standalone Scripture online</option>
         <option value="device">
           Device voice · instant · no model download
         </option>
       </select>
       <p className="field-hint">
-        Online Scripture uses Edge after you tap Play. Reflections, prayers,
-        practice prompts and offline Scripture use Paradee 1.1 · Heart entirely
-        on-device. Your private reading text is never sent to a server. Device
-        voice is used only when you choose it.
+        Today uses Paradee 1.1 · Heart on-device for Scripture, reflection,
+        prayer, and practice. Edge Jenny is available for standalone Scripture
+        when selected and online. Choose Device voice to use an installed voice.
       </p>
       <p className="field-hint">
         Today automatically downloads the 8.5 MB Paradee model and shared speech

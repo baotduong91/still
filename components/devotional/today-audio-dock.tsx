@@ -55,16 +55,13 @@ export function TodayAudioDock({
   const [musicOnlyPlaying, setMusicOnlyPlaying] = useState(false);
   const playing = voiceOn ? reader.status === "playing" : musicOnlyPlaying;
   // Keep the bed latched through section handoffs and natural completion.
-  // Pause/Stop, the music toggle, and unmount still end it explicitly.
+  // Stop, the music toggle, and unmount end it explicitly.
   useEffect(() => {
     if (voiceActive && ambientOn) setMusicOnlyPlaying(true);
   }, [voiceActive, ambientOn]);
-  useEffect(() => {
-    if (reader.status === "paused") setMusicOnlyPlaying(false);
-  }, [reader.status]);
   const musicError = useAmbientAudio(
     ambientOn && (musicOnlyPlaying || voiceActive),
-    voiceActive,
+    voiceOn && reader.status === "playing",
     Math.max(0, Math.min(1, state.todayMusicLevel ?? 0.5)) / 0.5,
   );
   const [musicNotice, setMusicNotice] = useState("");
@@ -116,8 +113,10 @@ export function TodayAudioDock({
     }
     // Unlock Web Audio inside the gesture, but never wait for music decoding
     // before starting narration. The bed joins as soon as it is decoded.
-    setMusicOnlyPlaying(false);
-    if (!playing && ambientOn) startMusic(true);
+    if (!playing && ambientOn) {
+      setMusicOnlyPlaying(true);
+      startMusic(true);
+    }
     await play();
   }
 

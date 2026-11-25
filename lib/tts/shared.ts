@@ -13,5 +13,5 @@ export function readingText(input: { text: string; reference?: string }) {
 }
 export function firstEngine(preference: SpeechEngine, online: boolean) {
   if (preference === "device") return "device";
-  return online ? "edge" : "paradee";
+  return preference === "edge" && online ? "edge" : "paradee";
 }

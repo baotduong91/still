@@ -2,9 +2,9 @@
 import { useEffect, useState } from "react";
 import { startAmbientLoop, stopAmbientLoop } from "@/lib/audio/ambient-player";
 /** Tuned for Angelic Pad Loop @ −17 LUFS; music slider 0.5 scales both gains. */
-const ACTIVE_VOLUME = 0.42;
+const ACTIVE_VOLUME = 0.44;
 /** Background level while narration is playing. */
-const DUCKED_VOLUME = 0.18;
+const DUCKED_VOLUME = 0.34;
 export function useAmbientAudio(
   enabled: boolean,
   voiceActive: boolean,

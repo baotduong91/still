@@ -141,6 +141,7 @@ export function DailyFlow({
   ];
   const reader = useReadingAudio(payloads[active], {
     licensedTextPending: active === 0 && passageResolving,
+    matchReflectionVoice: true,
   });
   latestReader.current = reader;
   function changeView(focused: boolean) {
@@ -302,11 +303,6 @@ export function DailyFlow({
     setNeedsVoiceDownload(false);
     const timer = setTimeout(async () => {
       if (state.speechEngine === "device") return;
-      // Warm the server runtime without sending any verse or personal text.
-      if (online && ["edge", "paradee"].includes(state.speechEngine))
-        void fetch("/api/tts", { method: "HEAD", cache: "no-store" }).catch(
-          () => {},
-        );
       let stored = await voice.stored().catch(() => false);
       if (!alive) return;
       if (!stored && online) {
