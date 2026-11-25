@@ -62,8 +62,8 @@ export async function assertReachable(target: Locator) {
 
 // Deterministic media adapters: real app routing/cancellation runs, external TTS
 // and multi-minute model compilation don't. Real-engine tests remain opt-in.
-export async function installVoiceHarness(page: Page) {
-  await page.addInitScript(() => {
+export async function installVoiceHarness(page: Page, wavBytes?: ArrayBuffer) {
+  const initialize = (fixtureWav: number[] | null) => {
     const state = {
       localText: [] as string[],
       deviceText: [] as string[],
@@ -92,7 +92,8 @@ export async function installVoiceHarness(page: Page) {
       load() {}
       removeAttribute() {}
     }
-    Object.defineProperty(window, "Audio", { value: AudioStub });
+    if (!fixtureWav)
+      Object.defineProperty(window, "Audio", { value: AudioStub });
     class WorkerStub extends EventTarget {
       timers = new Map<number, ReturnType<typeof setTimeout>>();
       postMessage(input: { id: number; text?: string; mode?: string }) {
@@ -118,7 +119,13 @@ export async function installVoiceHarness(page: Page) {
                     : input.mode === "prime"
                       ? "primed"
                       : "audio",
-                ...(input.text ? { wav: new ArrayBuffer(100) } : {}),
+                ...(input.text
+                  ? {
+                      wav: fixtureWav
+                        ? new Uint8Array(fixtureWav).buffer
+                        : new ArrayBuffer(100),
+                    }
+                  : {}),
               },
             }),
           );
@@ -152,7 +159,11 @@ export async function installVoiceHarness(page: Page) {
         resume() {},
       },
     });
-  });
+  };
+  await page.addInitScript(
+    initialize,
+    wavBytes ? Array.from(new Uint8Array(wavBytes)) : null,
+  );
 }
 
 export async function voiceState(page: Page) {

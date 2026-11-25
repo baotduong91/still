@@ -1,9 +1,8 @@
 "use client";
-import { useEffect, useState, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { useApp } from "@/components/provider";
 import type { ReadingPayload } from "@/lib/tts/reading";
-import { stopAmbientLoop } from "@/lib/audio/ambient-player";
-import { primeAmbientFromGesture, useAmbientAudio } from "./use-ambient-audio";
+import type { useAmbientAudio } from "./use-ambient-audio";
 import type { useReadingAudio } from "@/components/scripture/use-reading-audio";
 import {
   LoaderCircle,
@@ -26,6 +25,7 @@ const sectionLabels: Record<ReadingPayload["kind"], string> = {
 
 export function TodayAudioDock({
   reader,
+  ambient,
   payload,
   contextLabel,
   sectionTitle,
@@ -39,6 +39,7 @@ export function TodayAudioDock({
     seekBy?: (seconds: number) => void;
     restartSection?: () => void;
   };
+  ambient: ReturnType<typeof useAmbientAudio>;
   payload: ReadingPayload;
   contextLabel?: string;
   sectionTitle?: string;
@@ -50,33 +51,7 @@ export function TodayAudioDock({
   const { state, update } = useApp();
   const voiceOn = state.todayVoiceOn !== false;
   const ambientOn = state.todayAmbientOn === true;
-  const voiceActive =
-    voiceOn && (reader.status === "playing" || reader.status === "loading");
-  const [musicOnlyPlaying, setMusicOnlyPlaying] = useState(false);
-  const playing = voiceOn ? reader.status === "playing" : musicOnlyPlaying;
-  // Keep the bed latched through section handoffs and natural completion.
-  // Stop, the music toggle, and unmount end it explicitly.
-  useEffect(() => {
-    if (voiceActive && ambientOn) setMusicOnlyPlaying(true);
-  }, [voiceActive, ambientOn]);
-  const musicError = useAmbientAudio(
-    ambientOn && (musicOnlyPlaying || voiceActive),
-    voiceOn && reader.status === "playing",
-    Math.max(0, Math.min(1, state.todayMusicLevel ?? 0.5)) / 0.5,
-  );
-  const [musicNotice, setMusicNotice] = useState("");
-  function startMusic(withVoice: boolean) {
-    setMusicNotice("");
-    void primeAmbientFromGesture(
-      true,
-      Math.max(0, Math.min(1, state.todayMusicLevel ?? 0.5)) / 0.5,
-      withVoice,
-    ).catch(() =>
-      setMusicNotice(
-        "Music could not start. Tap the music button to try again.",
-      ),
-    );
-  }
+  const playing = voiceOn ? reader.status === "playing" : ambient.playing;
 
   const {
     status,
@@ -106,17 +81,11 @@ export function TodayAudioDock({
 
   async function transport() {
     if (!voiceOn) {
-      setMusicOnlyPlaying(!musicOnlyPlaying);
-      if (!musicOnlyPlaying && ambientOn) startMusic(false);
-      else stopAmbientLoop();
+      if (ambient.playing) ambient.stop();
+      else ambient.start(false);
       return;
     }
-    // Unlock Web Audio inside the gesture, but never wait for music decoding
-    // before starting narration. The bed joins as soon as it is decoded.
-    if (!playing && ambientOn) {
-      setMusicOnlyPlaying(true);
-      startMusic(true);
-    }
+    if (!playing && ambientOn) ambient.start(true);
     await play();
   }
 
@@ -238,16 +207,8 @@ export function TodayAudioDock({
           onClick={() => {
             const next = !ambientOn;
             void update((s) => ({ ...s, todayAmbientOn: next }));
-            if (next) {
-              setMusicOnlyPlaying(!voiceActive);
-              startMusic(voiceActive);
-            } else {
-              setMusicNotice("");
-            }
-            if (!next) {
-              setMusicOnlyPlaying(false);
-              stopAmbientLoop();
-            }
+            if (next) ambient.start(voiceOn && status === "playing");
+            else ambient.stop();
           }}
         >
           <Music2 size={18} aria-hidden="true" />
@@ -258,11 +219,10 @@ export function TodayAudioDock({
         className="today-stop-control"
         type="button"
         aria-label={`Stop ${readingLabel}`}
-        disabled={status === "idle" && !musicOnlyPlaying}
+        disabled={status === "idle" && !ambient.playing}
         onClick={() => {
           stop();
-          setMusicOnlyPlaying(false);
-          stopAmbientLoop();
+          ambient.stop();
         }}
       >
         <Square size={16} />
@@ -290,9 +250,9 @@ export function TodayAudioDock({
               ? "Paradee 1.1 · Heart · on-device"
               : "Edge · online")}
       </span>
-      {!!(message || musicError || musicNotice || voicePreparing) && (
+      {!!(message || ambient.error || voicePreparing) && (
         <p className="audio-status" role="status">
-          {message || musicError || musicNotice || "Preparing private voice…"}
+          {message || ambient.error || "Preparing private voice…"}
         </p>
       )}
     </div>

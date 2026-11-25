@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures";
+import { seedOfflineParadeeAssets } from "./helpers/paradee-cache";
 import { installVoiceHarness } from "./helpers/sanity";
 test.use({
   serviceWorkers: "block",
@@ -70,8 +71,11 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
     const createGain = AudioContext.prototype.createGain;
     AudioContext.prototype.createGain = function () {
       const node = createGain.call(this);
-      const ramp = node.gain.linearRampToValueAtTime.bind(node.gain);
-      node.gain.linearRampToValueAtTime = (value, endTime) => {
+      const param = node.gain;
+      // Retain the instrumented wrapper across WebKit garbage collection.
+      Object.assign(state, { gain: param });
+      const ramp = param.linearRampToValueAtTime.bind(param);
+      param.linearRampToValueAtTime = (value, endTime) => {
         state.ramps.push({ value, duration: endTime - this.currentTime });
         return ramp(value, endTime);
       };
@@ -147,7 +151,7 @@ test("music shares narration controls, loops one decoded buffer and stops on nav
   await page
     .getByRole("button", { name: "Pause Scripture", exact: true })
     .click();
-  await expect.poll(async () => (await latestRamp())?.value).toBe(0.44);
+  await expect.poll(async () => (await latestRamp())?.value).toBe(0.48);
   expect((await latestRamp())?.duration).toBeCloseTo(0.65, 1);
   await page
     .getByRole("button", { name: "Play Scripture", exact: true })
@@ -229,61 +233,79 @@ test("an unavailable music asset reports a quiet error without blocking narratio
   ).toBeVisible();
 });
 
-test("music has an audible output signal while the online-voice audio element plays", async ({
-  page,
-}) => {
-  const { wavBytes } = await import("../../lib/tts/chunks");
-  const samples = Float32Array.from(
-    { length: 24000 * 12 },
-    (_, i) => Math.sin((i / 24000) * 2 * Math.PI * 370) * 0.18,
-  );
-  await page.route("**/api/tts", (route) =>
-    route.request().method() === "HEAD"
-      ? route.fulfill({ status: 204 })
-      : route.fulfill({
-          contentType: "audio/wav",
-          body: Buffer.from(wavBytes(samples)),
-        }),
-  );
-  await page.route("**/huggingface.co/**", (route) => route.abort());
-  await page.addInitScript(() => {
-    const original = AudioContext.prototype.createGain;
-    AudioContext.prototype.createGain = function () {
-      const gain = original.call(this),
-        meter = this.createAnalyser();
-      meter.fftSize = 2048;
-      gain.connect(meter);
-      Object.assign(window, { mixMeter: meter });
-      return gain;
-    };
+test.describe("with ambient music already enabled", () => {
+  test.use({
+    viewport: { width: 402, height: 874 },
+    isMobile: true,
+    hasTouch: true,
+    stateOverrides: {
+      speechEngine: "paradee",
+      setupSeen: true,
+      todayAmbientOn: true,
+    },
   });
-  await page.goto("/settings");
-  await page.getByLabel("Reading voice engine").selectOption("edge");
-  await page.goto("/today");
-  await page
-    .getByRole("button", { name: "Background music", pressed: false })
-    .click();
-  await page
-    .getByRole("button", { name: "Play Scripture", exact: true })
-    .click();
-  await expect(
-    page.getByRole("button", { name: "Pause Scripture", exact: true }),
-  ).toBeVisible();
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const meter = (window as unknown as { mixMeter: AnalyserNode })
-          .mixMeter;
-        if (!meter || meter.context.state !== "running") return 0;
-        const pcm = new Float32Array(meter.fftSize);
-        meter.getFloatTimeDomainData(pcm);
-        return Math.sqrt(pcm.reduce((sum, x) => sum + x * x, 0) / pcm.length);
-      }),
-    )
-    .toBeGreaterThan(0.008);
-  await expect(
-    page.getByRole("button", { name: "Pause Scripture", exact: true }),
-  ).toBeVisible();
+
+  test("Listen mixes an enabled pad with Paradee narration and raises the pad when the voice ends", async ({
+    page,
+  }) => {
+    const { wavBytes } = await import("../../lib/tts/chunks");
+    const samples = Float32Array.from(
+      { length: 24000 * 5 },
+      (_, i) => Math.sin((i / 24000) * 2 * Math.PI * 370) * 0.18,
+    );
+    await installVoiceHarness(page, wavBytes(samples));
+    await page.route("**/huggingface.co/**", (route) => route.abort());
+    await page.addInitScript(() => {
+      const original = AudioContext.prototype.createGain;
+      AudioContext.prototype.createGain = function () {
+        const gain = original.call(this),
+          meter = this.createAnalyser();
+        meter.fftSize = 2048;
+        gain.connect(meter);
+        Object.assign(window, { mixMeter: meter, mixGain: gain.gain });
+        return gain;
+      };
+    });
+    await page.goto("/settings");
+    await seedOfflineParadeeAssets(page, false);
+    const preload = page.waitForResponse("**/angelic-pad-loop.mp3");
+    await page.goto("/today");
+    expect((await preload).ok()).toBe(true);
+    await expect(
+      page.getByRole("button", { name: "Background music", pressed: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("checkbox", { name: "Autoplay next section" })
+      .uncheck();
+    await page.getByRole("button", { name: "Listen", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Pause Scripture", exact: true }),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const meter = (window as unknown as { mixMeter: AnalyserNode })
+            .mixMeter;
+          if (!meter || meter.context.state !== "running") return 0;
+          const pcm = new Float32Array(meter.fftSize);
+          meter.getFloatTimeDomainData(pcm);
+          return Math.sqrt(pcm.reduce((sum, x) => sum + x * x, 0) / pcm.length);
+        }),
+      )
+      .toBeGreaterThan(0.008);
+    await expect(
+      page.getByRole("button", { name: "Pause Scripture", exact: true }),
+    ).toBeVisible();
+    const gain = () =>
+      page.evaluate(
+        () => (window as unknown as { mixGain: AudioParam }).mixGain.value,
+      );
+    await expect.poll(gain).toBeCloseTo(0.34, 2);
+    await expect(
+      page.getByRole("button", { name: "Read reflection aloud", exact: true }),
+    ).toBeVisible();
+    await expect.poll(gain).toBeCloseTo(0.48, 2);
+  });
 });
 
 test("pads continue after all four sections and stop explicitly", async ({

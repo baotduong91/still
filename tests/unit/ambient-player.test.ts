@@ -122,6 +122,6 @@ it("fades in at the latest mix level when narration starts during decoding", asy
   release(new Response(new ArrayBuffer(8)));
   await Promise.all([music, narration]);
   expect(sources).toHaveLength(1);
-  expect(ramp).toHaveBeenCalledExactlyOnceWith(0.18, 0.65);
+  expect(ramp).toHaveBeenCalledExactlyOnceWith(0.18, 0.25);
   player.stopAmbientLoop();
 });

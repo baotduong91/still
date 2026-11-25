@@ -1,51 +1,78 @@
 "use client";
 import { useEffect, useState } from "react";
-import { startAmbientLoop, stopAmbientLoop } from "@/lib/audio/ambient-player";
-/** Tuned for Angelic Pad Loop @ −17 LUFS; music slider 0.5 scales both gains. */
-const ACTIVE_VOLUME = 0.44;
-/** Background level while narration is playing. */
-const DUCKED_VOLUME = 0.34;
+import {
+  preloadAmbientLoop,
+  startAmbientLoop,
+  stopAmbientLoop,
+} from "@/lib/audio/ambient-player";
+
+// The pad is normalized to about −17 LUFS before the music slider and ducking.
+const SOLO_GAIN = 0.48;
+const SPEECH_GAIN = 0.34;
+const musicError = "Music could not start. Tap the music button to try again.";
+
 export function useAmbientAudio(
   enabled: boolean,
-  voiceActive: boolean,
-  volumeScale = 1,
+  narration: "idle" | "loading" | "playing" | "paused",
+  level = 0.5,
 ) {
+  const [playing, setPlaying] = useState(false);
   const [error, setError] = useState("");
+  const volumeScale = Math.max(0, Math.min(1, level)) / 0.5;
+  const voiceActive = narration === "playing" || narration === "loading";
+  const wanted = enabled && (playing || voiceActive);
+  const volume =
+    (narration === "playing" ? SPEECH_GAIN : SOLO_GAIN) * volumeScale;
+
   useEffect(() => {
-    if (!enabled) {
-      setError("");
-      // Keep the same source through the brief idle frame between sections.
-      const timer = setTimeout(stopAmbientLoop, 180);
-      return () => clearTimeout(timer);
-    }
-    const volume = (voiceActive ? DUCKED_VOLUME : ACTIVE_VOLUME) * volumeScale;
+    if (enabled) void preloadAmbientLoop().catch(() => {});
+  }, [enabled]);
+
+  useEffect(() => {
+    // Keep the loop running across section changes and after narration ends.
+    if (enabled && voiceActive) setPlaying(true);
+  }, [enabled, voiceActive]);
+
+  useEffect(() => {
+    if (!wanted) return;
     let alive = true;
-    setError("");
-    const start = () =>
-      startAmbientLoop(volume).catch(() => {
-        if (alive)
-          setError("Music could not start. Tap the music button to try again.");
-      });
-    void start();
+    const sync = () => {
+      void startAmbientLoop(volume).then(
+        () => {
+          if (alive) setError("");
+        },
+        () => {
+          if (alive) setError(musicError);
+        },
+      );
+    };
+    sync();
     const resume = () => {
-      if (document.visibilityState === "visible") void start();
+      if (document.visibilityState === "visible") sync();
     };
     document.addEventListener("visibilitychange", resume);
     return () => {
       alive = false;
       document.removeEventListener("visibilitychange", resume);
     };
-  }, [enabled, voiceActive, volumeScale]);
+  }, [wanted, volume]);
+
   useEffect(() => () => stopAmbientLoop(), []);
-  return error;
-}
-export async function primeAmbientFromGesture(
-  enabled: boolean,
-  volumeScale = 1,
-  voiceActive = true,
-) {
-  if (enabled)
-    await startAmbientLoop(
-      (voiceActive ? DUCKED_VOLUME : ACTIVE_VOLUME) * volumeScale,
-    );
+
+  function start(withVoice: boolean) {
+    // Unlock Web Audio in the same gesture as Listen or Play.
+    setPlaying(true);
+    setError("");
+    void startAmbientLoop(
+      (withVoice ? SPEECH_GAIN : SOLO_GAIN) * volumeScale,
+    ).catch(() => {});
+  }
+
+  function stop() {
+    stopAmbientLoop();
+    setPlaying(false);
+    setError("");
+  }
+
+  return { playing: wanted, start, stop, error };
 }

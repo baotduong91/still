@@ -17,7 +17,7 @@ import Link from "@/components/smart-link";
 import { usePrivacy } from "@/components/privacy";
 import { useApp } from "@/components/provider";
 import { Button } from "@/components/ui/button";
-import { primeAmbientFromGesture } from "./use-ambient-audio";
+import { useAmbientAudio } from "./use-ambient-audio";
 import { TodayAudioDock } from "./today-audio-dock";
 import { useReadingAudio } from "@/components/scripture/use-reading-audio";
 import { usePassage } from "@/components/scripture/use-passage";
@@ -144,6 +144,11 @@ export function DailyFlow({
     matchReflectionVoice: true,
   });
   latestReader.current = reader;
+  const ambient = useAmbientAudio(
+    state.todayAmbientOn === true,
+    state.todayVoiceOn === false ? "idle" : reader.status,
+    state.todayMusicLevel,
+  );
   function changeView(focused: boolean) {
     const element = refs.current[active];
     if (element && window.scrollY > 0) {
@@ -546,12 +551,7 @@ export function DailyFlow({
             <button
               type="button"
               onClick={() => {
-                if (state.todayAmbientOn)
-                  void primeAmbientFromGesture(
-                    true,
-                    Math.max(0, Math.min(1, state.todayMusicLevel ?? 0.5)) /
-                      0.5,
-                  ).catch(() => {});
+                if (state.todayAmbientOn) ambient.start(true);
                 void update((s) => ({ ...s, todayVoiceOn: true }));
                 if (reader.status === "idle" || reader.status === "paused")
                   void reader.play();
@@ -706,6 +706,7 @@ export function DailyFlow({
             setAutoplay(enabled);
           }}
           reader={playerReader}
+          ambient={ambient}
           payload={payloads[active]}
           scripturePending={active === 0 && passageResolving}
           voicePreparing={voicePreparing}
